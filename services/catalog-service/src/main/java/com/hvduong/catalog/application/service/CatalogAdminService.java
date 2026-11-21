@@ -4,8 +4,10 @@ import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
@@ -14,6 +16,7 @@ import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,8 +29,18 @@ public interface CatalogAdminService {
 
   AdminProductDetailResponse getAdminProductDetail(String productId);
 
+  CategoryResponse getCategory(UUID categoryId);
+
+  ProductVariantResponse getVariant(UUID productId, UUID variantId);
+
   // ── Write ───────────────────────────────────────────────────────
   CategoryResponse createCategory(CreateCategoryRequest request, String actorId, String key);
+
+  CategoryResponse updateCategory(UUID categoryId, UpdateCategoryRequest request, String actorId);
+
+  CategoryResponse patchCategory(UUID categoryId, PatchCategoryRequest request, String actorId);
+
+  void deleteCategory(UUID categoryId, String actorId);
 
   ProductDetailResponse createProduct(CreateProductRequest request, String actorId);
 

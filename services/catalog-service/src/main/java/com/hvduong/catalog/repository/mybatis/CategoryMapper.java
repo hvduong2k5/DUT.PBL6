@@ -28,4 +28,10 @@ public interface CategoryMapper {
   int insert(Category category);
 
   int update(Category category);
+
+  int deleteById(@Param("id") UUID id);
+
+  long countProductsByCategoryId(@Param("categoryId") UUID categoryId);
+
+  long countChildrenByParentId(@Param("parentId") UUID parentId);
 }

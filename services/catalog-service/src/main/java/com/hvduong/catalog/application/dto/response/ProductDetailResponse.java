@@ -25,6 +25,7 @@ public class ProductDetailResponse {
   private String approvalStatus;
   private String listingStatus;
   private List<String> imageUrls;
+  private List<AdminProductImageResponse> images;
   private List<ProductVariantResponse> variants;
   private Instant createdAt;
   private Instant updatedAt;

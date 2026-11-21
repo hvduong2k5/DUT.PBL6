@@ -75,4 +75,16 @@
           AND version = #{version}
     </update>
 
+    <delete id="deleteById">
+        DELETE FROM categories WHERE id = #{id}
+    </delete>
+
+    <select id="countProductsByCategoryId" resultType="long">
+        SELECT COUNT(*) FROM products WHERE category_id = #{categoryId}
+    </select>
+
+    <select id="countChildrenByParentId" resultType="long">
+        SELECT COUNT(*) FROM categories WHERE parent_id = #{parentId}
+    </select>
+
 </mapper>

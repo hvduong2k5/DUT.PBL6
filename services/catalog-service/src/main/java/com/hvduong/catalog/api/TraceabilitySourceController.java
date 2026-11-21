@@ -40,7 +40,8 @@ public class TraceabilitySourceController {
             token.getBytes(StandardCharsets.UTF_8))) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
     }
-    return jdbc.query(
+    return jdbc
+        .query(
             """
             SELECT p.version AS product_version, v.version AS variant_version, v.id AS variant_id
             FROM products p JOIN product_variants v ON v.product_id = p.id
@@ -48,12 +49,16 @@ public class TraceabilitySourceController {
             """,
             (rs, row) ->
                 Map.of(
-                    "product_id", productId.toString(),
-                    "sku_code", sku,
+                    "product_id",
+                    productId.toString(),
+                    "sku_code",
+                    sku,
                     "catalog_version",
-                        rs.getString("variant_id")
-                            + ":" + rs.getLong("product_version")
-                            + ":" + rs.getLong("variant_version")),
+                    rs.getString("variant_id")
+                        + ":"
+                        + rs.getLong("product_version")
+                        + ":"
+                        + rs.getLong("variant_version")),
             productId,
             sku)
         .stream()

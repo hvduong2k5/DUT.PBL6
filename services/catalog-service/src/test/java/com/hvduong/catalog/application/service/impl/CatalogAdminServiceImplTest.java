@@ -7,8 +7,10 @@ import static org.mockito.Mockito.*;
 import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
+import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
@@ -18,6 +20,7 @@ import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
@@ -39,8 +42,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.springframework.cache.annotation.Cacheable;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
@@ -302,8 +305,7 @@ class CatalogAdminServiceImplTest {
     pending.setApprovalStatus(ApprovalStatus.PENDING);
     pending.setVersion(1L);
 
-    when(productMapper.findById(productId))
-        .thenReturn(Optional.of(draft), Optional.of(pending));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(draft), Optional.of(pending));
     when(productMapper.updateApprovalStatus(
             productId, ApprovalStatus.PENDING.getValue(), "admin-1", 0L))
         .thenReturn(1);
@@ -326,8 +328,7 @@ class CatalogAdminServiceImplTest {
     approved.setApprovalStatus(ApprovalStatus.APPROVED);
     approved.setVersion(2L);
 
-    when(productMapper.findById(productId))
-        .thenReturn(Optional.of(pending), Optional.of(approved));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(pending), Optional.of(approved));
     when(productMapper.updateApprovalStatus(
             productId, ApprovalStatus.APPROVED.getValue(), "admin-1", 1L))
         .thenReturn(1);
@@ -389,5 +390,77 @@ class CatalogAdminServiceImplTest {
     } finally {
       TransactionSynchronizationManager.clearSynchronization();
     }
+  }
+
+  @Test
+  void updateCategoryThrowsWhenParentIsSelf() {
+    UUID catId = UUID.randomUUID();
+    Category existing = Category.builder().id(catId).name("Mè xửng").slug("me-xung").build();
+    when(categoryMapper.findById(catId)).thenReturn(Optional.of(existing));
+
+    var updateReq =
+        UpdateCategoryRequest.builder()
+            .name("Mè xửng")
+            .slug("me-xung")
+            .parentId(catId)
+            .expectedVersion(1L)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.updateCategory(catId, updateReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void updateCategoryThrowsWhenCircularHierarchyDetected() {
+    UUID catA = UUID.randomUUID();
+    UUID catB = UUID.randomUUID();
+    UUID catC = UUID.randomUUID();
+
+    Category existingA = Category.builder().id(catA).name("Cat A").slug("cat-a").build();
+    Category existingB =
+        Category.builder().id(catB).name("Cat B").slug("cat-b").parentId(catA).build();
+    Category existingC =
+        Category.builder().id(catC).name("Cat C").slug("cat-c").parentId(catB).build();
+
+    when(categoryMapper.findById(catA)).thenReturn(Optional.of(existingA));
+    when(categoryMapper.findById(catB)).thenReturn(Optional.of(existingB));
+    when(categoryMapper.findById(catC)).thenReturn(Optional.of(existingC));
+    when(categoryMapper.existsBySlug("cat-a", catA)).thenReturn(false);
+
+    // Attempt to make C parent of A (cycle: A -> B -> C -> A)
+    var updateReq =
+        UpdateCategoryRequest.builder()
+            .name("Cat A")
+            .slug("cat-a")
+            .parentId(catC)
+            .expectedVersion(1L)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.updateCategory(catA, updateReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void patchCategoryThrowsWhenCircularHierarchyDetected() {
+    UUID catA = UUID.randomUUID();
+    UUID catB = UUID.randomUUID();
+
+    Category existingA = Category.builder().id(catA).name("Cat A").slug("cat-a").build();
+    Category existingB =
+        Category.builder().id(catB).name("Cat B").slug("cat-b").parentId(catA).build();
+
+    when(categoryMapper.findById(catA)).thenReturn(Optional.of(existingA));
+    when(categoryMapper.findById(catB)).thenReturn(Optional.of(existingB));
+
+    var patchReq = PatchCategoryRequest.builder().parentId(catB).expectedVersion(1L).build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.patchCategory(catA, patchReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
   }
 }

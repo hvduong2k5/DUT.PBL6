@@ -4,9 +4,11 @@ import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
@@ -15,6 +17,7 @@ import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.response.ApiResponse;
 
@@ -29,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -48,6 +52,30 @@ public class CatalogAdminController {
 
   private final CatalogAdminService adminService;
 
+  @Operation(
+      summary = "Tạo danh mục sản phẩm mới",
+      description =
+          "Tạo một danh mục sản phẩm đang hoạt động. Yêu cầu quyền CATALOG_MANAGE#GLOBAL.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "201",
+        description = "Tạo danh mục thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dữ liệu không hợp lệ"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Danh mục cha không tồn tại"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Xung đột Idempotency hoặc trùng lặp slug")
+  })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE#GLOBAL')")
   @PostMapping("/categories")
   public ResponseEntity<ApiResponse<CategoryResponse>> createCategory(
@@ -56,6 +84,136 @@ public class CatalogAdminController {
       @AuthenticationPrincipal Jwt jwt) {
     return ResponseEntity.status(201)
         .body(ApiResponse.success(adminService.createCategory(request, jwt.getSubject(), key)));
+  }
+
+  @Operation(
+      summary = "Cập nhật danh mục sản phẩm",
+      description = "Chỉnh sửa tên, slug, mô tả, ảnh đại diện, vị trí và trạng thái của danh mục.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Cập nhật danh mục thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dữ liệu không hợp lệ"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy danh mục"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Xung đột phiên bản (optimistic lock) hoặc trùng lặp slug")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
+  @PutMapping("/categories/{categoryId}")
+  public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
+      @Parameter(description = "ID danh mục (UUID)", required = true) @PathVariable UUID categoryId,
+      @Valid @RequestBody UpdateCategoryRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info("[REST-ADMIN] updateCategory: categoryId={}, actor={}", categoryId, actorId);
+    CategoryResponse result = adminService.updateCategory(categoryId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Cập nhật danh mục thành công", result));
+  }
+
+  @Operation(
+      summary = "Xem chi tiết danh mục sản phẩm",
+      description = "Lấy thông tin chi tiết một danh mục theo ID.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Lấy chi tiết danh mục thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy danh mục")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
+  @GetMapping("/categories/{categoryId}")
+  public ResponseEntity<ApiResponse<CategoryResponse>> getCategory(
+      @Parameter(description = "ID danh mục (UUID)", required = true) @PathVariable
+          UUID categoryId) {
+    return ResponseEntity.ok(ApiResponse.success(adminService.getCategory(categoryId)));
+  }
+
+  @Operation(
+      summary = "Cập nhật một phần danh mục sản phẩm",
+      description =
+          "Chỉnh sửa một hoặc nhiều trường của danh mục (tên, slug, ảnh, mô tả, vị trí, kích hoạt) mà không cần gửi toàn bộ.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Cập nhật danh mục thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dữ liệu không hợp lệ"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy danh mục"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Xung đột phiên bản (optimistic lock) hoặc trùng lặp slug")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
+  @PatchMapping("/categories/{categoryId}")
+  public ResponseEntity<ApiResponse<CategoryResponse>> patchCategory(
+      @Parameter(description = "ID danh mục (UUID)", required = true) @PathVariable UUID categoryId,
+      @Valid @RequestBody PatchCategoryRequest request,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info("[REST-ADMIN] patchCategory: categoryId={}, actor={}", categoryId, actorId);
+    CategoryResponse result = adminService.patchCategory(categoryId, request, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Cập nhật danh mục thành công", result));
+  }
+
+  @Operation(
+      summary = "Xóa danh mục sản phẩm",
+      description = "Xóa một danh mục chưa có sản phẩm và chưa có danh mục con gán vào.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Xóa danh mục thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy danh mục"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Danh mục đang có sản phẩm hoặc danh mục con")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
+  @DeleteMapping("/categories/{categoryId}")
+  public ResponseEntity<ApiResponse<Void>> deleteCategory(
+      @Parameter(description = "ID danh mục (UUID)", required = true) @PathVariable UUID categoryId,
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+    String actorId = resolveActorId(jwt, actorHeader);
+    log.info("[REST-ADMIN] deleteCategory: categoryId={}, actor={}", categoryId, actorId);
+    adminService.deleteCategory(categoryId, actorId);
+    return ResponseEntity.ok(ApiResponse.success("Xóa danh mục thành công", null));
   }
 
   private String resolveActorId(Jwt jwt, String actorHeader) {
@@ -231,6 +389,32 @@ public class CatalogAdminController {
   }
 
   @Operation(
+      summary = "Xem chi tiết một SKU",
+      description = "Lấy thông tin chi tiết của một biến thể sản phẩm theo ID.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Lấy chi tiết SKU thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy SKU hoặc sản phẩm")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
+  @GetMapping("/products/{productId}/skus/{skuId}")
+  public ResponseEntity<ApiResponse<ProductVariantResponse>> getVariant(
+      @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
+      @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId) {
+    log.info("[REST-ADMIN] getVariant: productId={}, skuId={}", productId, skuId);
+    return ResponseEntity.ok(ApiResponse.success(adminService.getVariant(productId, skuId)));
+  }
+
+  @Operation(
       summary = "Xem lịch sử giá của SKU",
       description = "Trả toàn bộ bản ghi giá theo mọi kênh bán, gồm ACTIVE, SUPERSEDED và EXPIRED.")
   @PreAuthorize("hasAuthority('CATALOG_VIEW')")
@@ -247,6 +431,26 @@ public class CatalogAdminController {
       description =
           "Thêm metadata ảnh (object key MinIO/S3). Nếu role=COVER và mediaStatus=APPROVED, "
               + "ảnh cover APPROVED cũ sẽ tự động được hạ xuống GALLERY.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Thêm ảnh sản phẩm thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dữ liệu ảnh không hợp lệ"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy sản phẩm"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Xung đột trạng thái ảnh")
+  })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/images")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> addImage(
@@ -264,6 +468,26 @@ public class CatalogAdminController {
       summary = "Cập nhật metadata/trạng thái ảnh sản phẩm",
       description =
           "Cập nhật alt text, role, thứ tự và trạng thái kiểm duyệt ảnh với optimistic locking.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Cập nhật ảnh sản phẩm thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        description = "Dữ liệu cập nhật không hợp lệ"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy ảnh hoặc sản phẩm"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        description = "Xung đột phiên bản (optimistic lock)")
+  })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}/images/{imageId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> updateImage(
@@ -286,6 +510,20 @@ public class CatalogAdminController {
       summary = "Xóa ảnh sản phẩm",
       description =
           "Xóa metadata ảnh khỏi catalog. Object trên storage cần được dọn bởi job riêng.")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "200",
+        description = "Xóa ảnh sản phẩm thành công"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "401",
+        description = "Chưa xác thực"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "403",
+        description = "Không có quyền thực hiện"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        description = "Không tìm thấy ảnh hoặc sản phẩm")
+  })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @DeleteMapping("/products/{productId}/images/{imageId}")
   public ResponseEntity<ApiResponse<ProductDetailResponse>> deleteImage(

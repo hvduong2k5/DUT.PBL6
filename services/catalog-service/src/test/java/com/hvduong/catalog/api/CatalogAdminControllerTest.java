@@ -1,7 +1,7 @@
 package com.hvduong.catalog.api;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -230,22 +230,137 @@ class CatalogAdminControllerTest {
 
   @Test
   void createsCategoryWithIdempotencyKey() throws Exception {
-    var category = com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
-        .categoryId(UUID.randomUUID()).name("Mè xửng").slug("me-xung").build();
-    when(adminService.createCategory(any(), anyString(), eq("category-create-01"))).thenReturn(category);
-    mockMvc.perform(post("/api/v1/admin/catalog/categories")
-            .header("Idempotency-Key", "category-create-01")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(UUID.randomUUID())
+            .name("Mè xửng")
+            .slug("me-xung")
+            .build();
+    when(adminService.createCategory(any(), anyString(), eq("category-create-01")))
+        .thenReturn(category);
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/categories")
+                .header("Idempotency-Key", "category-create-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.data.categoryId").value(category.getCategoryId().toString()));
   }
 
   @Test
   void categoryCreationRejectsMissingIdempotencyKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/catalog/categories")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/categories")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void updatesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng giòn")
+            .slug("me-xung-gion")
+            .imageUrl("https://cdn.omama.vn/categories/cat_gion.jpg")
+            .build();
+    when(adminService.updateCategory(eq(categoryId), any(), anyString())).thenReturn(category);
+
+    mockMvc
+        .perform(
+            put("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"name\":\"Mè xửng giòn\",\"slug\":\"me-xung-gion\",\"imageUrl\":\"https://cdn.omama.vn/categories/cat_gion.jpg\",\"expectedVersion\":1}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categoryId").value(categoryId.toString()))
+        .andExpect(jsonPath("$.data.name").value("Mè xửng giòn"))
+        .andExpect(
+            jsonPath("$.data.imageUrl").value("https://cdn.omama.vn/categories/cat_gion.jpg"));
+  }
+
+  @Test
+  void categoryUpdateRejectsInvalidSlug() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    mockMvc
+        .perform(
+            put("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"INVALID SLUG!\",\"expectedVersion\":1}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getsCategoryById() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng dẻo")
+            .slug("me-xung-deo")
+            .build();
+    when(adminService.getCategory(categoryId)).thenReturn(category);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories/" + categoryId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categoryId").value(categoryId.toString()))
+        .andExpect(jsonPath("$.data.name").value("Mè xửng dẻo"));
+  }
+
+  @Test
+  void patchesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng dẻo")
+            .slug("me-xung-deo")
+            .imageUrl("https://cdn.omama.vn/cat_deo.jpg")
+            .build();
+    when(adminService.patchCategory(eq(categoryId), any(), anyString())).thenReturn(category);
+
+    mockMvc
+        .perform(
+            patch("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"imageUrl\":\"https://cdn.omama.vn/cat_deo.jpg\",\"expectedVersion\":0}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.imageUrl").value("https://cdn.omama.vn/cat_deo.jpg"));
+  }
+
+  @Test
+  void deletesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    doNothing().when(adminService).deleteCategory(eq(categoryId), anyString());
+
+    mockMvc
+        .perform(delete("/api/v1/admin/catalog/categories/" + categoryId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("Xóa danh mục thành công"));
+  }
+
+  @Test
+  void getsSkuVariantDetail() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    var variant =
+        com.hvduong.catalog.application.dto.response.ProductVariantResponse.builder()
+            .variantId(skuId)
+            .skuCode("MXG-150G")
+            .name("Gói 150g")
+            .build();
+    when(adminService.getVariant(productId, skuId)).thenReturn(variant);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/products/" + productId + "/skus/" + skuId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.skuCode").value("MXG-150G"))
+        .andExpect(jsonPath("$.data.name").value("Gói 150g"));
   }
 }

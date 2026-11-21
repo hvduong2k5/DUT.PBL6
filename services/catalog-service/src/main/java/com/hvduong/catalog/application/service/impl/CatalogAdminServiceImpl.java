@@ -4,8 +4,10 @@ import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
@@ -45,11 +47,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -79,46 +83,204 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   @Override
   @Transactional
-  public CategoryResponse createCategory(CreateCategoryRequest request, String actorId, String key) {
+  public CategoryResponse createCategory(
+      CreateCategoryRequest request, String actorId, String key) {
     if (!key.matches("[!-~]{16,128}")) {
       throw new CatalogException(ErrorCode.INVALID_ARGUMENT);
     }
-    UUID categoryId = UUID.nameUUIDFromBytes(
-        ("catalog:create-category:" + actorId + ":" + key).getBytes(StandardCharsets.UTF_8));
-    Category category = Category.builder()
-        .id(categoryId)
-        .parentId(request.parentId())
-        .name(request.name())
-        .slug(request.slug())
-        .description(request.description())
-        .position(request.position() == null ? 0 : request.position())
-        .isActive(true)
-        .build();
-    if (category.getParentId() != null
-        && categoryMapper.findById(category.getParentId()).isEmpty()) {
-      throw new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND);
+    UUID categoryId =
+        UUID.nameUUIDFromBytes(
+            ("catalog:create-category:" + actorId + ":" + key).getBytes(StandardCharsets.UTF_8));
+    Category category =
+        Category.builder()
+            .id(categoryId)
+            .parentId(request.parentId())
+            .name(request.name())
+            .slug(request.slug())
+            .description(request.description())
+            .imageUrl(request.imageUrl())
+            .position(request.position() == null ? 0 : request.position())
+            .isActive(true)
+            .build();
+    if (category.getParentId() != null) {
+      validateCategoryParent(categoryId, category.getParentId());
     }
 
     Category saved = category;
     if (categoryMapper.insert(category) == 0) {
-      Category existing = categoryMapper.findById(categoryId)
-          .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_SLUG_DUPLICATE));
+      Category existing =
+          categoryMapper
+              .findById(categoryId)
+              .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_SLUG_DUPLICATE));
       if (!Objects.equals(existing.getParentId(), category.getParentId())
           || !Objects.equals(existing.getName(), category.getName())
           || !Objects.equals(existing.getSlug(), category.getSlug())
           || !Objects.equals(existing.getDescription(), category.getDescription())
+          || !Objects.equals(existing.getImageUrl(), category.getImageUrl())
           || existing.getPosition() != category.getPosition()) {
         throw new CatalogException(ErrorCode.IDEMPOTENCY_CONFLICT);
       }
       saved = existing;
     }
-    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-      @Override
-      public void afterCommit() {
-        cacheEvictor.evictCategoriesCache();
-      }
-    });
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            cacheEvictor.evictCategoriesCache();
+          }
+        });
     return dtoMapper.toCategoryResponse(saved);
+  }
+
+  @Override
+  @Transactional
+  public CategoryResponse updateCategory(
+      UUID categoryId, UpdateCategoryRequest request, String actorId) {
+    Category category =
+        categoryMapper
+            .findById(categoryId)
+            .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND));
+
+    if (categoryMapper.existsBySlug(request.getSlug(), categoryId)) {
+      throw new CatalogException(ErrorCode.CATALOG_CATEGORY_SLUG_DUPLICATE);
+    }
+
+    if (request.getParentId() != null) {
+      validateCategoryParent(categoryId, request.getParentId());
+    }
+
+    category.setName(request.getName().trim());
+    category.setSlug(request.getSlug().trim());
+    category.setParentId(request.getParentId());
+    category.setDescription(trimToNull(request.getDescription()));
+    category.setImageUrl(trimToNull(request.getImageUrl()));
+    if (request.getPosition() != null) {
+      category.setPosition(request.getPosition());
+    }
+    if (request.getIsActive() != null) {
+      category.setActive(request.getIsActive());
+    }
+    category.setVersion(request.getExpectedVersion());
+
+    if (categoryMapper.update(category) == 0) {
+      throw CatalogException.versionConflict(categoryId.toString());
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            cacheEvictor.evictCategoriesCache();
+          }
+        });
+
+    return dtoMapper.toCategoryResponse(categoryMapper.findById(categoryId).orElse(category));
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public CategoryResponse getCategory(UUID categoryId) {
+    Category category =
+        categoryMapper
+            .findById(categoryId)
+            .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND));
+    return dtoMapper.toCategoryResponse(category);
+  }
+
+  @Override
+  @Transactional
+  public CategoryResponse patchCategory(
+      UUID categoryId, PatchCategoryRequest request, String actorId) {
+    Category category =
+        categoryMapper
+            .findById(categoryId)
+            .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND));
+
+    if (request.getSlug() != null && !request.getSlug().isBlank()) {
+      String newSlug = request.getSlug().trim();
+      if (!newSlug.equals(category.getSlug()) && categoryMapper.existsBySlug(newSlug, categoryId)) {
+        throw new CatalogException(ErrorCode.CATALOG_CATEGORY_SLUG_DUPLICATE);
+      }
+      category.setSlug(newSlug);
+    }
+
+    if (request.getName() != null && !request.getName().isBlank()) {
+      category.setName(request.getName().trim());
+    }
+
+    if (request.getParentId() != null) {
+      validateCategoryParent(categoryId, request.getParentId());
+      category.setParentId(request.getParentId());
+    }
+
+    if (request.getDescription() != null) {
+      category.setDescription(trimToNull(request.getDescription()));
+    }
+    if (request.getImageUrl() != null) {
+      category.setImageUrl(trimToNull(request.getImageUrl()));
+    }
+    if (request.getPosition() != null) {
+      category.setPosition(request.getPosition());
+    }
+    if (request.getIsActive() != null) {
+      category.setActive(request.getIsActive());
+    }
+
+    category.setVersion(request.getExpectedVersion());
+
+    if (categoryMapper.update(category) == 0) {
+      throw CatalogException.versionConflict(categoryId.toString());
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            cacheEvictor.evictCategoriesCache();
+          }
+        });
+
+    return dtoMapper.toCategoryResponse(categoryMapper.findById(categoryId).orElse(category));
+  }
+
+  @Override
+  @Transactional
+  public void deleteCategory(UUID categoryId, String actorId) {
+    categoryMapper
+        .findById(categoryId)
+        .orElseThrow(() -> new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND));
+
+    if (categoryMapper.countChildrenByParentId(categoryId) > 0) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_CATEGORY_IN_USE, "Không thể xóa danh mục đang có danh mục con");
+    }
+
+    if (categoryMapper.countProductsByCategoryId(categoryId) > 0) {
+      throw new CatalogException(
+          ErrorCode.CATALOG_CATEGORY_IN_USE, "Không thể xóa danh mục đang gắn với sản phẩm");
+    }
+
+    categoryMapper.deleteById(categoryId);
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            cacheEvictor.evictCategoriesCache();
+          }
+        });
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public ProductVariantResponse getVariant(UUID productId, UUID variantId) {
+    findProductOrThrow(productId);
+    ProductVariant variant = findVariantOfProduct(productId, variantId);
+    ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
+    channelPriceMapper
+        .findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
+        .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
+    return response;
   }
 
   // ── Admin Read ──────────────────────────────────────────────────────
@@ -843,6 +1005,43 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
+  private void validateCategoryParent(UUID categoryId, UUID newParentId) {
+    if (newParentId == null) {
+      return;
+    }
+    if (newParentId.equals(categoryId)) {
+      throw new CatalogException(
+          ErrorCode.INVALID_ARGUMENT, "Danh mục cha không thể là chính danh mục này");
+    }
+    if (categoryMapper.findById(newParentId).isEmpty()) {
+      throw new CatalogException(ErrorCode.CATALOG_CATEGORY_NOT_FOUND);
+    }
+    if (categoryId != null) {
+      UUID currentParentId = newParentId;
+      Set<UUID> visited = new HashSet<>();
+      int depth = 0;
+      while (currentParentId != null) {
+        if (currentParentId.equals(categoryId)) {
+          throw new CatalogException(
+              ErrorCode.INVALID_ARGUMENT,
+              "Không thể chọn danh mục con hoặc hậu duệ làm danh mục cha (tạo chu trình phân cấp)");
+        }
+        visited.add(currentParentId);
+        depth++;
+        if (depth > 100) {
+          throw new CatalogException(
+              ErrorCode.INVALID_ARGUMENT,
+              "Độ sâu phân cấp danh mục vượt quá giới hạn cho phép (100)");
+        }
+        Category parent = categoryMapper.findById(currentParentId).orElse(null);
+        currentParentId = (parent != null) ? parent.getParentId() : null;
+        if (currentParentId != null && visited.contains(currentParentId)) {
+          break;
+        }
+      }
+    }
+  }
+
   private ProductDetailResponse buildDetailResponse(Product product) {
     ProductDetailResponse response = dtoMapper.toDetailResponse(product);
     List<ProductVariant> variants = variantMapper.findAllByProductId(product.getId());
@@ -858,11 +1057,22 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                 })
             .collect(Collectors.toList());
     response.setVariants(variantResponses);
-    response.setImageUrls(
-        imageMapper.findApprovedByProductId(product.getId()).stream()
-            .map(image -> AdminCatalogMapper.imageUrl(image.getObjectKey()))
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList()));
+    List<ProductImage> allImages = imageMapper.findAllByProductId(product.getId());
+    if (allImages == null || allImages.isEmpty()) {
+      allImages = imageMapper.findApprovedByProductId(product.getId());
+    }
+    if (allImages != null) {
+      response.setImages(
+          allImages.stream()
+              .map(AdminCatalogMapper::toAdminImageResponse)
+              .collect(Collectors.toList()));
+      response.setImageUrls(
+          allImages.stream()
+              .filter(img -> "APPROVED".equalsIgnoreCase(img.getMediaStatus()))
+              .map(image -> AdminCatalogMapper.imageUrl(image.getObjectKey()))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList()));
+    }
     return response;
   }
 

@@ -3,6 +3,7 @@ package com.hvduong.catalog.api;
 import com.hvduong.catalog.application.dto.request.CheckoutSnapshotRequest;
 import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
+import com.hvduong.catalog.application.dto.response.CategoryListResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.application.service.CheckoutSnapshotService;
@@ -33,9 +34,16 @@ import org.springframework.web.server.ResponseStatusException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /** Public DTO adapter; checkout endpoints are authenticated internal calls. */
+@Tag(name = "Catalog Public", description = "Các API tra cứu danh mục, sản phẩm công khai")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -54,23 +62,34 @@ public class CatalogHttpController {
         .convertValue(value, Object.class);
   }
 
+  @Operation(
+      summary = "Lấy danh sách cây danh mục sản phẩm OCOP",
+      description = "Trả về danh sách toàn bộ danh mục sản phẩm đang hoạt động.")
+  @ApiResponses({
+    @ApiResponse(
+        responseCode = "200",
+        description = "Thành công",
+        content =
+            @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = CategoryListResponse.class)))
+  })
   @GetMapping("/categories")
-  public Object categories() {
-    return Map.of(
-        "categories",
+  public CategoryListResponse categories() {
+    List<CategoryListResponse.CategoryItem> items =
         catalog.getAllCategories().stream()
             .map(
-                category -> {
-                  Map<String, Object> value = new LinkedHashMap<>();
-                  value.put("category_id", category.getCategoryId());
-                  value.put("parent_id", category.getParentId());
-                  value.put("name", category.getName());
-                  value.put("slug", category.getSlug());
-                  value.put("description", Objects.toString(category.getDescription(), ""));
-                  value.put("image_url", Objects.toString(category.getImageUrl(), ""));
-                  return value;
-                })
-            .toList());
+                category ->
+                    CategoryListResponse.CategoryItem.builder()
+                        .categoryId(category.getCategoryId())
+                        .parentId(category.getParentId())
+                        .name(category.getName())
+                        .slug(category.getSlug())
+                        .description(Objects.toString(category.getDescription(), ""))
+                        .imageUrl(Objects.toString(category.getImageUrl(), ""))
+                        .build())
+            .toList();
+    return CategoryListResponse.builder().categories(items).build();
   }
 
   @GetMapping("/products")
