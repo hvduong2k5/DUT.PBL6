@@ -224,7 +224,7 @@ Sáng 13/11 Muse chạy lại toàn bộ golden path bằng UI thật với tài
 
 ### Superseded Inventory seed instructions — 2026-11-21
 
-The legacy seed_sample_data.sql path described above is disabled to prevent
+The legacy seed_sample_data.sql path described above has been removed to prevent
 TRUNCATE from removing live stock. Inventory now ships separate inventory-migrate
 and inventory-seed-demo jobs. Server startup only verifies schema. Demo seed is
 opt-in via INVENTORY_SEED_DEMO=true and skips existing SKUs. See
