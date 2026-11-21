@@ -127,3 +127,69 @@ SELECT inventory_prune_procurement_inbox(now()-interval '90 days') daily; this
 only removes inbox rows backed by permanent receipt evidence. Replayed receipts
 remain deduplicated after pruning. DLQ retention is 90 days; inspect/replay before
 expiry, retaining original source/id/receipt_id and reconciling stock first.
+
+## Review repair plan and implementation — 2026-11-21
+
+1. Preserve event identity independently of inbox retention; normalize numeric hashes.
+2. Strengthen baseline and Verify checks for required tables, functions and enabled triggers.
+3. Align unit spelling/precision/range in the canonical JSON Schema and consumer;
+   ignore other Procurement event types on the shared topic without DLQ pollution.
+4. Add an audited QC release operation, then rerun regression and integration gates.
+
+Implemented in 000009 (000001–000008 are not edited). The permanent
+procurement_event_ledger retains source/event ID/hash even after inbox pruning.
+It backfills retained inbox evidence from the older release; IDs whose inbox rows
+were already deleted cannot be reconstructed. No migration can recover that lost
+history. Before enabling pruning after an upgrade, reconcile the older deployment's
+pruned period from retained producer/DLQ evidence. Legacy hashes remain readable;
+retained original receipt payloads allow semantic comparison of numeric replays.
+New hashes compare exact numeric values, so 2.5 and 2.50 are equivalent. Alias
+inbox rows can now be pruned while their permanent identity proof stays intact.
+
+### Privileged QC release job
+
+The same image also packages /app/inventory-qc-release. This is an internal
+operations command, not a staff REST API. Only a dedicated DB login that is a
+member of inventory_qc_operator may execute it. A DBA provisions this NOLOGIN
+role and grants the dedicated login only the needed schema usage, SELECT on
+Inventory tables/history, UPDATE of batches/inventory_items, and INSERT on
+inventory_qc_releases/outbox_events, plus required function execution. Do not
+share the migration/superuser credential with staff or use it as a public API.
+The migration deliberately does not create cluster-wide roles or grant membership.
+
+```sql
+-- DBA setup, once; replace the login with your actual restricted operations login.
+CREATE ROLE inventory_qc_operator NOLOGIN;
+GRANT inventory_qc_operator TO inventory_qc_job_login;
+-- Grant object privileges in the intended Inventory schema as described above.
+```
+
+```sh
+/app/inventory-qc-release --actor <employee-uuid> --warehouse <warehouse-uuid> \
+  --batch <batch-uuid> --expected-version 1 \
+  --manufactured 2026-11-20 --expires 2027-02-20 \
+  --reason 'QC certificate reference' --idempotency-key qc-release-unique-key
+```
+
+Supply verified dates and an accountable employee UUID. DB-role membership is the
+command's authorization boundary; actor is an audited operator-supplied identity,
+not a signed staff session. The job rejects warehouse/version/state mismatch,
+invalid dates and key reuse with different data. It locks item before batch,
+updates QUARANTINE to ACTIVE/NEAR_EXPIRY without changing physical stock, records
+request/result/reason/warehouse atomically, and emits normal versioned stock
+snapshots. An identical retry returns the original result. The 000009 down refuses
+to remove permanent event/QC evidence. API-driven QC can be added later with the
+normal permission-and-scope contract workflow; it is not exposed by this command.
+
+Concrete grants (run as DBA in the intended schema; replace public/login if needed):
+
+```sql
+GRANT USAGE ON SCHEMA public TO inventory_qc_operator;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO inventory_qc_operator;
+GRANT UPDATE (mfg_date,exp_date,status) ON public.batches TO inventory_qc_operator;
+GRANT UPDATE (inventory_version) ON public.inventory_items TO inventory_qc_operator;
+GRANT INSERT ON public.inventory_qc_releases,public.outbox_events TO inventory_qc_operator;
+GRANT EXECUTE ON FUNCTION public.inventory_emit_stock_snapshot(text),
+ public.inventory_stock_snapshot_trigger(),public.inventory_batch_revision(),
+ public.inventory_sellable_quantity(text,timestamptz) TO inventory_qc_operator;
+```

@@ -258,3 +258,13 @@ is docs/03_api_specs/inventory-operations.openapi.yaml. Alert on readiness failu
 DLQ growth, retry growth, sustained lag and unavailable lag samples. Schedule the
 inbox retention SQL as a daily maintenance job with a 90-day cutoff; keep receipt
 records for dedupe/evidence and never truncate that ledger to save space.
+
+### Review closure (2026-11-21)
+
+The warehouse QC flow is available through the privileged inventory-qc-release
+operations job (DB role inventory_qc_operator), with warehouse/version checks,
+verified dates, actor/reason audit and idempotent replay. It changes sellability
+without incrementing physical quantities. It is not an employee REST endpoint;
+MIGRATIONS.md specifies authorization, deployment and usage. Event identity now
+lives in a permanent ledger; retention only removes transport inbox rows. Baseline
+and Verify reject missing required tables/functions and disabled/missing guards.

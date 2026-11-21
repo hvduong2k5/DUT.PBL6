@@ -164,3 +164,13 @@ procurement.events.dlq.v1 with the standard exception/original-topic headers and
 original partition/offset. Poison payloads go directly to DLQ. Source offsets
 commit only after transactional processing or durable DLQ acknowledgement.
 See services/inventory-service/MIGRATIONS.md for cutover, optional seed and schema jobs.
+
+### Receiving corrections (2026-11-21)
+
+GoodsReceived unit spelling is case-insensitive for KG/G/GRAM/UNIT/PIECE. KG must
+convert to an exact integer gram; G/GRAM and UNIT/PIECE require integers, bounded
+by int32 Inventory capacity. The canonical JSON Schema now expresses supported
+units, precision and bounds. Other Procurement CloudEvent types on this shared
+topic are ignored by the Inventory receipt handler; invalid GoodsReceived still
+uses the documented retry/DLQ policy. Numeric replay hashes use exact values,
+independent of spelling. Permanent event evidence survives inbox retention.
