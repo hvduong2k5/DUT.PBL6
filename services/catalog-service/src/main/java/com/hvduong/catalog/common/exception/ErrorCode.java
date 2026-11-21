@@ -54,7 +54,8 @@ public enum ErrorCode {
   CATALOG_IMAGE_APPROVED_ROLE_CHANGE_FORBIDDEN(
       223,
       403,
-      "Không thể chuyển ảnh đã duyệt thành COVER qua PATCH. Thao tác cần quyền CATALOG_APPROVE.");
+      "Không thể chuyển ảnh đã duyệt thành COVER qua PATCH. Thao tác cần quyền CATALOG_APPROVE."),
+  CHANNEL_ACCESS_DENIED(224, 403, "Không có quyền truy cập bảng giá của kênh này.");
 
   private final int protoCode;
   private final int httpStatus;

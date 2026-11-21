@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.omamx.proto.catalog.v1.OcopRating;
 import com.omamx.proto.catalog.v1.PackagingType;
 import com.omamx.proto.catalog.v1.ProductVariantDetail;
+import com.omamx.proto.catalog.v1.StockStatus;
 import com.omamx.proto.common.v1.Money;
 import com.omamx.proto.common.v1.Weight;
 import com.omamx.proto.common.v1.WeightUnit;
@@ -22,6 +23,15 @@ public class CatalogGrpcMapper {
 
   public ProductVariantDetail toVariantDetailProto(
       ProductVariant variant, Product product, ChannelPrice price) {
+    return toVariantDetailProto(variant, product, price, null, null);
+  }
+
+  public ProductVariantDetail toVariantDetailProto(
+      ProductVariant variant,
+      Product product,
+      ChannelPrice price,
+      com.hvduong.catalog.common.enums.StockStatus stockStatus,
+      Long stockAvailable) {
     var builder =
         ProductVariantDetail.newBuilder()
             .setVariantId(variant.getId() != null ? variant.getId().toString() : "")
@@ -36,7 +46,15 @@ public class CatalogGrpcMapper {
                     : OcopRating.OCOP_RATING_UNSPECIFIED)
             .setIsActive(
                 variant.getListingStatus() != null
-                    && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()));
+                    && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()))
+            .setPriceVersion(variant.getPriceRevision());
+
+    if (stockStatus != null) {
+      builder.setStockStatus(toStockStatusProto(stockStatus));
+    }
+    if (stockAvailable != null) {
+      builder.setStockAvailable(stockAvailable);
+    }
 
     if (variant.getShelfLifeDays() != null) {
       builder.setShelfLifeDays(variant.getShelfLifeDays());
@@ -56,6 +74,17 @@ public class CatalogGrpcMapper {
     }
 
     return builder.build();
+  }
+
+  public StockStatus toStockStatusProto(com.hvduong.catalog.common.enums.StockStatus status) {
+    if (status == null) {
+      return StockStatus.STOCK_STATUS_UNSPECIFIED;
+    }
+    return switch (status) {
+      case UNKNOWN -> StockStatus.STOCK_STATUS_UNKNOWN;
+      case IN_STOCK -> StockStatus.STOCK_STATUS_IN_STOCK;
+      case OUT_OF_STOCK -> StockStatus.STOCK_STATUS_OUT_OF_STOCK;
+    };
   }
 
   public Money toMoneyProto(long units, int nanos, String currencyCode) {

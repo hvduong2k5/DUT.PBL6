@@ -1,7 +1,10 @@
 package com.hvduong.catalog.infrastructure.inventory;
 
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class StockProjectionService {
+
+  private static final Duration STOCK_FRESHNESS_TTL = Duration.ofHours(24);
 
   private final StockAvailabilityMapper stockAvailabilityMapper;
 
@@ -43,6 +48,47 @@ public class StockProjectionService {
         .findBySkuCodes(distinctSkuCodes)
         .forEach(projection -> quantities.put(projection.skuCode(), projection.sellableQuantity()));
     return quantities;
+  }
+
+  /** Lấy trạng thái tồn kho chuẩn hóa dựa trên số lượng khả dụng và độ tươi mới (synced_at). */
+  public StockStatus getStockStatus(String skuCode) {
+    if (skuCode == null || skuCode.isBlank()) {
+      return StockStatus.UNKNOWN;
+    }
+    if (liveInventory != null && liveInventory.configured()) {
+      Map<String, Long> live = liveInventory.available(List.of(skuCode));
+      Long qty = live.get(skuCode);
+      if (qty == null) return StockStatus.UNKNOWN;
+      return qty <= 0 ? StockStatus.OUT_OF_STOCK : StockStatus.IN_STOCK;
+    }
+    List<StockAvailabilityProjection> projections =
+        stockAvailabilityMapper.findBySkuCodes(List.of(skuCode));
+    if (projections == null || projections.isEmpty()) {
+      return StockStatus.UNKNOWN;
+    }
+    return resolveStockStatus(projections.get(0));
+  }
+
+  /** Đánh giá StockStatus từ projection của SKU. */
+  public StockStatus resolveStockStatus(StockAvailabilityProjection projection) {
+    if (projection == null || projection.sellableQuantity() == null) {
+      return StockStatus.UNKNOWN;
+    }
+    if (projection.syncedAt() == null
+        || projection.syncedAt().isBefore(Instant.now().minus(STOCK_FRESHNESS_TTL))) {
+      return StockStatus.UNKNOWN;
+    }
+    return projection.sellableQuantity() <= 0 ? StockStatus.OUT_OF_STOCK : StockStatus.IN_STOCK;
+  }
+
+  /** Lấy projection tồn kho của một SKU (nếu có). */
+  public StockAvailabilityProjection getProjection(String skuCode) {
+    if (skuCode == null || skuCode.isBlank()) {
+      return null;
+    }
+    List<StockAvailabilityProjection> projections =
+        stockAvailabilityMapper.findBySkuCodes(List.of(skuCode));
+    return (projections != null && !projections.isEmpty()) ? projections.get(0) : null;
   }
 
   /**

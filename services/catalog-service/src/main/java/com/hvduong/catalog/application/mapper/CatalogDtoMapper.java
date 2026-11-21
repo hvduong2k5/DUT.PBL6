@@ -52,6 +52,9 @@ public interface CatalogDtoMapper {
   @Mapping(source = "productId", target = "productId")
   @Mapping(source = "variantName", target = "name")
   @Mapping(target = "price", ignore = true)
+  @Mapping(target = "priceVersion", ignore = true)
+  @Mapping(target = "channel", ignore = true)
+  @Mapping(target = "stockStatus", ignore = true)
   @Mapping(target = "stockAvailable", ignore = true)
   ProductVariantResponse toVariantResponse(ProductVariant variant);
 

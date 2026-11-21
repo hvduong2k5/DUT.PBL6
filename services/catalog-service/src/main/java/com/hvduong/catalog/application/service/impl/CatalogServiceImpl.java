@@ -13,6 +13,7 @@ import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.response.PageResponse;
@@ -157,7 +158,15 @@ public class CatalogServiceImpl implements CatalogService {
 
   @Override
   public ProductVariantResponse getVariantBySkuCode(String skuCode) {
-    log.debug("[CATALOG] getVariantBySkuCode: skuCode={}", skuCode);
+    return getVariantBySkuCode(skuCode, SalesChannel.D2C_WEB);
+  }
+
+  @Override
+  public ProductVariantResponse getVariantBySkuCode(String skuCode, SalesChannel channel) {
+    if (channel == null) {
+      channel = SalesChannel.D2C_WEB;
+    }
+    log.debug("[CATALOG] getVariantBySkuCode: skuCode={}, channel={}", skuCode, channel);
 
     ProductVariant variant =
         variantMapper
@@ -173,12 +182,15 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
-    response.setStockAvailable(
-        stockProjectionService
-            .getAvailableQuantities(List.of(variant.getSkuCode()))
-            .get(variant.getSkuCode()));
+    response.setChannel(channel.name());
+    response.setPriceVersion(variant.getPriceRevision());
+
+    StockStatus stockStatus = stockProjectionService.getStockStatus(variant.getSkuCode());
+    response.setStockStatus(stockStatus != null ? stockStatus.name() : StockStatus.UNKNOWN.name());
+    response.setStockAvailable(null);
+
     channelPriceMapper
-        .findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
+        .findActiveByVariantAndChannel(variant.getId(), channel.getValue())
         .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
     return response;
   }
@@ -345,6 +357,10 @@ public class CatalogServiceImpl implements CatalogService {
         .map(
             v -> {
               ProductVariantResponse resp = dtoMapper.toVariantResponse(v);
+              resp.setChannel(channel.name());
+              resp.setPriceVersion(v.getPriceRevision());
+              StockStatus status = stockProjectionService.getStockStatus(v.getSkuCode());
+              resp.setStockStatus(status != null ? status.name() : StockStatus.UNKNOWN.name());
               resp.setStockAvailable(quantities.get(v.getSkuCode()));
               channelPriceMapper
                   .findActiveByVariantAndChannel(v.getId(), channel.getValue())

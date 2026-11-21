@@ -7,8 +7,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,60 @@ class StockProjectionServiceTest {
 
     assertThat(quantities).containsEntry("SKU-1", 15L);
     verifyNoInteractions(mapper);
+  }
+
+  @Test
+  void getStockStatus_ReturnsInStock_WhenQuantityPositiveAndSyncedRecently() {
+    Instant now = Instant.now();
+    when(mapper.findBySkuCodes(List.of("SKU-100")))
+        .thenReturn(List.of(new StockAvailabilityProjection("SKU-100", 25L, 1L, now, now)));
+
+    StockStatus status = service.getStockStatus("SKU-100");
+
+    assertThat(status).isEqualTo(StockStatus.IN_STOCK);
+  }
+
+  @Test
+  void getStockStatus_ReturnsOutOfStock_WhenQuantityZeroAndSyncedRecently() {
+    Instant now = Instant.now();
+    when(mapper.findBySkuCodes(List.of("SKU-100")))
+        .thenReturn(List.of(new StockAvailabilityProjection("SKU-100", 0L, 1L, now, now)));
+
+    StockStatus status = service.getStockStatus("SKU-100");
+
+    assertThat(status).isEqualTo(StockStatus.OUT_OF_STOCK);
+  }
+
+  @Test
+  void getStockStatus_ReturnsUnknown_WhenSellableQuantityIsNull() {
+    Instant now = Instant.now();
+    when(mapper.findBySkuCodes(List.of("SKU-100")))
+        .thenReturn(List.of(new StockAvailabilityProjection("SKU-100", null, 1L, now, now)));
+
+    StockStatus status = service.getStockStatus("SKU-100");
+
+    assertThat(status).isEqualTo(StockStatus.UNKNOWN);
+  }
+
+  @Test
+  void getStockStatus_ReturnsUnknown_WhenSyncedAtIsStale() {
+    Instant staleTime = Instant.now().minus(Duration.ofHours(25));
+    when(mapper.findBySkuCodes(List.of("SKU-100")))
+        .thenReturn(
+            List.of(new StockAvailabilityProjection("SKU-100", 50L, 1L, staleTime, staleTime)));
+
+    StockStatus status = service.getStockStatus("SKU-100");
+
+    assertThat(status).isEqualTo(StockStatus.UNKNOWN);
+  }
+
+  @Test
+  void getStockStatus_ReturnsUnknown_WhenSkuNotFound() {
+    when(mapper.findBySkuCodes(List.of("UNKNOWN-SKU"))).thenReturn(List.of());
+
+    StockStatus status = service.getStockStatus("UNKNOWN-SKU");
+
+    assertThat(status).isEqualTo(StockStatus.UNKNOWN);
   }
 
   @Test

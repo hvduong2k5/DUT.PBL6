@@ -19,6 +19,7 @@ import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.response.PageResponse;
@@ -258,22 +259,55 @@ class CatalogServiceImplTest {
   void testGetVariantBySkuCode_Success() {
     // Given
     when(variantMapper.findBySkuCode("SKU-123")).thenReturn(Optional.of(mockVariant));
+    mockVariant.setPriceRevision(5L);
 
     ProductVariantResponse response = new ProductVariantResponse();
     when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(response);
 
-    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), anyString()))
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), eq("D2C_WEB")))
         .thenReturn(Optional.of(mockPrice));
 
     MoneyResponse moneyResponse = new MoneyResponse();
     when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(moneyResponse);
+    when(stockProjectionService.getStockStatus("SKU-123")).thenReturn(StockStatus.IN_STOCK);
 
     // When
     ProductVariantResponse result = catalogService.getVariantBySkuCode("SKU-123");
 
     // Then
     assertNotNull(result);
-    assertEquals(response, result);
+    assertEquals("D2C_WEB", result.getChannel());
+    assertEquals(5L, result.getPriceVersion());
+    assertEquals("IN_STOCK", result.getStockStatus());
+    assertNull(result.getStockAvailable());
+  }
+
+  @Test
+  void testGetVariantBySkuCode_WithChannel_Success() {
+    // Given
+    when(variantMapper.findBySkuCode("SKU-123")).thenReturn(Optional.of(mockVariant));
+    mockVariant.setPriceRevision(2L);
+
+    ProductVariantResponse response = new ProductVariantResponse();
+    when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(response);
+
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), eq("B2B_WHOLESALE")))
+        .thenReturn(Optional.of(mockPrice));
+
+    MoneyResponse moneyResponse = new MoneyResponse();
+    when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(moneyResponse);
+    when(stockProjectionService.getStockStatus("SKU-123")).thenReturn(StockStatus.OUT_OF_STOCK);
+
+    // When
+    ProductVariantResponse result =
+        catalogService.getVariantBySkuCode("SKU-123", SalesChannel.B2B_WHOLESALE);
+
+    // Then
+    assertNotNull(result);
+    assertEquals("B2B_WHOLESALE", result.getChannel());
+    assertEquals(2L, result.getPriceVersion());
+    assertEquals("OUT_OF_STOCK", result.getStockStatus());
+    assertNull(result.getStockAvailable());
   }
 
   @Test

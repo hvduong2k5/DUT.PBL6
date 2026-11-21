@@ -6,15 +6,25 @@ import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
+import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -154,8 +164,14 @@ public class CatalogHttpController {
   }
 
   @GetMapping("/products/variants/{sku}")
-  public Object sku(@PathVariable String sku) {
-    return Map.of("variant", variant(catalog.getVariantBySkuCode(sku)));
+  public Object sku(
+      @PathVariable String sku,
+      @RequestParam(name = "channel", required = false, defaultValue = "D2C_WEB")
+          String channelParam,
+      @AuthenticationPrincipal Jwt jwt,
+      Authentication authentication) {
+    SalesChannel channel = parseAndAuthorizeChannel(channelParam, jwt, authentication);
+    return Map.of("variant", variant(catalog.getVariantBySkuCode(sku, channel)));
   }
 
   private Object variant(ProductVariantResponse variant) {
@@ -166,14 +182,127 @@ public class CatalogHttpController {
     value.put("variant_id", variant.getVariantId());
     value.put("sku_code", variant.getSkuCode());
     value.put("name", variant.getName());
+    if (variant.getChannel() != null) {
+      value.put("channel", variant.getChannel());
+    }
     BigDecimal grams = variant.getWeightValue();
     if ("KILOGRAM".equals(variant.getWeightUnit()))
       grams = grams.multiply(BigDecimal.valueOf(1000));
     value.put("weight_gram", grams.longValueExact());
     value.put("price", dto(variant.getPrice()));
-    value.put("original_price", dto(variant.getPrice()));
+    if (variant.getPriceVersion() != null) {
+      value.put("price_version", variant.getPriceVersion());
+    }
+    if (variant.getStockStatus() != null) {
+      value.put("stock_status", variant.getStockStatus());
+    }
     value.put("stock_available", variant.getStockAvailable());
     return value;
+  }
+
+  private SalesChannel parseAndAuthorizeChannel(
+      String channelParam, Jwt jwt, Authentication authentication) {
+    if (authentication == null) {
+      authentication = SecurityContextHolder.getContext().getAuthentication();
+    }
+    if (jwt == null && authentication != null) {
+      if (authentication.getPrincipal() instanceof Jwt j) {
+        jwt = j;
+      } else if (authentication.getCredentials() instanceof Jwt j) {
+        jwt = j;
+      }
+    }
+
+    SalesChannel channel;
+    try {
+      channel = SalesChannel.from(channelParam);
+    } catch (IllegalArgumentException e) {
+      throw new CatalogException(
+          ErrorCode.INVALID_ARGUMENT, "Kênh bán hàng không hợp lệ: " + channelParam);
+    }
+
+    if (channel == SalesChannel.D2C_WEB || channel == SalesChannel.MOBILE_APP) {
+      return channel;
+    }
+
+    if (authentication == null
+        || !authentication.isAuthenticated()
+        || authentication instanceof AnonymousAuthenticationToken) {
+      throw new CatalogException(ErrorCode.CHANNEL_ACCESS_DENIED);
+    }
+
+    Set<String> authorities =
+        authentication.getAuthorities().stream()
+            .map(GrantedAuthority::getAuthority)
+            .collect(Collectors.toSet());
+
+    if (channel == SalesChannel.B2B_WHOLESALE) {
+      boolean hasB2b =
+          authorities.contains("ROLE_B2B")
+              || authorities.contains("ROLE_B2B_CUSTOMER")
+              || authorities.contains("ROLE_B2B_BUYER")
+              || authorities.contains("ROLE_B2B_ADMIN")
+              || authorities.contains("B2B_CUSTOMER")
+              || authorities.contains("B2B_BUYER")
+              || authorities.contains("B2B_ADMIN")
+              || authorities.contains("B2B")
+              || authorities.contains("ROLE_ADMIN")
+              || authorities.contains("CATALOG_VIEW")
+              || authorities.contains("CATALOG_MANAGE");
+
+      if (!hasB2b && jwt != null) {
+        List<String> roles = jwt.getClaimAsStringList("roles");
+        if (roles != null
+            && roles.stream()
+                .anyMatch(
+                    r ->
+                        r.equalsIgnoreCase("b2b")
+                            || r.toLowerCase().contains("b2b")
+                            || r.equalsIgnoreCase("admin"))) {
+          hasB2b = true;
+        }
+        if (!hasB2b) {
+          String customerType = jwt.getClaimAsString("customer_type");
+          if ("B2B".equalsIgnoreCase(customerType)) {
+            hasB2b = true;
+          }
+        }
+      }
+
+      if (!hasB2b) {
+        throw new CatalogException(ErrorCode.CHANNEL_ACCESS_DENIED);
+      }
+      return channel;
+    }
+
+    // POS_QUAY, SHOPEE, TIKTOK: requires staff / admin / integration authority
+    boolean hasStaff =
+        authorities.contains("ROLE_STAFF")
+            || authorities.contains("ROLE_ADMIN")
+            || authorities.contains("ROLE_INTEGRATION")
+            || authorities.contains("ROLE_POS")
+            || authorities.contains("CATALOG_VIEW")
+            || authorities.contains("CATALOG_MANAGE")
+            || authorities.contains("POS_OPERATOR");
+
+    if (!hasStaff && jwt != null) {
+      List<String> roles = jwt.getClaimAsStringList("roles");
+      if (roles != null
+          && roles.stream()
+              .anyMatch(
+                  r ->
+                      r.equalsIgnoreCase("admin")
+                          || r.equalsIgnoreCase("staff")
+                          || r.toLowerCase().contains("integration"))) {
+        hasStaff = true;
+      }
+    }
+
+    if (!hasStaff) {
+      throw new CatalogException(ErrorCode.CHANNEL_ACCESS_DENIED);
+    }
+
+    return channel;
   }
 
   private int pageSize(Integer canonical, Integer legacy) {

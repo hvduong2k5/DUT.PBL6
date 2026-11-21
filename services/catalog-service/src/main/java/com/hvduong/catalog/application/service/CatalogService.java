@@ -28,5 +28,7 @@ public interface CatalogService {
 
   ProductVariantResponse getVariantBySkuCode(String skuCode);
 
+  ProductVariantResponse getVariantBySkuCode(String skuCode, SalesChannel channel);
+
   PriceValidationResponse validatePrices(PriceValidationRequest request);
 }

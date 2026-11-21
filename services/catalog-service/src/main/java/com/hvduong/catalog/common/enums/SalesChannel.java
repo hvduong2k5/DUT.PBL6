@@ -21,4 +21,16 @@ public enum SalesChannel {
   public String getValue() {
     return value;
   }
+
+  public static SalesChannel from(String name) {
+    if (name == null || name.isBlank()) {
+      return D2C_WEB;
+    }
+    for (SalesChannel sc : values()) {
+      if (sc.name().equalsIgnoreCase(name.trim()) || sc.value.equalsIgnoreCase(name.trim())) {
+        return sc;
+      }
+    }
+    throw new IllegalArgumentException("Unknown sales channel: " + name);
+  }
 }
