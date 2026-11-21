@@ -16,6 +16,18 @@ import (
 )
 
 func (s *Service) Cart(ctx context.Context, p domain.Principal) (domain.Cart, error) {
+	if s.sqlCarts() {
+		cart, _, err := readSQLCart(ctx, s.DB, p.Scope())
+		if err == nil {
+			return cart, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return domain.Cart{}, domain.E("CART_UNAVAILABLE", 503)
+		}
+	}
+	return s.redisCart(ctx, p)
+}
+func (s *Service) redisCart(ctx context.Context, p domain.Principal) (domain.Cart, error) {
 	v, e := s.Redis.Get(ctx, "cart:"+p.Scope()).Bytes()
 	if errors.Is(e, redis.Nil) {
 		return domain.Cart{Items: []domain.Item{}}, nil
@@ -28,6 +40,15 @@ func (s *Service) Cart(ctx context.Context, p domain.Principal) (domain.Cart, er
 	return c, e
 }
 func (s *Service) MutateCart(ctx context.Context, p domain.Principal, sku string, qty int, revision int64, add bool) (domain.Cart, error) {
+	if len(sku) == 0 || len(sku) > 64 || qty < 0 || qty > 999 || revision < 0 {
+		return domain.Cart{}, domain.E("INVALID_CART_INPUT", 400)
+	}
+	if s.sqlCarts() {
+		return s.mutateStorefrontCart(ctx, p, sku, qty, revision, add)
+	}
+	return s.mutateRedisCart(ctx, p, sku, qty, revision, add)
+}
+func (s *Service) mutateRedisCart(ctx context.Context, p domain.Principal, sku string, qty int, revision int64, add bool) (domain.Cart, error) {
 	if len(sku) == 0 || len(sku) > 64 || qty < 0 || qty > 999 || revision < 0 {
 		return domain.Cart{}, domain.E("INVALID_CART_INPUT", 400)
 	}

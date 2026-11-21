@@ -103,12 +103,7 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 		sid := p.ID
 		owner.GuestSessionID = &sid
 	}
-	cartKey := "core-cart-id:" + p.Scope()
-	cartID := uuid.NewString()
-	if e := s.Redis.SetNX(ctx, cartKey, cartID, 30*24*time.Hour).Err(); e != nil {
-		return q, e
-	}
-	cartID, e := s.Redis.Get(ctx, cartKey).Result()
+	cartID, e := s.coreCartID(ctx, p, true)
 	if e != nil {
 		return q, e
 	}
@@ -218,7 +213,7 @@ func (s *Service) acceptCore(ctx context.Context, p domain.Principal, key string
 	if stored.Core == nil || stored.Quote.Method != in.Method || stored.Quote.Revision != in.Revision {
 		return domain.Operation{}, 409, domain.E("QUOTE_INPUT_MISMATCH", 409)
 	}
-	if current, e := s.Redis.Get(ctx, "core-cart-id:"+p.Scope()).Result(); e != nil || current != stored.Core.Provenance.CartID {
+	if current, e := s.coreCartID(ctx, p, false); e != nil || current != stored.Core.Provenance.CartID {
 		return domain.Operation{}, 409, domain.E("CART_REPLACED", 409)
 	}
 	resolved, e := s.Resolve(ctx, p)

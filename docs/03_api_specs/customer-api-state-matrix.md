@@ -136,3 +136,14 @@ The current simulator province 75 / ward HUE-01 seam is unchanged. `PROOF-COD-01
 | `GET /api/v1/orders/{order_id}/payment-instructions` | 200 / display QR only while payable | 401 grant, 403 principal, 404 owner, 409 expired, 503 dependency |
 
 SePay verification remains HMAC-SHA256 over timestamp + raw payload (five-minute window), durable deduplicated observation, canonical API row verification and exactly-once allocation/finalization. An observation alone cannot settle. Late money stays in reconciliation and cannot auto-fulfil. `PROOF-VQR-01` requires the separately approved live transfer and duplicate replay; local TEST statements do not satisfy that live proof.
+
+
+## F-53 cart merge after login/registration (B-G3)
+
+| Operation | Success/loading/empty | Errors/auth |
+| --- | --- | --- |
+| `POST /api/v1/cart` | 200 persisted outcome; one Customer revision; empty source allowed | 400 body/key, 401 invalid/expired/revoked source, 403 Customer/flag, 409 key/source conflict, 503 Catalog/store; all changes rollback together |
+| `GET /api/v1/cart?merge_key=...` | 200 original persisted merge result even after source revocation | 400 key, 401 Customer session, 403 wrong principal, 404 another Customer/key, 503 store |
+| Web `POST /api/cart/merge` | 200 merged result and clear guest cookie; 204 when no guest cookie or rollout off | Login stays successful on merge error; preserve source cookie and show retry in cart |
+
+The source credential stays in an httpOnly cookie and is sent to Order in a dedicated body field through the existing authenticated Customer proxy. A stable server-derived merge key makes retries/tabs idempotent. Outcomes show merged / adjusted / dropped with per-SKU reasons. Failure never breaks the login session. Converted carts use SQL authority and the same scope locks for mutation and checkout cleanup; flag-off cannot restore stale Redis carts. `PROOF-MERGE-01` still requires the audited live login flow and DB ledger evidence.

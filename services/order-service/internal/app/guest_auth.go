@@ -175,7 +175,7 @@ func AuthorizeRoute(p domain.Principal, method, path string) error {
 		if GuestRouteAllowed(method, path) && !strings.HasPrefix(path, "/api/v1/guest-sessions/") && !strings.HasSuffix(path, "/guest-payment-access") {
 			return nil
 		}
-		if path == "/api/v1/orders" && method == "GET" || path == "/api/v1/cart/merge" && method == "POST" {
+		if path == "/api/v1/orders" && method == "GET" || path == "/api/v1/cart" && method == "POST" {
 			return nil
 		}
 		parts := strings.Split(strings.Trim(path, "/"), "/")

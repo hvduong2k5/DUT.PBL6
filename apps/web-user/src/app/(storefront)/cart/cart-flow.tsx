@@ -9,6 +9,7 @@ import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { ProductImage } from "@/components/product/product-image";
+import { CartMergeNotice } from "@/components/cart/cart-merge-notice";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -29,6 +30,12 @@ export function CartFlow() {
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const refresh=()=>setRetryKey((value)=>value+1);
+    window.addEventListener("guest-cart-merged",refresh);
+    return ()=>window.removeEventListener("guest-cart-merged",refresh);
+  },[]);
 
   useEffect(() => {
     let active = true;
@@ -109,11 +116,11 @@ export function CartFlow() {
     }
   }
 
-  if (loading) return <main className="cart-page"><CartLoading /></main>;
+  if (loading) return <main className="cart-page"><CartMergeNotice /><CartLoading /></main>;
 
   if (pageError) {
     return (
-      <main className="cart-page">
+      <main className="cart-page"><CartMergeNotice />
         <section className="cart-error-state" role="alert">
           <span aria-hidden="true">!</span>
           <p className="eyebrow">Kết nối gián đoạn</p>
@@ -135,7 +142,7 @@ export function CartFlow() {
   }
 
   return (
-    <main className="cart-page">
+    <main className="cart-page"><CartMergeNotice />
       <nav className="cart-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Trang chủ</Link><span aria-hidden="true">/</span><strong>Giỏ hàng</strong></nav>
 
       <ol className="cart-steps" aria-label="Tiến trình mua hàng">

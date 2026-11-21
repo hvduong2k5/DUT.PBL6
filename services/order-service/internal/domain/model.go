@@ -98,6 +98,20 @@ type Cart struct {
 	Revision int64  `json:"revision"`
 	Items    []Item `json:"items"`
 }
+
+type CartMergeItem struct {
+	SKU       string `json:"sku_code"`
+	Status    string `json:"status"`
+	Requested int    `json:"requested_quantity"`
+	Quantity  int    `json:"quantity"`
+	Reason    string `json:"reason,omitempty"`
+}
+type CartMergeResult struct {
+	Key      string          `json:"merge_key"`
+	Cart     Cart            `json:"cart"`
+	Items    []CartMergeItem `json:"items"`
+	MergedAt time.Time       `json:"merged_at"`
+}
 type QuoteInput struct {
 	Revision  int64    `json:"cart_revision"`
 	Method    string   `json:"payment_method"`

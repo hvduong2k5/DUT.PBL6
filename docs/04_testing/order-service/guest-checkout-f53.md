@@ -127,6 +127,50 @@ exposure, grant-only polling and invalid customer-session precedence.
 
 `PROOF-VQR-01` remains pending the approved live SePay transfer after deployment.
 
+## B-G3 cart merge on Customer login
+
+`POST /api/v1/cart` is a Customer-only merge operation already covered by the
+Identity customer proxy allowlist. The guest JWT is a separate source field;
+Customer authorization never switches to that credential. No Identity or
+Keycloak source changes were needed. `GET /api/v1/cart?merge_key=...` reads the
+Customer-bound immutable result without an active guest session.
+
+Migration 009 adds `storefront_carts` and an immutable `guest_cart_merges` ledger.
+Only participating carts convert from Redis. Shared PostgreSQL scope locks cover
+conversion, subsequent mutations and core checkout cleanup. Converted scopes
+remain SQL-authoritative with the merge flag off; expiration acts as an empty
+tombstone instead of exposing a stale Redis cart. The merge commits target cart,
+source clearing, per-SKU result and source-session revocation together.
+
+Quantities sum, cap at the existing Order limit of 999/SKU, and retain at most
+100 SKUs with existing target lines first. Catalog snapshots replace all retained
+prices; unavailable/deleted SKUs are dropped with explicit reasons. Normal carts
+use batch validation, with bounded individual checks only for an unavailable
+batch. The Customer revision increases once. Same key/source/customer returns
+the original ledger result even after revocation, without calling Catalog again.
+
+The Web attempts merge after verified Customer login or registration, derives a
+stable key from the httpOnly source cookie, clears only that cookie on success,
+and displays merged/adjusted/dropped outcomes in cart. Failure preserves cookies,
+keeps login successful and offers a retry. No source cookie is a no-op. Results
+from a prior identity are not shown after logout.
+
+Local tests cover x2+x3=x5, replay after revocation, fresh prices, a deleted SKU,
+cross-Customer isolation, quantity cap, concurrent retries, a forced final-step
+failure rolling back every SQL write, sticky SQL authority with flag off, and
+checkout cleanup both clearing the converted cart and preserving a later edit.
+BFF tests cover source/Customer credential separation, cookie preservation on
+failure, stable retry key and login without a guest cookie.
+
+The nullable COD payment deadline mismatch in the existing Web consumer was
+fixed separately in `5cdf8181`, with a versioned pinned contract correction and
+regressions for both guest and registered COD.
+
+Run `python scripts/test-web-identity.py --guest-checkout` to extend the complete
+real-stack fixture with logged-out COD/VietQR and a real OIDC login/Identity-proxy
+merge. The fixture transfers remain TEST; `PROOF-MERGE-01` and the live COD/VietQR
+proofs still require Muse audit, Bao approval, rc.2 deployment and live evidence.
+
 ## Release acceptance
 
 B-G1 must not start before the B-G0 regression gate passes. B-G1, B-G2 and B-G3

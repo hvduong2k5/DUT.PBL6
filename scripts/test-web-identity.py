@@ -55,6 +55,7 @@ def main():
     parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
     parser.add_argument("--fulfillment", action="store_true", help="Use actual Fulfillment/media providers instead of TEST packing")
+    parser.add_argument("--guest-checkout", action="store_true", help="Exercise F-53 guest COD, VietQR and Customer cart merge through the actual Web BFF")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
@@ -107,6 +108,8 @@ def main():
     web = f"http://127.0.0.1:{ports['web']}"
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
+    if args.guest_checkout:
+        env.update(WEB_TEST_GUEST_CHECKOUT="true",GUEST_SESSION_SECRET=secrets.token_urlsafe(48),NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED="true",GUEST_ORDER_UPSTREAM_URL=gateway+"/api/v1",GUEST_SESSION_ISSUANCE_ENABLED="true",GUEST_CART_MUTATION_ENABLED="true",GUEST_COD_CHECKOUT_ENABLED="true",GUEST_VIETQR_CHECKOUT_ENABLED="true",GUEST_CART_MERGE_ENABLED="true")
     accounts = {
         key: {
             "principal": str(uuid.uuid4()),
@@ -1216,6 +1219,11 @@ def main():
             opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(jar), NoRedirect()
             )
+            guest_source = None
+            if args.guest_checkout and key == "A":
+                from mvp_guest_checks import guest_purchases, prepare_merge_source
+                guest_purchases(request,web,f"http://127.0.0.1:{ports['control']}")
+                guest_source=prepare_merge_source(request,web,jar,opener)
             status, _, headers = request(
                 web + "/api/auth/oidc/login?returnUrl=%2Fcart", opener=opener
             )
@@ -1354,6 +1362,9 @@ def main():
             assert (
                 status == 200 and cart["items"][0]["sku_code"] == "PRIVATE-" + key
             ), "Cross-owner Cart/header spoofing"
+            if args.guest_checkout:
+                from mvp_guest_checks import merge_after_login
+                merge_after_login(request,web,gateway,jar,opener,guest_source,cart)
             status, native_refresh, refresh_headers = request(
                 gateway + "/api/v1/public/auth/tokens/refresh",
                 {},
@@ -1475,7 +1486,7 @@ def main():
                 request(web + "/api/auth/me", opener=opener)[0] == 401
             ), "Logout retained local session"
 
-        assert request(web + "/api/cart")[0] == 401
+        assert request(web + "/api/cart")[0] == (200 if args.guest_checkout else 401)
         for action, expected in [("LOGIN_SUCCESS", 3), ("LOGOUT_SUCCESS", 2)]:
             count = int(
                 sql(

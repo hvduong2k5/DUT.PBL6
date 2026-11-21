@@ -22,6 +22,14 @@ import (
 func main() {
 	ctx := context.Background()
 	cfg := app.Config{IdentityURL: os.Getenv("IDENTITY_URL"), Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: os.Getenv("WEB_TEST_ISSUER"), OIDCAudience: "order-api", OIDCAllowLocalHTTP: true, Profile: os.Getenv("WEB_TEST_PROFILE_URL"), ProfileToken: os.Getenv("WEB_TEST_INTERNAL_TOKEN")}
+	if os.Getenv("WEB_TEST_GUEST_CHECKOUT") == "true" {
+		cfg.GuestSessionSecret = os.Getenv("GUEST_SESSION_SECRET")
+		cfg.GuestSessionIssuanceEnabled = true
+		cfg.GuestCartMutationEnabled = true
+		cfg.GuestCODCheckoutEnabled = true
+		cfg.GuestVietQRCheckoutEnabled = true
+		cfg.GuestCartMergeEnabled = true
+	}
 	identity, err := app.NewCustomerIdentity(cfg)
 	if err != nil {
 		log.Fatal(err)

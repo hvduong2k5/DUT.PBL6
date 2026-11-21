@@ -101,7 +101,15 @@ func Handler(s *app.Service) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	})
-	r.Use(middleware.Timeout(3 * time.Second))
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			duration := 3 * time.Second
+			if r.Method == "POST" && r.URL.Path == "/api/v1/cart" {
+				duration = 15 * time.Second
+			}
+			middleware.Timeout(duration)(next).ServeHTTP(w, r)
+		})
+	})
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Vary", "Accept")
@@ -143,6 +151,16 @@ func Handler(s *app.Service) http.Handler {
 			})
 		})
 		api.Get("/api/v1/cart", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			if r.URL.Query().Has("merge_key") {
+				result, e := s.CartMergeResult(r.Context(), principal(r), r.URL.Query().Get("merge_key"))
+				if e != nil {
+					failure(s, w, e)
+					return
+				}
+				write(w, 200, result)
+				return
+			}
 			c, e := s.Cart(r.Context(), principal(r))
 			if e != nil {
 				failure(s, w, e)
@@ -151,6 +169,7 @@ func Handler(s *app.Service) http.Handler {
 			w.Header().Set("ETag", strconv.Quote(strconv.FormatInt(c.Revision, 10)))
 			write(w, 200, c)
 		})
+		cartMergeRoute(s, api)
 		api.Post("/api/v1/cart/items", func(w http.ResponseWriter, r *http.Request) {
 			var in struct {
 				SKU      string `json:"sku_code"`
