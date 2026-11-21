@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,9 @@ import (
 	"log"
 	"math"
 	"math/big"
+	"net/url"
+	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -18,6 +22,7 @@ import (
 )
 
 const procurementTopic = "procurement.events.v1"
+const procurementDLQ = "procurement.events.dlq.v1"
 const goodsReceivedType = "vn.omama.procurement.goods.received.v1"
 
 type invalidReceipt string
@@ -25,83 +30,136 @@ type invalidReceipt string
 func (e invalidReceipt) Error() string { return string(e) }
 
 type goodsReceipt struct {
-	ID      uuid.UUID `json:"id"`
-	Type    string    `json:"type"`
-	Version string    `json:"specversion"`
-	Data    struct {
-		SKU          string          `json:"sku_code"`
-		Warehouse    string          `json:"warehouse_id"`
-		Batch        string          `json:"batch_code"`
-		Supplier     uuid.UUID       `json:"supplier_id"`
-		SupplierLot  string          `json:"supplier_lot_code"`
-		Unit         string          `json:"unit"`
-		Accepted     json.RawMessage `json:"quantity_accepted"`
-		Received     json.RawMessage `json:"quantity_received"`
-		Rejected     json.RawMessage `json:"quantity_rejected"`
-		Manufactured string          `json:"manufactured_on"`
-		Expires      string          `json:"expires_on"`
-	} `json:"data"`
+	ID          string      `json:"id"`
+	Source      string      `json:"source"`
+	Type        string      `json:"type"`
+	Version     string      `json:"specversion"`
+	Subject     string      `json:"subject"`
+	Time        string      `json:"time"`
+	ContentType string      `json:"datacontenttype"`
+	Traceparent string      `json:"traceparent"`
+	Data        receiptData `json:"data"`
+}
+type receiptData struct {
+	Receipt      string          `json:"receipt_id"`
+	PO           string          `json:"po_number"`
+	Supplier     string          `json:"supplier_id"`
+	SupplierName string          `json:"supplier_name,omitempty"`
+	SKU          string          `json:"sku_code"`
+	Received     json.RawMessage `json:"quantity_received"`
+	Unit         string          `json:"unit"`
+	Warehouse    string          `json:"warehouse_id"`
+	Origin       string          `json:"raw_material_origin_region,omitempty"`
+	ReceivedAt   string          `json:"received_at"`
 }
 
-func quantity(raw json.RawMessage) (*big.Rat, bool) {
-	// Bound rational parsing to the producer's decimal format (no exponent).
-	s := string(raw)
-	if len(s) > 64 || strings.ContainsAny(s, "eE/") {
-		return nil, false
-	}
-	q, ok := new(big.Rat).SetString(s)
-	return q, ok && q.Sign() >= 0
+func identifier(s string, max int) bool {
+	return strings.TrimSpace(s) != "" && utf8.RuneCountInString(s) <= max && !strings.ContainsRune(s, 0)
 }
 
-func decodeReceipt(msg KafkaMessage) (goodsReceipt, int64, error) {
+// Decode only the canonical contract. Extra lot/date/accepted fields are never
+// interpreted as authority to release quarantine or change the received amount.
+func decodeReceipt(msg KafkaMessage) (goodsReceipt, error) {
 	var e goodsReceipt
-	if json.Unmarshal(msg.Value, &e) != nil || e.Type != goodsReceivedType || e.Version != "1.0" || e.ID == uuid.Nil {
-		return e, 0, invalidReceipt("invalid GoodsReceived CloudEvent")
+	if len(msg.Value) > 1<<20 || json.Unmarshal(msg.Value, &e) != nil {
+		return e, invalidReceipt("invalid GoodsReceived JSON")
+	}
+	if e.Type != goodsReceivedType || e.Version != "1.0" || e.ContentType != "application/json" {
+		return e, invalidReceipt("invalid GoodsReceived CloudEvent type/version/content type")
+	}
+	u, err := url.Parse(e.Source)
+	if err != nil || !u.IsAbs() || !identifier(e.Source, 1000) || !identifier(e.ID, 256) || !identifier(e.Subject, 1000) || !identifier(e.Traceparent, 256) {
+		return e, invalidReceipt("invalid CloudEvent envelope")
+	}
+	if _, err = time.Parse(time.RFC3339Nano, e.Time); err != nil {
+		return e, invalidReceipt("invalid CloudEvent time")
 	}
 	d := e.Data
-	if strings.TrimSpace(d.SKU) == "" || utf8.RuneCountInString(d.SKU) > 50 || string(msg.Key) != d.SKU ||
-		strings.TrimSpace(d.Warehouse) == "" || strings.TrimSpace(d.Batch) == "" || utf8.RuneCountInString(d.Batch) > 100 ||
-		d.Supplier == uuid.Nil || strings.TrimSpace(d.Unit) == "" ||
-		strings.ContainsRune(d.SKU+d.Batch+d.SupplierLot, 0) {
-		return e, 0, invalidReceipt("invalid receipt identifiers or unit")
+	if !identifier(d.Receipt, 256) || !identifier(d.PO, 256) || !identifier(d.Supplier, 256) || !identifier(d.SKU, 50) || !identifier(d.Warehouse, 256) || string(msg.Key) != d.SKU {
+		return e, invalidReceipt("invalid receipt identifiers or partition key")
 	}
-	accepted, a := quantity(d.Accepted)
-	rejected, b := quantity(d.Rejected)
-	received, c := quantity(d.Received)
-	if !a || !b || !c || received.Sign() <= 0 || new(big.Rat).Add(accepted, rejected).Cmp(received) != 0 {
-		return e, 0, invalidReceipt("invalid or inconsistent receipt quantities")
+	if strings.ContainsRune(d.SupplierName+d.Origin, 0) || len(d.SupplierName) > 2000 || len(d.Origin) > 2000 {
+		return e, invalidReceipt("invalid receipt evidence")
 	}
-	if !accepted.IsInt() || !accepted.Num().IsInt64() || accepted.Num().Int64() > math.MaxInt32 {
-		return e, 0, invalidReceipt("accepted quantity must fit an Inventory integer exactly")
+	if _, err = time.Parse(time.RFC3339Nano, d.ReceivedAt); err != nil {
+		return e, invalidReceipt("invalid receipt received_at")
 	}
-	count := accepted.Num().Int64()
-	if count > 0 || d.Manufactured != "" || d.Expires != "" {
-		mfg, errM := time.Parse(time.DateOnly, d.Manufactured)
-		exp, errE := time.Parse(time.DateOnly, d.Expires)
-		if errM != nil || errE != nil || mfg.Year() == 0 || !mfg.Before(exp) {
-			return e, 0, invalidReceipt("receipt requires valid manufacturing and expiry dates in order")
+	q, ok := decimal(d.Received)
+	if !ok || q.Cmp(big.NewRat(1, 100)) < 0 {
+		return e, invalidReceipt("quantity_received must be at least 0.01")
+	}
+	return e, nil
+}
+
+func decimal(n json.RawMessage) (*big.Rat, bool) {
+	s := string(n)
+	if len(s) == 0 || s[0] == '"' || !json.Valid(n) {
+		return nil, false
+	}
+	if len(s) > 64 {
+		return nil, false
+	}
+	// big.Rat understands JSON decimal/exponent notation without float rounding.
+	if i := strings.IndexAny(s, "eE"); i >= 0 {
+		exponent, err := strconv.Atoi(s[i+1:])
+		if err != nil || exponent < -9 || exponent > 9 {
+			return nil, false
 		}
 	}
-	return e, count, nil
+	q, ok := new(big.Rat).SetString(s)
+	return q, ok && q.Sign() > 0
+}
+func receiptQuantity(e goodsReceipt, base string) (int64, error) {
+	q, ok := decimal(e.Data.Received)
+	if !ok {
+		return 0, invalidReceipt("invalid received quantity")
+	}
+	switch {
+	case base == "GRAM" && e.Data.Unit == "KG":
+		q.Mul(q, big.NewRat(1000, 1))
+	case base == "GRAM" && (e.Data.Unit == "G" || e.Data.Unit == "GRAM"):
+	case base == "UNIT" && (e.Data.Unit == "UNIT" || e.Data.Unit == "PIECE"):
+	default:
+		return 0, invalidReceipt("SKU base unit is missing or incompatible with receipt unit")
+	}
+	if !q.IsInt() || !q.Num().IsInt64() || q.Num().Int64() > math.MaxInt32 {
+		return 0, invalidReceipt("converted quantity must fit an Inventory integer exactly")
+	}
+	return q.Num().Int64(), nil
+}
+func payloadHash(v any) string {
+	data, _ := json.Marshal(v)
+	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
 type procurementStore struct {
 	db         *sql.DB
 	warehouses map[string]uuid.UUID
+	units      map[string]string
 }
 
 func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
-	e, count, err := decodeReceipt(msg)
+	e, err := decodeReceipt(msg)
+	if err != nil {
+		return err
+	}
+	count, err := receiptQuantity(e, s.units[e.Data.SKU])
 	if err != nil {
 		return err
 	}
 	d := e.Data
+	warehouse, ok := s.warehouses[d.Warehouse]
+	if !ok {
+		return invalidReceipt("unmapped Procurement warehouse")
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `INSERT INTO procurement_receipt_inbox(event_id) VALUES($1) ON CONFLICT DO NOTHING`, e.ID)
+	hash := payloadHash(e)
+	result, err := tx.ExecContext(ctx, `INSERT INTO procurement_receipt_inbox(event_id,source,topic,partition_id,offset_id,payload_hash)
+ VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, e.ID, e.Source, msg.Topic, msg.Partition, msg.Offset, hash)
 	if err != nil {
 		return err
 	}
@@ -109,13 +167,15 @@ func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
 	if err != nil {
 		return err
 	}
-	if rows == 0 || count == 0 {
+	if rows == 0 {
+		var original string
+		if err = tx.QueryRowContext(ctx, `SELECT payload_hash FROM procurement_receipt_inbox WHERE source=$1 AND event_id=$2`, e.Source, e.ID).Scan(&original); err != nil {
+			return err
+		}
+		if original != hash {
+			return invalidReceipt("event ID reused with different payload")
+		}
 		return tx.Commit()
-	}
-
-	warehouse, ok := s.warehouses[d.Warehouse]
-	if !ok {
-		return invalidReceipt("unmapped Procurement warehouse")
 	}
 	var actual uuid.UUID
 	var stock int64
@@ -129,33 +189,46 @@ func (s procurementStore) handle(ctx context.Context, msg KafkaMessage) error {
 	if actual != warehouse {
 		return invalidReceipt("SKU warehouse does not match mapped warehouse")
 	}
+	dataHash := payloadHash(d)
+	var existing string
+	err = tx.QueryRowContext(ctx, `SELECT data_hash FROM procurement_receipts WHERE source=$1 AND receipt_id=$2 AND sku=$3`, e.Source, d.Receipt, d.SKU).Scan(&existing)
+	if err == nil {
+		if existing != dataHash {
+			return invalidReceipt("receipt ID reused with different receipt data")
+		}
+		return tx.Commit()
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
 	if stock+count > math.MaxInt32 {
 		return invalidReceipt("receipt would overflow inventory quantity")
 	}
-
-	// The item lock serializes receipts for this SKU. Refuse ambiguous legacy lots.
-	var batch uuid.UUID
-	var matching bool
-	var batchStock int64
-	var matches int
-	err = tx.QueryRowContext(ctx, `SELECT id, supplier_id=$3 AND mfg_date=$4::date AND exp_date=$5::date
- AND (supplier_lot_code IS NULL OR supplier_lot_code IS NOT DISTINCT FROM NULLIF($6,'')),
- physical_qty, count(*) OVER () FROM batches WHERE sku=$1 AND batch_code=$2 LIMIT 1`,
-		d.SKU, d.Batch, d.Supplier, d.Manufactured, d.Expires, d.SupplierLot).Scan(&batch, &matching, &batchStock, &matches)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		_, err = tx.ExecContext(ctx, `INSERT INTO batches(sku,batch_code,supplier_id,mfg_date,exp_date,supplier_lot_code,physical_qty,status)
-  VALUES($1,$2,$3,$4,$5,NULLIF($6,''),$7,CASE WHEN $5::date<=CURRENT_DATE THEN 'EXPIRED' ELSE 'ACTIVE' END)`,
-			d.SKU, d.Batch, d.Supplier, d.Manufactured, d.Expires, d.SupplierLot, count)
-	case err != nil:
+	if _, err = tx.ExecContext(ctx, `INSERT INTO inventory_procurement_sku_units(sku,base_unit) VALUES($1,$2) ON CONFLICT DO NOTHING`, d.SKU, s.units[d.SKU]); err != nil {
 		return err
-	case matches != 1 || !matching || batchStock+count > math.MaxInt32:
-		return invalidReceipt("conflicting batch metadata or quantity")
-	default:
-		_, err = tx.ExecContext(ctx, `UPDATE batches SET physical_qty=physical_qty+$2,
-  supplier_lot_code=COALESCE(supplier_lot_code,NULLIF($3,'')) WHERE id=$1`, batch, count, d.SupplierLot)
 	}
-	if err != nil {
+	var boundUnit string
+	if err = tx.QueryRowContext(ctx, `SELECT base_unit FROM inventory_procurement_sku_units WHERE sku=$1`, d.SKU).Scan(&boundUnit); err != nil {
+		return err
+	}
+	if boundUnit != s.units[d.SKU] {
+		return invalidReceipt("SKU base unit differs from its persisted receiving unit")
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO procurement_supplier_mapping(supplier_code,supplier_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, d.Supplier, uuid.NewString()); err != nil {
+		return err
+	}
+	var supplier uuid.UUID
+	if err = tx.QueryRowContext(ctx, `SELECT supplier_id FROM procurement_supplier_mapping WHERE supplier_code=$1`, d.Supplier).Scan(&supplier); err != nil {
+		return err
+	}
+	// One internal batch per immutable receipt line: never merge supplier lots.
+	batch := uuid.NewString()
+	batchCode := "GR-" + uuid.NewSHA1(uuid.NameSpaceURL, []byte(e.Source+"\x00"+d.Receipt+"\x00"+d.SKU)).String()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO batches(id,sku,batch_code,supplier_id,physical_qty,status) VALUES($1,$2,$3,$4,$5,'QUARANTINE')`, batch, d.SKU, batchCode, supplier, count); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO procurement_receipts(source,receipt_id,sku,event_id,po_number,supplier_code,supplier_name,origin_region,warehouse_code,received_at,unit,base_unit,quantity_received,stock_quantity,batch_id,data_hash,payload)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`, e.Source, d.Receipt, d.SKU, e.ID, d.PO, d.Supplier, d.SupplierName, d.Origin, d.Warehouse, d.ReceivedAt, d.Unit, s.units[d.SKU], string(d.Received), count, batch, dataHash, string(msg.Value)); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE inventory_items SET physical_qty=physical_qty+$2,updated_at=clock_timestamp() WHERE sku=$1`, d.SKU, count); err != nil {
@@ -168,22 +241,69 @@ type deadLetterWriter interface {
 	WriteMessages(context.Context, ...segmentio.Message) error
 }
 
+type processingPanic struct{ stack string }
+
+func (e processingPanic) Error() string { return "procurement handler panic" }
+func safelyHandle(ctx context.Context, handle func(context.Context, KafkaMessage) error, msg KafkaMessage) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = processingPanic{string(debug.Stack())}
+		}
+	}()
+	return handle(ctx, msg)
+}
+
+// Persist to DLQ before committing the source offset. DB retries are bounded;
+// failed DLQ writes/commits keep this message in place and signal unhealthy state.
 func processProcurement(ctx context.Context, r MessageReader, w deadLetterWriter, handle func(context.Context, KafkaMessage) error, msg KafkaMessage) error {
-	err := handle(ctx, msg)
-	var invalid invalidReceipt
-	if errors.As(err, &invalid) {
-		err = w.WriteMessages(ctx, segmentio.Message{Topic: procurementTopic + ".DLT", Key: msg.Key, Value: msg.Value,
-			Headers: []segmentio.Header{{Key: "inventory-error", Value: []byte(invalid.Error())},
-				{Key: "source-position", Value: []byte(fmt.Sprintf("%s:%d:%d", msg.Topic, msg.Partition, msg.Offset))}}})
+	return processWithRetry(ctx, r, w, handle, msg, time.Second)
+}
+func processWithRetry(ctx context.Context, r MessageReader, w deadLetterWriter, handle func(context.Context, KafkaMessage) error, msg KafkaMessage, backoff time.Duration) error {
+	var err error
+	attempts := 0
+	for attempts < 5 {
+		attempts++
+		attemptCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		err = safelyHandle(attemptCtx, handle, msg)
+		cancel()
+		if err == nil {
+			return r.CommitMessages(ctx, msg)
+		}
+		var invalid invalidReceipt
+		if errors.As(err, &invalid) || ctx.Err() != nil {
+			break
+		}
+		if attempts < 5 {
+			procurementRetries.Add(1)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff * time.Duration(1<<(attempts-1))):
+			}
+		}
 	}
-	if err != nil {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	stack := string(debug.Stack())
+	var panicErr processingPanic
+	if errors.As(err, &panicErr) {
+		stack = panicErr.stack
+	}
+	if err = w.WriteMessages(ctx, segmentio.Message{Topic: procurementDLQ, Key: msg.Key, Value: msg.Value,
+		Headers: []segmentio.Header{
+			{Key: "x-exception-message", Value: []byte(err.Error())}, {Key: "x-exception-stacktrace", Value: []byte(stack)},
+			{Key: "x-original-topic", Value: []byte(msg.Topic)}, {Key: "x-original-partition", Value: []byte(fmt.Sprint(msg.Partition))},
+			{Key: "x-original-offset", Value: []byte(fmt.Sprint(msg.Offset))}, {Key: "x-attempts", Value: []byte(fmt.Sprint(attempts))},
+		}}); err != nil {
 		return err
 	}
+	procurementDeadLetters.Add(1)
 	return r.CommitMessages(ctx, msg)
 }
 
 func ProcurementWarehouseMap(raw string) (map[string]uuid.UUID, error) {
-	mappings := make(map[string]uuid.UUID)
+	mappings := map[string]uuid.UUID{}
 	for _, entry := range strings.Split(raw, ",") {
 		code, value, ok := strings.Cut(entry, "=")
 		code = strings.TrimSpace(code)
@@ -195,45 +315,66 @@ func ProcurementWarehouseMap(raw string) (map[string]uuid.UUID, error) {
 	}
 	return mappings, nil
 }
+func ProcurementUnitMap(raw string) (map[string]string, error) {
+	mappings := map[string]string{}
+	for _, entry := range strings.Split(raw, ",") {
+		sku, unit, ok := strings.Cut(entry, "=")
+		sku = strings.TrimSpace(sku)
+		unit = strings.TrimSpace(unit)
+		if !ok || !identifier(sku, 50) || (unit != "GRAM" && unit != "UNIT") || mappings[sku] != "" {
+			return nil, errors.New("expected unique Procurement SKU unit mappings in SKU=GRAM or SKU=UNIT format")
+		}
+		mappings[sku] = unit
+	}
+	return mappings, nil
+}
 
-func RunProcurementConsumer(ctx context.Context, brokers []string, db *sql.DB, warehouses map[string]uuid.UUID) {
-	r := &SegmentioReaderAdapter{reader: segmentio.NewReader(segmentio.ReaderConfig{
-		Brokers: brokers, Topic: procurementTopic, GroupID: "inventory-service-procurement-goods-received-group",
-	})}
+func RunProcurementConsumer(ctx context.Context, brokers []string, db *sql.DB, warehouses map[string]uuid.UUID, units map[string]string) {
+	procurementHealthy.Store(true)
+	defer procurementHealthy.Store(false)
+	defer func() {
+		if recover() != nil {
+			log.Printf("[Inventory Procurement] consumer panic recovered; unhealthy\n%s", debug.Stack())
+		}
+	}()
+	r := &SegmentioReaderAdapter{reader: segmentio.NewReader(segmentio.ReaderConfig{Brokers: brokers, Topic: procurementTopic, GroupID: procurementGroup, StartOffset: segmentio.LastOffset, MaxBytes: 1 << 20})}
 	defer r.Close()
-	w := &segmentio.Writer{Addr: segmentio.TCP(brokers...), RequiredAcks: segmentio.RequireAll}
+	w := &segmentio.Writer{Addr: segmentio.TCP(brokers...), RequiredAcks: segmentio.RequireAll, WriteTimeout: 10 * time.Second}
 	defer w.Close()
-	store := procurementStore{db: db, warehouses: warehouses}
+	monitorCtx, cancelMonitor := context.WithCancel(ctx)
+	defer cancelMonitor()
+	go monitorProcurementLag(monitorCtx, brokers)
+	store := procurementStore{db: db, warehouses: warehouses, units: units}
 	for ctx.Err() == nil {
 		msg, err := r.FetchMessage(ctx)
 		if err != nil {
+			procurementHealthy.Store(false)
 			if !procurementRetry(ctx, err) {
 				return
 			}
 			continue
 		}
-		// Fetch advances the local reader position even without a commit. Retry this
-		// message before fetching any later offset.
 		for ctx.Err() == nil {
 			if err = processProcurement(ctx, r, w, store.handle, msg); err == nil {
+				procurementHealthy.Store(true)
 				break
 			}
+			procurementHealthy.Store(false)
 			if !procurementRetry(ctx, err) {
 				return
 			}
 		}
 	}
 }
-
 func procurementRetry(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false
 	}
-	log.Printf("[Inventory Procurement consumer] retrying after error: %v", err)
+	log.Printf("[Inventory Procurement] offset blocked (DLQ/commit/read failure): %v", err)
 	select {
 	case <-ctx.Done():
 		return false
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		return true
 	}
 }

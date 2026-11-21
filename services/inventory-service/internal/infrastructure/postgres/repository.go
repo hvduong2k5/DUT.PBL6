@@ -125,14 +125,16 @@ func (r *PostgresInventoryRepository) GetBatchesBySKU(ctx context.Context, sku s
 	for rows.Next() {
 		b := &entity.Batch{}
 		var status string
+		var mfg, exp sql.NullTime
 		err := rows.Scan(
 			&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID,
-			&b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty,
+			&mfg, &exp, &b.PhysicalQty, &b.ReservedQty,
 			&status, &b.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		b.MfgDate, b.ExpDate = mfg.Time, exp.Time
 		b.Status = entity.BatchStatus(status)
 		batches = append(batches, b)
 	}
@@ -156,14 +158,16 @@ func (r *PostgresInventoryRepository) GetActiveBatchesBySKUForUpdate(ctx context
 	for rows.Next() {
 		b := &entity.Batch{}
 		var status string
+		var mfg, exp sql.NullTime
 		err := rows.Scan(
 			&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID,
-			&b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty,
+			&mfg, &exp, &b.PhysicalQty, &b.ReservedQty,
 			&status, &b.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		b.MfgDate, b.ExpDate = mfg.Time, exp.Time
 		b.Status = entity.BatchStatus(status)
 		batches = append(batches, b)
 	}
@@ -181,9 +185,10 @@ func (r *PostgresInventoryRepository) GetBatchByID(ctx context.Context, tx port.
 
 	b := &entity.Batch{}
 	var status string
+	var mfg, exp sql.NullTime
 	err := row.Scan(
 		&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID,
-		&b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty,
+		&mfg, &exp, &b.PhysicalQty, &b.ReservedQty,
 		&status, &b.CreatedAt,
 	)
 	if err != nil {
@@ -192,6 +197,7 @@ func (r *PostgresInventoryRepository) GetBatchByID(ctx context.Context, tx port.
 		}
 		return nil, err
 	}
+	b.MfgDate, b.ExpDate = mfg.Time, exp.Time
 	b.Status = entity.BatchStatus(status)
 	return b, nil
 }
@@ -224,14 +230,16 @@ func (r *PostgresInventoryRepository) GetBatchesByIDsForUpdate(ctx context.Conte
 	for rows.Next() {
 		b := &entity.Batch{}
 		var status string
+		var mfg, exp sql.NullTime
 		err := rows.Scan(
 			&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID,
-			&b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty,
+			&mfg, &exp, &b.PhysicalQty, &b.ReservedQty,
 			&status, &b.CreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		b.MfgDate, b.ExpDate = mfg.Time, exp.Time
 		b.Status = entity.BatchStatus(status)
 		batches = append(batches, b)
 	}
@@ -406,9 +414,11 @@ func (r *PostgresInventoryRepository) GetBatchesNearExpiry(ctx context.Context, 
 	for rows.Next() {
 		b := &entity.Batch{}
 		var status string
-		if err := rows.Scan(&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID, &b.MfgDate, &b.ExpDate, &b.PhysicalQty, &b.ReservedQty, &status, &b.CreatedAt); err != nil {
+		var mfg, exp sql.NullTime
+		if err := rows.Scan(&b.ID, &b.BatchCode, &b.SKU, &b.SupplierID, &mfg, &exp, &b.PhysicalQty, &b.ReservedQty, &status, &b.CreatedAt); err != nil {
 			return nil, err
 		}
+		b.MfgDate, b.ExpDate = mfg.Time, exp.Time
 		b.Status = entity.BatchStatus(status)
 		batches = append(batches, b)
 	}
