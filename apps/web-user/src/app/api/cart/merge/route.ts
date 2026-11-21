@@ -20,10 +20,13 @@ async function mergeRequest(request: NextRequest, guestToken?: string, key?: str
   const base=(process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u,"");
   try {
     const response=await fetch(`${base}/cart${guestToken ? "" : `?merge_key=${encodeURIComponent(key!)}`}`,{method:guestToken ? "POST" : "GET",headers,body:guestToken ? JSON.stringify({guest_token:guestToken}) : undefined,cache:"no-store",redirect:"manual"});
-    const body=await response.json() as unknown;
+    const raw=await response.text();
+    const body=JSON.parse(raw) as unknown;
     if (!response.ok) return NextResponse.json(normalizePublicError(body,{code:"CART_MERGE_FAILED",requestId:"BFF-CART-MERGE"}),{status:response.status,headers:{"Cache-Control":"no-store"}});
     if (!isCartMergeResult(body) || body.merge_key !== key) return failure(502,"INVALID_CART_MERGE_RESULT","Kết quả gộp giỏ hàng không hợp lệ.");
-    const result=NextResponse.json(body,{headers:{"Cache-Control":"no-store"}});
+    // Preserve persisted int64 Catalog versions; JSON re-encoding through a JS
+    // Number would round them and change the result returned on a retry.
+    const result=new NextResponse(raw,{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
     if (guestToken) result.cookies.set(GUEST_COOKIE,"",{httpOnly:true,sameSite:"lax",secure:request.nextUrl.protocol==="https:"||process.env.NODE_ENV==="production"&&process.env.WEB_OIDC_ALLOW_LOCAL_HTTP!=="true",path:"/",maxAge:0});
     return result;
   } catch { return failure(503,"CART_MERGE_UNAVAILABLE","Đã đăng nhập; chưa thể gộp giỏ hàng. Bạn có thể thử lại trong giỏ hàng."); }

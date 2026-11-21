@@ -36,6 +36,13 @@ it("preserves both login and source cookies when the merge fails",async()=>{
   vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({code:"CART_MERGE_UNAVAILABLE",message:"Retry",requestId:"test"},{status:503})));
   const response=await route.POST(request());expect(response.status).toBe(503);expect(response.headers.has("set-cookie")).toBe(false);
 });
+it("preserves persisted int64 Catalog versions in the response bytes",async()=>{
+  const raw=JSON.stringify(result).replace('"quantity":5}', '"quantity":5,"catalog_version":560372688932839723}');
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(raw,{headers:{"Content-Type":"application/json"}})));
+  const response=await route.POST(request());
+  expect(response.status).toBe(200);
+  expect(await response.text()).toBe(raw);
+});
 it("does not change the merge key on retries and never falls back from invalid Customer auth",async()=>{
   const fetcher=vi.fn<(url:string,options:{headers:Headers;body:string})=>Response>().mockImplementation(()=>Response.json(result));vi.stubGlobal("fetch",fetcher);
   await route.POST(request());await route.POST(request());
