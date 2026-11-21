@@ -975,6 +975,7 @@ paths:
       x-contract-status: integration-target
   /api/v1/guest-sessions:
     post:
+      summary: Create a sandbox guest session
       operationId: order_createGuestSession
       description: Sandbox opaque Guest principal without account registration
       responses:
