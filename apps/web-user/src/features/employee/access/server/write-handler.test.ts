@@ -63,10 +63,22 @@ describe("live IAM write forwarding (F-47)", () => {
     expect(calls[1]).toEqual({ url: `${BASE}/admin/roles/${ROLE_ID}/permissions`, method: "PUT", body: { permissions: ["USER_VIEW", "CATALOG_VIEW"] } });
   });
 
-  it("refuses the isEnabled toggle instead of silently dropping it (F-48)", async () => {
-    const { fetcher } = router({});
+  it("forwards the isEnabled toggle to identity (F-48 fixed: disable is reversible)", async () => {
+    const { fetcher, calls } = router({
+      [`GET ${BASE}/admin/roles`]: { status: 200, payload: { success: true, data: [{ roleId: ROLE_ID, roleCode: "WTEST" }] } },
+      [`PATCH ${BASE}/admin/roles/${ROLE_ID}`]: { status: 200, payload: { success: true, data: null } },
+    });
     vi.stubGlobal("fetch", fetcher);
     const response = await handleLiveAdminAccess(writeRequest("PATCH", "roles/WTEST", { isEnabled: false }), ["roles", "WTEST"]);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ updated: true });
+    expect(calls[1]).toEqual({ url: `${BASE}/admin/roles/${ROLE_ID}`, method: "PATCH", body: { isEnabled: false } });
+  });
+
+  it("rejects a non-boolean isEnabled before calling upstream", async () => {
+    const { fetcher } = router({});
+    vi.stubGlobal("fetch", fetcher);
+    const response = await handleLiveAdminAccess(writeRequest("PATCH", "roles/WTEST", { isEnabled: "false" }), ["roles", "WTEST"]);
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe("INVALID_ARGUMENT");
     expect(fetcher).not.toHaveBeenCalled();

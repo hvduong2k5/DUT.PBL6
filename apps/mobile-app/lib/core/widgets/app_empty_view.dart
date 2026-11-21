@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 
 class AppEmptyView extends StatelessWidget {
   const AppEmptyView({
@@ -21,12 +21,7 @@ class AppEmptyView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: AppColors.muted,
-            foregroundColor: AppColors.brandBrown,
-            child: Icon(icon, size: 30),
-          ),
+          const HeritageEmblem(size: 64),
           const SizedBox(height: AppSpacing.md),
           Text(
             title,

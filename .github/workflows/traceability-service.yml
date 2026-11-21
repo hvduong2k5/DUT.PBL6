@@ -1,0 +1,57 @@
+name: Traceability Service
+on:
+  pull_request:
+    branches: [dev, develop, main]
+    paths:
+      - 'services/traceability-service/**'
+      - 'docs/03_api_specs/traceability-service.openapi.yaml'
+      - 'docs/04_testing/traceability-service/artifacts/**'
+      - '.github/workflows/traceability-service.yml'
+  push:
+    branches: [dev, develop, main]
+    paths:
+      - 'services/traceability-service/**'
+      - 'docs/03_api_specs/traceability-service.openapi.yaml'
+      - '.github/workflows/traceability-service.yml'
+permissions:
+  contents: read
+jobs:
+  sandbox-contract-and-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/traceability-service
+    env:
+      COMPOSE_PROJECT_NAME: traceability-service
+      # Ephemeral fixture credentials for this isolated CI runner only.
+      TRACEABILITY_DB_PASSWORD: traceability_ci_ephemeral
+      TRACEABILITY_TEST_DATABASE_URL: postgres://trace_migrator:traceability_ci_ephemeral@127.0.0.1:15403/om_traceability_db?sslmode=disable
+      TRACEABILITY_TEST_KAFKA_BROKERS: 127.0.0.1:19093
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.0'
+          cache-dependency-path: services/traceability-service/go.sum
+      - name: Start isolated PostgreSQL and Kafka-compatible broker
+        run: docker compose --profile broker up -d --wait db kafka
+      - name: Format, vet and build
+        run: |
+          test -z "$(gofmt -l cmd internal migrations)"
+          go vet ./...
+          go build ./...
+      - name: Race and integration tests with aggregate coverage
+        run: |
+          go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+          go tool cover -func=coverage.out | awk '$1=="total:" {gsub("%","",$3); if ($3<75) exit 1}'
+      - name: Validate draft contracts
+        run: |
+          python3 -m venv /tmp/traceability-spec
+          /tmp/traceability-spec/bin/python -m pip install -r scripts/spec-requirements.txt
+          /tmp/traceability-spec/bin/python -m unittest discover -s scripts -p test_validate_specs.py -v
+          /tmp/traceability-spec/bin/python scripts/validate_specs.py
+      - name: Clean up runner containers without removing volumes
+        if: always()
+        run: docker compose --profile broker down

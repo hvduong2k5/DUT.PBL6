@@ -207,7 +207,7 @@ class CatalogCubit extends Cubit<CatalogState> {
       emit(
         state.copyWith(
           status: CatalogStatus.failure,
-          message: 'Không thể tải thực đơn. Vui lòng thử lại.',
+          message: 'Không thể tải sản phẩm. Vui lòng thử lại.',
         ),
       );
     }

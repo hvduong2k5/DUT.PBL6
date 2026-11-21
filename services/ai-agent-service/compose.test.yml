@@ -1,0 +1,30 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ai_db
+      POSTGRES_USER: ai_agent
+      POSTGRES_PASSWORD: ai_agent
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ai_agent -d ai_db"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  tests:
+    build:
+      context: ../..
+      dockerfile: services/ai-agent-service/Dockerfile
+      target: test
+    image: ai-agent-test:local
+    environment:
+      AI_DATABASE_URL: postgresql://ai_agent:ai_agent@db:5432/ai_db
+      AI_FIXTURES: "1"
+      AI_LLM_PROVIDER: fake
+      AI_EMBEDDING_PROVIDER: fake
+    entrypoint: ["pytest"]
+    command: ["-q"]
+    depends_on:
+      db:
+        condition: service_healthy

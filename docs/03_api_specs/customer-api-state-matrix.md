@@ -1,6 +1,6 @@
 # Customer API State Matrix
 
-Updated: 2026-10-17
+Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -70,6 +70,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `GET /api/v1/support/tickets/{ticketId}` | EPIC_16 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/support/tickets/{ticketId}/messages` | EPIC_16 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
 | `GET /api/v1/trace/{qr_code}` | EPIC_19 | stable | 200 | N/A | —/— | — | — | 404 | — | — | 500/503 |
+| `GET /api/v2/trace/{qr_code}` | EPIC_19 | P8 | 200 (nullable fields and verification method) | N/A | —/— | — | — | 404 unknown, 410 unpublished after publication | — | — | 503 |
 | `POST /api/v1/webhooks/logistics/ghn` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/shopee` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/tiktok` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
@@ -92,6 +93,13 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `PATCH /api/v1/notifications/{notificationId}/read` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `PUT /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/ai/shopping/conversations` | US-AI-01 | draft | 201 | N/A | 400/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/shopping/conversations/{conversation_id}` | US-AI-01 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/conversations/{conversation_id}/messages` | US-AI-01 | draft | 200 SSE | N/A | —/422 | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/feedback` | US-AI-01, US-AI-04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
+| `GET /api/v1/ai/recommendations` | US-AI-04 | draft | 200 | 200 (items empty) | —/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/— | 401 | — | — | — | 429 | 500/503 |
+| `PUT /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/422 | 401 | — | — | — | 429 | 500/503 |
 
 ## Acceptance rules
 

@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
 	"strings"
 	"time"
@@ -13,9 +14,12 @@ func (s *Service) PaymentStaff(bearer string) (persistence.PaymentActor, error) 
 	if e != nil {
 		return persistence.PaymentActor{}, e
 	}
-	// Finance requires connection/receiver grants and recent MFA. Order IAM
-	// permissions alone cannot authorize the legacy payment staff protocol.
-	if !principal.Staff() || principal.IAM {
+	if principal.IAM {
+		return s.paymentStaffIAM(bearer, principal)
+	}
+	// The legacy payment staff protocol (connection/receiver claims on a
+	// sandbox token) stays available for non-IAM tokens only.
+	if !principal.Staff() {
 		return persistence.PaymentActor{}, persistence.ErrForbidden
 	}
 	// Authenticate already validated this exact JWT's MAC/issuer/audience/expiry.
@@ -47,4 +51,80 @@ func (s *Service) PaymentStaff(bearer string) (persistence.PaymentActor, error) 
 		actor.MFA = time.Unix(claims.MFAAt, 0)
 	}
 	return actor, nil
+}
+
+// paymentStaffPermissions is the explicit, fail-closed translation from IAM
+// payment grants (the identity permission universe, F-42) to this service's
+// internal payment permission codes. Only GLOBAL grants map. PAYMENT_VIEW is
+// intentionally absent: it only opens the admin web page and must never
+// authorize an API read. PAYMENT_SENSITIVE_VIEW maps to nothing by itself;
+// together with PAYMENT_REFUND_VIEW it unlocks the refund queue, whose views
+// carry beneficiary bank data.
+func paymentStaffPermissions(grants []domain.PermissionGrant, writeFresh bool) map[string]bool {
+	iam := map[string]bool{}
+	for _, g := range grants {
+		if g.ScopeType == "GLOBAL" {
+			iam[g.PermissionCode] = true
+		}
+	}
+	perms := map[string]bool{}
+	if iam["PAYMENT_RECONCILIATION_VIEW"] {
+		perms["payment.reconciliation.read"] = true
+	}
+	if iam["PAYMENT_REFUND_VIEW"] && iam["PAYMENT_SENSITIVE_VIEW"] {
+		perms["payment.refund.read"] = true
+	}
+	if writeFresh && iam["PAYMENT_CASE_RESOLVE"] {
+		perms["payment.reconciliation.manage"] = true
+	}
+	return perms
+}
+
+// paymentAuthTime extracts the auth_time claim from an access token whose
+// signature Authenticate has already verified. A zero result means the token
+// carries no usable auth_time; the write tier then stays unmapped (fail
+// closed) instead of falling back to the token's issue time, which a refresh
+// would silently renew.
+func paymentAuthTime(bearer string) time.Time {
+	parts := strings.Split(strings.TrimPrefix(bearer, "Bearer "), ".")
+	if len(parts) != 3 {
+		return time.Time{}
+	}
+	raw, e := base64.RawURLEncoding.DecodeString(parts[1])
+	if e != nil {
+		return time.Time{}
+	}
+	var claims Claims
+	if json.Unmarshal(raw, &claims) != nil || claims.MFAAt <= 0 {
+		return time.Time{}
+	}
+	return time.Unix(claims.MFAAt, 0)
+}
+
+// paymentStaffIAM builds the payment actor for a Keycloak (IAM) staff
+// principal from its signed permission grants (F-42, option c). The actor is
+// bound to this service's single configured SePay connection and receiver
+// profile — the same values the payment store enforces on every query — and
+// never to a wildcard. The write tier (case manage) additionally requires a
+// fresh auth_time (<= 15 minutes, the legacy protocol's window); this is a
+// recorded, time-boxed exception, not an MFA substitute: the realm has no
+// MFA enrolled yet, and a token without auth_time gets no write tier.
+func (s *Service) paymentStaffIAM(bearer string, principal domain.Principal) (persistence.PaymentActor, error) {
+	if !principal.Staff() || s.Payment == nil || s.Payment.Connection == "" || s.Payment.Receiver == "" {
+		return persistence.PaymentActor{}, persistence.ErrForbidden
+	}
+	authTime := paymentAuthTime(bearer)
+	now := time.Now()
+	writeFresh := !authTime.IsZero() && !authTime.After(now.Add(time.Minute)) && now.Sub(authTime) <= 15*time.Minute
+	perms := paymentStaffPermissions(principal.Grants, writeFresh)
+	if len(perms) == 0 {
+		return persistence.PaymentActor{}, persistence.ErrForbidden
+	}
+	return persistence.PaymentActor{
+		ID:          principal.ID,
+		Connection:  s.Payment.Connection,
+		Receivers:   []string{s.Payment.Receiver},
+		Permissions: perms,
+		MFA:         authTime,
+	}, nil
 }

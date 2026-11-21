@@ -61,6 +61,7 @@ void main() {
       await tester.enterText(find.byType(TextField).at(0), 'TriKyMatKhau!2026');
       await tester.enterText(find.byType(TextField).at(1), 'TriKyMatKhau!2026');
       await tester.ensureVisible(find.text('Đặt lại mật khẩu'));
+      await tester.pump();
       await tester.tap(find.text('Đặt lại mật khẩu'));
       await tester.pumpAndSettle();
       expect(find.text('Mật khẩu đã được cập nhật'), findsOneWidget);

@@ -130,7 +130,7 @@ export interface AdminPermissionDetail extends AdminPermissionSummary {
 }
 
 export interface CreateRoleInput { roleCode: string; roleName: string; description: string }
-export interface UpdateRoleInput { roleName?: string; description?: string }
+export interface UpdateRoleInput { roleName?: string; description?: string; isEnabled?: boolean }
 export interface AssignRoleInput { roleCode: string; scopeType: "GLOBAL" | "WAREHOUSE" | "DEPARTMENT"; scopeId?: string; validFrom?: string; validUntil?: string; reason?: string }
 export interface ResetPasswordInput { newPassword: string; temporary: boolean }
 export interface InvitationCreated { invitationId: string; principalId: string; status: string; expiresAt: string }

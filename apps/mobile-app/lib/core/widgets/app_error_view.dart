@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 import 'package:mobile_app/core/widgets/app_secondary_button.dart';
 
 class AppErrorView extends StatelessWidget {
@@ -25,15 +25,7 @@ class AppErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: AppColors.muted,
-              foregroundColor: AppColors.brickRed,
-              child: Icon(
-                offline ? Icons.wifi_off : Icons.warning_amber_rounded,
-                size: 30,
-              ),
-            ),
+            const HeritageEmblem(size: 64),
             const SizedBox(height: AppSpacing.md),
             Text(
               offline ? 'Không có kết nối mạng' : title,

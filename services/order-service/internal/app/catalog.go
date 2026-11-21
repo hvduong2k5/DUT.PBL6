@@ -124,10 +124,15 @@ func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.Snapsh
 	terms.Money = core.SnapshotMoney{Currency: "VND", Subtotal: snapshot.Subtotal, ShippingFee: quote.Fee, FinalAmount: snapshot.Subtotal + quote.Fee}
 	terms.Policies = core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "shipping-v2"}
 	terms.Payment.Method = q.Method
-	// COD completion requires Finance evidence and is deliberately unavailable
-	// until its provider is integrated; no default settlement proof is fabricated.
 	if q.Method == "COD" {
-		return terms, domain.E("COD_NOT_AVAILABLE", 422)
+		// COD checkout binds only the collection obligation: the amount the
+		// carrier must collect and the COD policy it is collected under.
+		// Settlement is recorded at delivery against Finance evidence; no
+		// settlement proof is fabricated at checkout.
+		policy := "cod-collection-1.0"
+		amount := terms.Money.FinalAmount
+		terms.Payment.CODPolicyReference = &policy
+		terms.Payment.CollectAmount = &amount
 	}
 	return terms, nil
 }

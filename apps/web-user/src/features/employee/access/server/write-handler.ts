@@ -10,10 +10,10 @@ import { parseAdminAccessWritePath } from "../validation";
  * ROLE_ASSIGN, USER_PASSWORD_RESET, USER_SESSION_REVOKE, EMPLOYEE_INVITE)
  * stay the authority and their errors are propagated, not hidden.
  *
- * Deliberately NOT offered: toggling a role's isEnabled flag. The backend
- * routes PATCH isEnabled=false through its soft-delete end state (F-48), so
- * presenting it as a reversible disable would be a lie; the request is
- * rejected explicitly instead of being silently dropped.
+ * Role enable/disable (PATCH isEnabled) is forwarded like every other
+ * field: F-48 made disable a reversible state distinct from archive on the
+ * backend (Flyway V13), live-proven 2026-11-14 — a disabled role stays
+ * readable, its active assignments are revoked, and it can be re-enabled.
  */
 
 const failure = (status: number, code: string, message: string) =>
@@ -117,10 +117,13 @@ export async function handleLiveAdminAccessWrite(request: NextRequest, path: str
       }
       case "update-role": {
         const body = await readBody(request);
-        if ("isEnabled" in body) throw invalid("Vô hiệu hóa Role chưa được hỗ trợ: backend hiện biến thao tác này thành xóa mềm không khôi phục được (F-48).");
         const patch: Rec = {};
         if ("roleName" in body) patch.roleName = textField(body, "roleName", 120);
         if ("description" in body) patch.description = str(body.description).trim().slice(0, 500);
+        if ("isEnabled" in body) {
+          if (typeof body.isEnabled !== "boolean") throw invalid("Trạng thái kích hoạt (isEnabled) phải là true hoặc false.");
+          patch.isEnabled = body.isEnabled;
+        }
         if (!Object.keys(patch).length) throw invalid("Không có trường nào để cập nhật.");
         const roleId = await resolveRoleId(client, route.roleCode);
         const result = await client.request("PATCH", `/admin/roles/${encodeURIComponent(roleId)}`, patch);
