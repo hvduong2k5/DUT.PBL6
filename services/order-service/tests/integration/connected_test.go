@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
@@ -77,7 +78,7 @@ func (s *statementServer) add(row sepay.Transaction) {
 	defer s.mu.Unlock()
 	s.rows = append(s.rows, row)
 }
-func connectedHarness(t *testing.T) (*harness, *statementServer, sepay.Receiver) {
+func connectedHarness(t *testing.T, configure ...func(*harness)) (*harness, *statementServer, sepay.Receiver) {
 	t.Helper()
 	h := newHarness(t)
 	t.Cleanup(func() {
@@ -158,6 +159,9 @@ func connectedHarness(t *testing.T) (*harness, *statementServer, sepay.Receiver)
 	t.Cleanup(func() {
 		_, _ = client.DeleteTopics(context.Background(), &kafka.DeleteTopicsRequest{Topics: []string{h.S.C.SourceTopic}})
 	})
+	for _, apply := range configure {
+		apply(h)
+	}
 	ctx, cancel := context.WithCancel(h.ctx)
 	h.cancel = cancel
 	h.S.Start(ctx)
@@ -206,7 +210,10 @@ func httpCoreOrder(t *testing.T, h *harness, method string) (domain.Quote, domai
 		t.Fatal("replay", code, replay, op)
 	}
 	untilConnected(t, func() bool {
-		if _, e := h.S.CoreCheckout.Work(h.ctx); e != nil {
+		// The background executor can advance the same workflow and acquire its
+		// next lease. A stale foreground epoch must yield to that worker, while
+		// the operation is still required to reach SUCCEEDED below.
+		if _, e := h.S.CoreCheckout.Work(h.ctx); e != nil && !errors.Is(e, persistence.ErrLease) {
 			t.Fatal("target checkout executor", e)
 		}
 		h.request(h.API.URL, "GET", "/api/v1/checkout-operations/"+op.ID, h.Token, nil, &op)
@@ -598,7 +605,18 @@ func TestConnectedAdmissionHoldResumeFencesOldGeneration(t *testing.T) {
 	}
 }
 func TestConnectedUnpaidTimeoutAndBankTimeBeforeDeadline(t *testing.T) {
-	h, statement, receiver := connectedHarness(t)
+	testUnpaidTimeoutAndBankTime(t, false)
+}
+func TestGuestVietQRLateMoneyNeverFulfils(t *testing.T) {
+	testUnpaidTimeoutAndBankTime(t, true)
+}
+func testUnpaidTimeoutAndBankTime(t *testing.T, guest bool) {
+	h, statement, receiver := connectedHarness(t, func(h *harness) {
+		if guest {
+			enableKeycloakGuest(t, h)
+			h.S.C.GuestVietQRCheckoutEnabled = true
+		}
+	})
 	if e := h.Sim.SetFault(h.ctx, "core_terms", "short_expiry", 1); e != nil {
 		t.Fatal(e)
 	}

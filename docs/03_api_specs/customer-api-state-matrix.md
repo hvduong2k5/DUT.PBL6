@@ -110,4 +110,51 @@ These rows are proposals. Backend may refine them, but must record the decision 
 5. Every endpoint has controlled latency and `500/503` UI tests.
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
 
+
 Web and Mobile show the loyalty wallet entry only when the capability projection includes `LOYALTY_VIEW`. Direct navigation remains subject to the same capability check.
+
+## F-53 guest checkout trust boundary (B-G0)
+
+All guest feature flags default OFF. OIDC access-token renewal keeps the Customer identity and forwards the renewed credential through the configured commerce topology. Refresh-only cookies still count as Customer session material; failed renewal never falls back to a guest. Customer login presence takes precedence over any guest cookie, including invalid/expired login sessions. Guest fixed capabilities cover cart, checkout and exact own-order reads only; account/profile/history, employee and payment writes retain customer/employee authorization. Payment grants cover exact-order payment reads only and never use guest-session validation. No fallback after either validator rejects a token.
+
+| Operation | Success / loading | Empty | Errors | Authentication / authorization |
+| --- | --- | --- | --- | --- |
+| `POST /api/v1/guest-sessions` | 201 / disable duplicate action | No session for plain page views or an empty cart read | 400 input overrides, 429 quota, 503 persistence | Anonymous; 403 when issuance flag off |
+| `DELETE /api/v1/guest-sessions/current` | 204 / revoke pending | N/A | 503 | 401 invalid session; 403 wrong principal |
+| `POST /api/v1/orders/{order_id}/guest-payment-access` | 201 / mint pending | N/A | 400 key, 404 ownership, 409 replay, 503 | Active owning guest session only |
+| `DELETE /api/v1/orders/{order_id}/guest-payment-access` | 204 / revoke pending | N/A | 400 key, 404 ownership, 503 | Active owning guest session only |
+
+AUTH-11..16 must pass before enabling cart/COD. Customer step-up and cross-customer isolation remain mandatory. The rc.2 pick, deployment, Kong restart after recreation, live COD/SePay/merge proofs require Muse audit and Bao approval; local checks alone are not release acceptance.
+
+
+## F-53 guest cart and COD (B-G1)
+
+Guest cart mutations require `GUEST_CART_MUTATION_ENABLED` plus the storefront guest gate; disabled mutations return 403 before lazy issuance. Mutations are limited to 60/session/minute (429). Customer account surfaces keep their existing authorization.
+
+Guest COD quote/accept requires `GUEST_COD_CHECKOUT_ENABLED`, uses an inline address and does not fetch Profile. Loading disables duplicate submission, empty cart stays 200, stale revision is 409, invalid/unserviceable address is 422, and dependency failure is 503. A transaction serializes admission on the session and limits unpaid pending orders plus in-flight checkout to 3; the fourth returns 429 `GUEST_PENDING_ORDER_LIMIT` without creating an operation. Idempotent replay remains available at quota. Guest checkout shows the authoritative order code and phone-OTP tracking guidance. Cross-session order reads return 404; account history and cancellation remain customer-only for session guests.
+
+The current simulator province 75 / ward HUE-01 seam is unchanged. Real Catalog COD retains the `dev` default collection policy `cod-collection-1.0`; `ORDER_COD_POLICY_REFERENCE` optionally overrides it, and malformed values return 422 `COD_NOT_AVAILABLE`. Guest COD still requires its independent feature flag. The server snapshots the final collect amount. `CONFIRMED_COD` remains `UNPAID`, with no payment deadline or bank receiver; Finance settlement remains required for completion. `PROOF-COD-01` remains a live post-audit acceptance requirement.
+
+
+## F-53 guest VietQR (B-G2)
+
+`GUEST_VIETQR_CHECKOUT_ENABLED` is independent of COD. The Web lazily exchanges the active guest session for an exact-order payment read grant, stores it in an httpOnly cookie scoped to that order's payment BFF routes, and forwards only the grant on polling. The session token cannot read payment; another order's grant returns 401. Any present invalid Customer credential returns an error without switching to the guest grant.
+
+| Operation | Success/loading | Failure/auth |
+| --- | --- | --- |
+| Web `POST /api/payments/orders/{orderId}/guest-access` | 204 / disable duplicate action; token never exposed | 400 input, 401 missing/invalid credential, 403 flag/principal, 404 ownership, 409 replay, 503 dependency |
+| `GET /api/v1/orders/{order_id}/payment` | 200 / display current state and bounded polling | 401 grant, 403 principal, 404 owner, 503 dependency |
+| `GET /api/v1/orders/{order_id}/payment-instructions` | 200 / display QR only while payable | 401 grant, 403 principal, 404 owner, 409 expired, 503 dependency |
+
+SePay verification remains HMAC-SHA256 over timestamp + raw payload (five-minute window), durable deduplicated observation, canonical API row verification and exactly-once allocation/finalization. An observation alone cannot settle. Late money stays in reconciliation and cannot auto-fulfil. `PROOF-VQR-01` requires the separately approved live transfer and duplicate replay; local TEST statements do not satisfy that live proof.
+
+
+## F-53 cart merge after login/registration (B-G3)
+
+| Operation | Success/loading/empty | Errors/auth |
+| --- | --- | --- |
+| `POST /api/v1/cart` | 200 persisted outcome; one Customer revision; empty source allowed | 400 body/key, 401 invalid/expired/revoked source, 403 Customer/flag, 409 key/source conflict, 503 Catalog/store; all changes rollback together |
+| `GET /api/v1/cart?merge_key=...` | 200 original persisted merge result even after source revocation | 400 key, 401 Customer session, 403 wrong principal, 404 another Customer/key, 503 store |
+| Web `POST /api/cart/merge` | 200 merged result and clear guest cookie; 204 when no guest cookie or rollout off | Login stays successful on merge error; preserve source cookie and show retry in cart |
+
+The source credential stays in an httpOnly cookie and is sent to Order in a dedicated body field through the existing authenticated Customer proxy. A stable server-derived merge key makes retries/tabs idempotent. Outcomes show merged / adjusted / dropped with per-SKU reasons. Failure never breaks the login session. Converted carts use SQL authority and the same scope locks for mutation and checkout cleanup; flag-off cannot restore stale Redis carts. `PROOF-MERGE-01` still requires the audited live login flow and DB ledger evidence.

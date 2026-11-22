@@ -27,12 +27,35 @@ func (e *Error) Error() string        { return e.Code }
 func E(code string, status int) error { return &Error{code, status} }
 
 type Principal struct {
+	IAM        bool              `json:"-"`
+	Grants     []PermissionGrant `json:"-"`
+	Kind       PrincipalKind     `json:"kind,omitempty"`
 	ID         string            `json:"id"`
 	Role       string            `json:"role"`
 	Warehouse  string            `json:"warehouse"`
 	CustomerID string            `json:"customer_id,omitempty"`
-	IAM        bool              `json:"-"`
-	Grants     []PermissionGrant `json:"-"`
+}
+
+type PrincipalKind string
+
+const (
+	Customer          PrincipalKind = "CUSTOMER"
+	Guest             PrincipalKind = "GUEST"
+	GuestPaymentGrant PrincipalKind = "GUEST_PAYMENT_GRANT"
+	Employee          PrincipalKind = "EMPLOYEE"
+)
+
+func (p Principal) PrincipalKind() PrincipalKind {
+	if p.Kind != "" {
+		return p.Kind
+	}
+	if p.Role == "CUSTOMER" {
+		return Customer
+	}
+	if p.Role == "GUEST" {
+		return Guest
+	}
+	return Employee
 }
 
 func (p Principal) Scope() string { return strings.ToLower(p.Role) + ":" + p.ID }
@@ -86,6 +109,20 @@ func (a Address) Validate() error {
 type Cart struct {
 	Revision int64  `json:"revision"`
 	Items    []Item `json:"items"`
+}
+
+type CartMergeItem struct {
+	SKU       string `json:"sku_code"`
+	Status    string `json:"status"`
+	Requested int    `json:"requested_quantity"`
+	Quantity  int    `json:"quantity"`
+	Reason    string `json:"reason,omitempty"`
+}
+type CartMergeResult struct {
+	Key      string          `json:"merge_key"`
+	Cart     Cart            `json:"cart"`
+	Items    []CartMergeItem `json:"items"`
+	MergedAt time.Time       `json:"merged_at"`
 }
 type QuoteInput struct {
 	Revision  int64    `json:"cart_revision"`

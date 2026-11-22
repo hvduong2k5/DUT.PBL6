@@ -59,15 +59,16 @@ func validID(s string) bool {
 func ownerScope(o core.Owner) string { return strings.ToLower(o.Kind) + ":" + o.PrincipalID }
 
 type AcceptanceInput struct {
-	Owner            core.Owner
-	Method           string
-	Key, RequestHash string
-	QuoteID, CartID  string
-	CartRevision     int64
-	SelectionDigest  core.SelectionHash
-	QuoteHash        core.PayloadHash
-	QuoteExpiresAt   time.Time
-	AcceptedJSON     []byte
+	GuestPendingLimit int
+	Owner             core.Owner
+	Method            string
+	Key, RequestHash  string
+	QuoteID, CartID   string
+	CartRevision      int64
+	SelectionDigest   core.SelectionHash
+	QuoteHash         core.PayloadHash
+	QuoteExpiresAt    time.Time
+	AcceptedJSON      []byte
 }
 type Acceptance struct {
 	OperationID    string
@@ -113,6 +114,11 @@ func (s *Store) Accept(ctx context.Context, in AcceptanceInput) (Acceptance, err
 		}
 		if !errors.Is(e, pgx.ErrNoRows) {
 			return e
+		}
+		if in.Owner.Kind == "GUEST" && in.GuestPendingLimit > 0 {
+			if e = GuardGuestPending(ctx, tx, in.Owner.PrincipalID, in.GuestPendingLimit); e != nil {
+				return e
+			}
 		}
 		var at time.Time
 		if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&at); e != nil {

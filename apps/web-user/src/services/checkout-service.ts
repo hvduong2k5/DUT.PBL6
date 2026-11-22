@@ -19,6 +19,7 @@ import type {
 } from "@/lib/checkout/types";
 
 interface CheckoutRequestOptions {
+  guest?: boolean;
   mockScenario?: string;
   cartScenario?: string;
 }
@@ -48,12 +49,12 @@ export const checkoutService = {
     const [cart, locations, profileResult, addressesResult] = await Promise.all([
       cartService.get(options.cartScenario),
       customerService.getLocations(),
-      customerService.getProfile().then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const })),
-      customerService.getAddresses().then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const }))
+      options.guest ? Promise.resolve({ ok: false as const }) : customerService.getProfile().then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const })),
+      options.guest ? Promise.resolve({ ok: false as const }) : customerService.getAddresses().then((value) => ({ ok: true as const, value })).catch(() => ({ ok: false as const }))
     ]);
     const profile = profileResult.ok ? profileResult.value : undefined;
     const addresses = addressesResult.ok ? addressesResult.value.items : [];
-    const warning = profileResult.ok && addressesResult.ok
+    const warning = options.guest || profileResult.ok && addressesResult.ok
       ? undefined
       : "Chưa thể tải đầy đủ hồ sơ hoặc sổ địa chỉ. Bạn vẫn có thể nhập thông tin nhận hàng cho đơn này.";
     return mapMvpCheckoutPreparation(cart, locations.provinces, profile, addresses, warning);
