@@ -6,8 +6,7 @@ import {
   type PublicErrorBody
 } from "@/lib/api-contract";
 import { authorizeCustomerCapability, requireCustomerSession, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { getTrustedAccessToken } from "@/lib/auth/server-credential";
-import { applyStorefrontAuthorization, authorizeStorefrontCapability, storefrontUpstream, hasCustomerCredential, GUEST_COOKIE } from "@/lib/auth/storefront-credential";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, storefrontUpstream, hasCustomerCredential, GUEST_COOKIE, withStorefrontAuth, storefrontCustomerCredential } from "@/lib/auth/storefront-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { GUEST_ORDER_ACCESS_COOKIE, decodeGuestOrderAccess, encodeGuestOrderAccess } from "@/lib/orders/guest-access";
 import { isOrderCancellation, isOrderTrackingResponse, isOwnedOrder, isOwnedOrdersResponse } from "@/lib/orders/mvp";
@@ -127,6 +126,10 @@ function positiveInteger(value: unknown): number | undefined {
 }
 
 export async function handleOrderRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
+  return withStorefrontAuth(request, () => handleResolvedOrderRequest(request, path)) as Promise<NextResponse>;
+}
+
+async function handleResolvedOrderRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
   const route = parseOrderRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
@@ -150,7 +153,7 @@ export async function handleOrderRequest(request: NextRequest, path: string[]): 
     return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Guest Order chưa được bật trong MVP contract hiện tại.", "BFF-ORDER-GUEST-GATE");
   }
 
-  const accessToken = getTrustedAccessToken(request);
+  const accessToken = storefrontCustomerCredential(request);
   if (isGuestExtension && hasCustomerCredential(request)) {
     try { await requireCustomerSession(accessToken); }
     catch (cause) { const failure = customerAccessFailure(cause); return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-ORDER-ACCESS"); }

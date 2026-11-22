@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"regexp"
 	"strings"
 	"time"
@@ -109,7 +111,11 @@ func (c *PackingConsumer) Run(ctx context.Context) {
 
 		for {
 			_, err = c.service.CreateFromPacking(ctx, event, c.snapshots, c.defaultCarrier, c.defaultService)
-			if err == nil {
+			if err == nil || status.Code(err) == codes.AlreadyExists {
+				break
+			}
+			if status.Code(err) == codes.InvalidArgument {
+				c.logger.Warn().Err(err).Str("order_id", event.OrderID).Msg("invalid packing request skipped")
 				break
 			}
 			c.logger.Error().Err(err).Str("order_id", event.OrderID).Str("package_id", event.PackageID).Msg("process PackingCompleted event; will retry")

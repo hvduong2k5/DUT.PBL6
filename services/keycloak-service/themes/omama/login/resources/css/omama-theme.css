@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@600;700&display=swap');
 
 :root {
@@ -457,8 +458,9 @@ body:has(#kc-reset-password-form) #kc-info {
   margin-top: 28px !important;
 }
 
-/* 16. Language Selector (Locale Dropdown) */
+/* 16. Language Selector (Locale Dropdown - hidden: only Vietnamese supported) */
 #kc-locale {
+  display: none !important;
   position: absolute !important;
   top: 22px !important;
   right: 24px !important;

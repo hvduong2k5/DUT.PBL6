@@ -35,7 +35,7 @@ func TestProfileSignedIdentity(t *testing.T) {
 	}
 	principal := uuid.NewString()
 	signed := func(edit func(jwt.MapClaims)) string {
-		claims := jwt.MapClaims{"iss": server.URL, "aud": []string{"omama-api", "order-api"}, "sub": uuid.NewString(), "user_id": principal, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Minute).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}}
+		claims := jwt.MapClaims{"iss": server.URL, "aud": []string{"omama-api", "order-api"}, "sub": uuid.NewString(), "user_id": principal, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Minute).Unix(), "principal_type": "CUSTOMER"}
 		if edit != nil {
 			edit(claims)
 		}
@@ -52,7 +52,7 @@ func TestProfileSignedIdentity(t *testing.T) {
 		t.Fatal(p, err)
 	}
 	if _, err := verifier.Authenticate(context.Background(), signed(func(c jwt.MapClaims) {
-		c["iat"] = time.Now().Add(2 * time.Second).Unix()
+		c["iat"] = time.Now().Add(28 * time.Second).Unix()
 	})); err != nil {
 		t.Fatal("small issuer/verifier clock difference rejected a valid signed token", err)
 	}
@@ -60,12 +60,12 @@ func TestProfileSignedIdentity(t *testing.T) {
 		"wrong audience":            func(c jwt.MapClaims) { c["aud"] = "other-api" },
 		"wrong issuer":              func(c jwt.MapClaims) { c["iss"] = "https://other.invalid" },
 		"expired":                   func(c jwt.MapClaims) { c["exp"] = time.Now().Add(-time.Minute).Unix() },
-		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(10 * time.Second).Unix() },
+		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(32 * time.Second).Unix() },
 		"no expiry":                 func(c jwt.MapClaims) { delete(c, "exp") },
 		"no principal":              func(c jwt.MapClaims) { delete(c, "user_id") },
 		"nil principal":             func(c jwt.MapClaims) { c["user_id"] = uuid.Nil.String() },
 		"id token":                  func(c jwt.MapClaims) { c["typ"] = "ID" },
-		"unscoped staff":            func(c jwt.MapClaims) { c["realm_access"] = map[string]any{"roles": []string{"ADMIN", "EMPLOYEE"}} },
+		"unscoped staff":            func(c jwt.MapClaims) { c["principal_type"] = "EMPLOYEE" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, e := verifier.Authenticate(context.Background(), signed(edit)); e == nil {
@@ -83,5 +83,16 @@ func TestProfileSignedIdentity(t *testing.T) {
 	cfg.AuthMode = "internal"
 	if _, err = NewOIDCIdentity(cfg); err == nil {
 		t.Fatal("misconfigured OIDC silently downgraded")
+	}
+}
+
+func TestProfileKeycloakRequiresAuthoritativeIdentityOutsideLocalTest(t *testing.T) {
+	cfg := &config.Config{AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "omama-api"}
+	if _, err := NewOIDCIdentity(cfg); err == nil {
+		t.Fatal("missing Identity silently bypassed persona verification")
+	}
+	cfg.IdentityURL = "https://identity.example"
+	if _, err := NewOIDCIdentity(cfg); err != nil {
+		t.Fatal(err)
 	}
 }

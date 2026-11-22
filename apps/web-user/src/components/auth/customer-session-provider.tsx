@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import type { CustomerSummary, PrincipalSummary } from "@/lib/auth/types";
 import type { CustomerActor, CustomerCapability } from "@/lib/auth/capabilities";
-import { CapabilityApiError, getCustomerCapabilities } from "@/services/capability-service";
+import { CapabilityApiError, capabilityFailureAction, getCustomerCapabilities } from "@/services/capability-service";
 
 type SessionStatus = "loading" | "authenticated" | "guest" | "forbidden" | "error";
 type CapabilityStatus = "loading" | "ready" | "forbidden" | "error";
@@ -31,8 +31,11 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   const [actor, setActor] = useState<CustomerActor | null>(null);
   const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>("loading");
   const [capabilities, setCapabilities] = useState<CustomerCapability[]>([]);
+  const sessionRecheckKey = useRef<string | null>(null);
+  const authReload = useRef(auth.reload);
+  useEffect(() => { authReload.current = auth.reload; }, [auth.reload]);
 
-  const loadCapabilities = useCallback(async (allowed: boolean) => {
+  const loadCapabilities = useCallback(async (allowed: boolean, identityKey: string) => {
     if (!allowed) {
       setActor(null);
       setCapabilities([]);
@@ -42,13 +45,32 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     setCapabilityStatus("loading");
     try {
       const projection = await getCustomerCapabilities();
+      sessionRecheckKey.current = null;
       setActor(projection.actor);
       setCapabilities(projection.capabilities);
       setCapabilityStatus("ready");
     } catch (cause) {
       setActor(null);
       setCapabilities([]);
-      setCapabilityStatus(cause instanceof CapabilityApiError && (cause.status === 401 || cause.status === 403) ? "forbidden" : "error");
+      const action = cause instanceof CapabilityApiError ? capabilityFailureAction(cause.status, cause.code) : "error";
+      if (action === "forbidden") {
+        setCapabilityStatus("forbidden");
+        return;
+      }
+      if (action === "session" && sessionRecheckKey.current !== identityKey) {
+        // The credential layer rejected the session while the auth probe
+        // still shows the user as signed in. Re-probe the session once: if
+        // it really ended, the auth layer flips to guest and the account
+        // guard redirects to the login page. The error state below keeps a
+        // manual retry available in the meantime, and a failed capability
+        // check alone never clears the authenticated state.
+        sessionRecheckKey.current = identityKey;
+        void authReload.current();
+      }
+      if (action === "error" && cause instanceof CapabilityApiError && cause.status === 401) {
+        console.warn(`capabilities: unexpected 401 error code "${cause.code}"`);
+      }
+      setCapabilityStatus("error");
     }
   }, []);
 
@@ -79,9 +101,11 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
     status: customerIdentity.customerStatus ?? "ACTIVE"
   } : null, [customerIdentity]);
 
+  const identityKey = customerIdentity?.principalId ?? "anonymous";
+
   useEffect(() => {
-    void Promise.resolve().then(() => loadCapabilities(customerAccess));
-  }, [customerAccess, loadCapabilities]);
+    void Promise.resolve().then(() => loadCapabilities(customerAccess, identityKey));
+  }, [customerAccess, identityKey, loadCapabilities]);
 
   const hasCapability = useCallback((capability: CustomerCapability) => capabilityStatus === "ready" && capabilities.includes(capability), [capabilities, capabilityStatus]);
   const hasRole = useCallback((roleCode: string) => Boolean(principal?.roles.some((role) => role.roleCode === roleCode)), [principal]);

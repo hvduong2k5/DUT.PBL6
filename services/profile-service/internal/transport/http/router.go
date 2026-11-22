@@ -61,6 +61,10 @@ func NewRouter(cfg RouterConfig) http.Handler {
 		api.Use(middleware.AuthContextWithIdentity(cfg.IdentityToken, cfg.Identity))
 		api.Get("/locations/checkout", locationsHandler(cfg.Pool))
 		api.Get("/customer/capabilities", func(w http.ResponseWriter, r *http.Request) {
+			if role, _ := r.Context().Value(middleware.UserRoleKey).(string); role != "CUSTOMER" {
+				writeJSON(w, 403, map[string]string{"code": "CUSTOMER_REQUIRED"})
+				return
+			}
 			uid, ok := middleware.GetUserIDFromContext(r.Context())
 			if !ok || cfg.CustomerResolver == nil {
 				writeJSON(w, 401, map[string]string{"code": "AUTH_REQUIRED"})
@@ -117,12 +121,11 @@ func NewRouter(cfg RouterConfig) http.Handler {
 
 		// Admin & HR Routes
 		api.Route("/admin", func(adm chi.Router) {
-			adm.Use(middleware.RequireRole("ADMIN", "HR_MANAGER", "HR_ADMIN"))
 			adm.Route("/employees", func(e chi.Router) {
-				e.Get("/", cfg.EmployeeHandler.ListEmployees)
-				e.Post("/", cfg.EmployeeHandler.CreateEmployee)
-				e.Get("/compliance", cfg.EmployeeHandler.GetCompliance)
-				e.Get("/{id}", cfg.EmployeeHandler.GetEmployeeDetail)
+				e.With(middleware.RequirePermission("EMPLOYEE_PROFILE_VIEW")).Get("/", cfg.EmployeeHandler.ListEmployees)
+				e.With(middleware.RequirePermission("EMPLOYEE_PROFILE_CREATE")).Post("/", cfg.EmployeeHandler.CreateEmployee)
+				e.With(middleware.RequirePermission("EMPLOYEE_COMPLIANCE_VIEW")).Get("/compliance", cfg.EmployeeHandler.GetCompliance)
+				e.With(middleware.RequirePermission("EMPLOYEE_PROFILE_VIEW")).Get("/{id}", cfg.EmployeeHandler.GetEmployeeDetail)
 			})
 		})
 	})

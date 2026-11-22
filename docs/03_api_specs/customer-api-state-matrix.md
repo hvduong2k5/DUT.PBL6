@@ -1,6 +1,6 @@
 # Customer API State Matrix
 
-Updated: 2026-10-17
+Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -21,6 +21,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `GET /api/v1/users/me` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | 404 | — | — | 500/503 |
 | `PUT /api/v1/users/me/password` | EPIC_01 | stable | 200 | N/A | 400/422 | 401 | — | 404 | — | — | 500/503 |
+| `GET /api/v1/public/auth/health` | EPIC_01 | stable | 200 | N/A | — | — | — | — | — | — | 503 |
 | `GET /api/v1/public/auth/login` | EPIC_01 | stable | 200 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/callback` | EPIC_01 | stable | 302 | N/A | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/public/auth/session` | EPIC_01 | stable | 200 | N/A | —/— | 401 | — | — | — | — | 500/503 |
@@ -69,6 +70,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `GET /api/v1/support/tickets/{ticketId}` | EPIC_16 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `POST /api/v1/support/tickets/{ticketId}/messages` | EPIC_16 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
 | `GET /api/v1/trace/{qr_code}` | EPIC_19 | stable | 200 | N/A | —/— | — | — | 404 | — | — | 500/503 |
+| `GET /api/v2/trace/{qr_code}` | EPIC_19 | P8 | 200 (nullable fields and verification method) | N/A | —/— | — | — | 404 unknown, 410 unpublished after publication | — | — | 503 |
 | `POST /api/v1/webhooks/logistics/ghn` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/shopee` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `POST /api/v1/webhooks/marketplace/tiktok` | EPIC_11, EPIC_12 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
@@ -91,6 +93,13 @@ These rows are proposals. Backend may refine them, but must record the decision 
 | `PATCH /api/v1/notifications/{notificationId}/read` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | — | — | 500/503 |
 | `PUT /api/v1/notification-preferences` | EPIC_28 | planned | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/ai/shopping/conversations` | US-AI-01 | draft | 201 | N/A | 400/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/shopping/conversations/{conversation_id}` | US-AI-01 | draft | 200 | N/A | —/— | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/conversations/{conversation_id}/messages` | US-AI-01 | draft | 200 SSE | N/A | —/422 | 401 | 403 | 404 | — | 429 | 500/503 |
+| `POST /api/v1/ai/shopping/feedback` | US-AI-01, US-AI-04 | draft | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | 429 | 500/503 |
+| `GET /api/v1/ai/recommendations` | US-AI-04 | draft | 200 | 200 (items empty) | —/422 | 401 | 403 | — | — | 429 | 500/503 |
+| `GET /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/— | 401 | — | — | — | 429 | 500/503 |
+| `PUT /api/v1/ai/consent` | US-AI-01 | draft | 200 | N/A | —/422 | 401 | — | — | — | 429 | 500/503 |
 
 ## Acceptance rules
 
@@ -102,9 +111,11 @@ These rows are proposals. Backend may refine them, but must record the decision 
 6. Error responses preserve `code` and `requestId`; clients do not branch on translated `message`.
 
 
+Web and Mobile show the loyalty wallet entry only when the capability projection includes `LOYALTY_VIEW`. Direct navigation remains subject to the same capability check.
+
 ## F-53 guest checkout trust boundary (B-G0)
 
-All guest feature flags default OFF. Customer login presence takes precedence over any guest cookie, including invalid/expired login sessions. Guest fixed capabilities cover cart, checkout and exact own-order reads only; account/profile/history, employee and payment writes retain customer/employee authorization. Payment grants cover exact-order payment reads only and never use guest-session validation. No fallback after either validator rejects a token.
+All guest feature flags default OFF. OIDC access-token renewal keeps the Customer identity and forwards the renewed credential through the configured commerce topology. Refresh-only cookies still count as Customer session material; failed renewal never falls back to a guest. Customer login presence takes precedence over any guest cookie, including invalid/expired login sessions. Guest fixed capabilities cover cart, checkout and exact own-order reads only; account/profile/history, employee and payment writes retain customer/employee authorization. Payment grants cover exact-order payment reads only and never use guest-session validation. No fallback after either validator rejects a token.
 
 | Operation | Success / loading | Empty | Errors | Authentication / authorization |
 | --- | --- | --- | --- | --- |
@@ -122,7 +133,7 @@ Guest cart mutations require `GUEST_CART_MUTATION_ENABLED` plus the storefront g
 
 Guest COD quote/accept requires `GUEST_COD_CHECKOUT_ENABLED`, uses an inline address and does not fetch Profile. Loading disables duplicate submission, empty cart stays 200, stale revision is 409, invalid/unserviceable address is 422, and dependency failure is 503. A transaction serializes admission on the session and limits unpaid pending orders plus in-flight checkout to 3; the fourth returns 429 `GUEST_PENDING_ORDER_LIMIT` without creating an operation. Idempotent replay remains available at quota. Guest checkout shows the authoritative order code and phone-OTP tracking guidance. Cross-session order reads return 404; account history and cancellation remain customer-only for session guests.
 
-The current simulator province 75 / ward HUE-01 seam is unchanged. Real Catalog COD also requires an explicit `ORDER_COD_POLICY_REFERENCE`; empty returns 422 `COD_NOT_AVAILABLE` for both Customer and Guest. The server snapshots the final collect amount. `CONFIRMED_COD` remains `UNPAID`, with no payment deadline or bank receiver; Finance settlement remains required for completion. `PROOF-COD-01` remains a live post-audit acceptance requirement.
+The current simulator province 75 / ward HUE-01 seam is unchanged. Real Catalog COD retains the `dev` default collection policy `cod-collection-1.0`; `ORDER_COD_POLICY_REFERENCE` optionally overrides it, and malformed values return 422 `COD_NOT_AVAILABLE`. Guest COD still requires its independent feature flag. The server snapshots the final collect amount. `CONFIRMED_COD` remains `UNPAID`, with no payment deadline or bank receiver; Finance settlement remains required for completion. `PROOF-COD-01` remains a live post-audit acceptance requirement.
 
 
 ## F-53 guest VietQR (B-G2)

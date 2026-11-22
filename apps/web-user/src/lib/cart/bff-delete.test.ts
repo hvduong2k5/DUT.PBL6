@@ -1,12 +1,17 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-
 
 vi.mock("@/lib/auth/customer-access-server", () => ({
   authorizeCustomerCapability: vi.fn().mockResolvedValue({}),
   customerAccessFailure: vi.fn()
 }));
 afterEach(() => vi.unstubAllGlobals());
+
+// The suite runs non-isolated: another test file may already have
+// evaluated cart-handler against the real customer-access-server, in
+// which case the mock above never binds. Reset the module registry and
+// import the handler inside the test so the mock always applies.
+beforeEach(() => vi.resetModules());
 
 it("reads the new cart after a successful 204 DELETE even when a proxy keeps the JSON content type", async () => {
   vi.resetModules();

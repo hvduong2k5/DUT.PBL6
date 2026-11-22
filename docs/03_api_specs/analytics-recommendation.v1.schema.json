@@ -1,0 +1,593 @@
+{
+  "$defs": {
+    "Basket": {
+      "additionalProperties": false,
+      "properties": {
+        "recordKey": {
+          "title": "Recordkey",
+          "type": "string"
+        },
+        "orderId": {
+          "format": "uuid",
+          "title": "Orderid",
+          "type": "string"
+        },
+        "orderVersion": {
+          "minimum": 1,
+          "title": "Orderversion",
+          "type": "integer"
+        },
+        "cohort": {
+          "const": "order-core-1",
+          "title": "Cohort",
+          "type": "string"
+        },
+        "channel": {
+          "const": "D2C_WEB",
+          "title": "Channel",
+          "type": "string"
+        },
+        "warehouseId": {
+          "format": "uuid",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "completedAt": {
+          "format": "date-time",
+          "title": "Completedat",
+          "type": "string"
+        },
+        "eligible": {
+          "title": "Eligible",
+          "type": "boolean"
+        },
+        "eligibilityReason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Eligibilityreason"
+        },
+        "customerPrincipalId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Customerprincipalid"
+        },
+        "identityMappingVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Identitymappingversion"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/BasketItem"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "recordKey",
+        "orderId",
+        "orderVersion",
+        "cohort",
+        "channel",
+        "warehouseId",
+        "completedAt",
+        "eligible",
+        "eligibilityReason",
+        "customerPrincipalId",
+        "identityMappingVersion",
+        "items"
+      ],
+      "title": "Basket",
+      "type": "object"
+    },
+    "BasketItem": {
+      "additionalProperties": false,
+      "properties": {
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "quantityAtCompletion": {
+          "maximum": 999,
+          "minimum": 1,
+          "title": "Quantityatcompletion",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "skuCode",
+        "quantityAtCompletion"
+      ],
+      "title": "BasketItem",
+      "type": "object"
+    },
+    "Behavior": {
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "format": "uuid",
+          "title": "Eventid",
+          "type": "string"
+        },
+        "eventType": {
+          "enum": [
+            "VIEW_ITEM",
+            "ADD_TO_CART"
+          ],
+          "title": "Eventtype",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "occurredAt": {
+          "format": "date-time",
+          "title": "Occurredat",
+          "type": "string"
+        },
+        "consentVersion": {
+          "minimum": 1,
+          "title": "Consentversion",
+          "type": "integer"
+        },
+        "recommendationId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommendationid"
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "skuCode",
+        "occurredAt",
+        "consentVersion"
+      ],
+      "title": "Behavior",
+      "type": "object"
+    },
+    "Catalog": {
+      "additionalProperties": false,
+      "properties": {
+        "recordKey": {
+          "title": "Recordkey",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "productId": {
+          "format": "uuid",
+          "title": "Productid",
+          "type": "string"
+        },
+        "categoryId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Categoryid"
+        },
+        "productVersion": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Productversion",
+          "type": "integer"
+        },
+        "skuVersion": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Skuversion",
+          "type": "integer"
+        },
+        "priceVersion": {
+          "anyOf": [
+            {
+              "maximum": 2147483647,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Priceversion"
+        },
+        "publiclyVisible": {
+          "title": "Publiclyvisible",
+          "type": "boolean"
+        },
+        "skuActive": {
+          "title": "Skuactive",
+          "type": "boolean"
+        },
+        "slug": {
+          "maxLength": 500,
+          "title": "Slug",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 500,
+          "title": "Name",
+          "type": "string"
+        },
+        "thumbnailUrl": {
+          "maxLength": 2048,
+          "title": "Thumbnailurl",
+          "type": "string"
+        },
+        "priceVnd": {
+          "anyOf": [
+            {
+              "maximum": 1000000000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pricevnd"
+        },
+        "weightGrams": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Weightgrams"
+        },
+        "packagingType": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Packagingtype"
+        },
+        "fallbackRank": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fallbackrank"
+        },
+        "sourceUpdatedAt": {
+          "format": "date-time",
+          "title": "Sourceupdatedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordKey",
+        "skuCode",
+        "productId",
+        "categoryId",
+        "productVersion",
+        "skuVersion",
+        "priceVersion",
+        "publiclyVisible",
+        "skuActive",
+        "slug",
+        "name",
+        "thumbnailUrl",
+        "priceVnd",
+        "weightGrams",
+        "packagingType",
+        "fallbackRank",
+        "sourceUpdatedAt"
+      ],
+      "title": "Catalog",
+      "type": "object"
+    },
+    "ConsentWrite": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "policyVersion": {
+          "const": "personalization-v1",
+          "title": "Policyversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "policyVersion"
+      ],
+      "title": "ConsentWrite",
+      "type": "object"
+    },
+    "Manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "transport": {
+          "const": "FILE_JSONL",
+          "title": "Transport",
+          "type": "string"
+        },
+        "dataset": {
+          "enum": [
+            "catalog",
+            "sellability",
+            "completed_baskets"
+          ],
+          "title": "Dataset",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "catalog-service",
+            "inventory-service",
+            "order-service"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "snapshotId": {
+          "format": "uuid",
+          "title": "Snapshotid",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "minimum": 1,
+          "title": "Sourcerevision",
+          "type": "integer"
+        },
+        "scopeId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Scopeid",
+          "type": "string"
+        },
+        "channel": {
+          "const": "D2C_WEB",
+          "title": "Channel",
+          "type": "string"
+        },
+        "warehouseId": {
+          "format": "uuid",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "sourceAsOf": {
+          "format": "date-time",
+          "title": "Sourceasof",
+          "type": "string"
+        },
+        "publishedAt": {
+          "format": "date-time",
+          "title": "Publishedat",
+          "type": "string"
+        },
+        "expiresAt": {
+          "format": "date-time",
+          "title": "Expiresat",
+          "type": "string"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Window"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverageStatus": {
+          "const": "COMPLETE",
+          "title": "Coveragestatus",
+          "type": "string"
+        },
+        "policyVersion": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Policyversion",
+          "type": "string"
+        },
+        "coverageEvidenceRef": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Coverageevidenceref",
+          "type": "string"
+        },
+        "recordCount": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Recordcount",
+          "type": "integer"
+        },
+        "pageCount": {
+          "title": "Pagecount",
+          "type": "null"
+        },
+        "dataFile": {
+          "const": "records.jsonl",
+          "title": "Datafile",
+          "type": "string"
+        },
+        "dataSha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Datasha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "transport",
+        "dataset",
+        "source",
+        "snapshotId",
+        "sourceRevision",
+        "scopeId",
+        "channel",
+        "warehouseId",
+        "sourceAsOf",
+        "publishedAt",
+        "expiresAt",
+        "window",
+        "coverageStatus",
+        "policyVersion",
+        "coverageEvidenceRef",
+        "recordCount",
+        "pageCount",
+        "dataFile",
+        "dataSha256"
+      ],
+      "title": "Manifest",
+      "type": "object"
+    },
+    "Sellability": {
+      "additionalProperties": false,
+      "properties": {
+        "recordKey": {
+          "title": "Recordkey",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "warehouseId": {
+          "format": "uuid",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "skuActive": {
+          "title": "Skuactive",
+          "type": "boolean"
+        },
+        "sellableUnits": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Sellableunits",
+          "type": "integer"
+        },
+        "eligibilityValidUntil": {
+          "format": "date-time",
+          "title": "Eligibilityvaliduntil",
+          "type": "string"
+        },
+        "observedAt": {
+          "format": "date-time",
+          "title": "Observedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordKey",
+        "skuCode",
+        "warehouseId",
+        "skuActive",
+        "sellableUnits",
+        "eligibilityValidUntil",
+        "observedAt"
+      ],
+      "title": "Sellability",
+      "type": "object"
+    },
+    "Window": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "format": "date-time",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "format": "date-time",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Window",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Manifest"
+    },
+    {
+      "$ref": "#/$defs/Catalog"
+    },
+    {
+      "$ref": "#/$defs/Sellability"
+    },
+    {
+      "$ref": "#/$defs/Basket"
+    },
+    {
+      "$ref": "#/$defs/ConsentWrite"
+    },
+    {
+      "$ref": "#/$defs/Behavior"
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

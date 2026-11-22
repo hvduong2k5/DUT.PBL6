@@ -757,6 +757,9 @@ paths:
   /api/v1/orders/{id}:
     get:
       operationId: getOwnedOrder
+      x-employee-permission: ORDER_VIEW
+      x-sensitive-permission: ORDER_SENSITIVE_VIEW
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: getOwnedOrder
       responses:
         '200':
@@ -857,6 +860,9 @@ paths:
   /api/v1/orders/{id}/tracking:
     get:
       operationId: getOrderTracking
+      x-employee-permission: ORDER_VIEW
+      x-sensitive-permission: ORDER_SENSITIVE_VIEW
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: getOrderTracking
       responses:
         '200':
@@ -1200,6 +1206,8 @@ paths:
   /api/v1/admin/orders/{id}/hold:
     post:
       operationId: holdOrder
+      x-required-iam-permission: ORDER_HOLD_MANAGE
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: holdOrder
       responses:
         '202':
@@ -1319,6 +1327,8 @@ paths:
   /api/v1/admin/orders:
     get:
       operationId: listStaffOrders
+      x-required-iam-permission: ORDER_VIEW
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: listStaffOrders
       responses:
         '200':
@@ -1423,6 +1433,8 @@ paths:
   /api/v1/admin/orders/queue:
     get:
       operationId: getStageQueue
+      x-required-iam-permission: ORDER_VIEW
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: getStageQueue
       responses:
         '200':
@@ -1807,6 +1819,8 @@ paths:
   /internal/recovery/{id}:
     post:
       operationId: resumeRecovery
+      x-required-iam-permission: ORDER_RECOVERY_EXECUTE
+      x-permission-scopes: [GLOBAL, WAREHOUSE]
       summary: resumeRecovery
       responses:
         '202':

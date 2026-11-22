@@ -77,7 +77,7 @@ Bounded Context (BC)  ──1:1──►  Microservice (MS)
 | MS-08 | `procurement-service` | BC-08 Procurement & Supplier | 🟡 Supporting | Phase 3 | 8008 |
 | MS-09 | `finance-service` | BC-09 Finance & Accounting | 🟢 Generic | Phase 3 | 8009 |
 | MS-10 | `content-service` | BC-10 Content & SEO | 🟡 Supporting | MVP | 8010 |
-| MS-11 | `analytics-service` | BC-11 Analytics, DSS & AI | 🟢 Generic | Phase 3 | 8011 |
+| MS-11 | `analytics-service` | BC-11 Analytics & DSS | 🟢 Generic | Phase 3 | 8011 |
 | MS-12 | `shipping-service` | BC-12 Shipping & Logistics | 🟡 Supporting | MVP | 8012 |
 | MS-13 | `channel-service` | BC-13 Marketplace & Offline POS | 🟡 Supporting | Phase 2 | 8013 |
 | MS-14 | `marketing-service` | BC-14 Marketing & Campaign | 🟡 Supporting | Phase 2 | 8014 |
@@ -85,6 +85,7 @@ Bounded Context (BC)  ──1:1──►  Microservice (MS)
 | MS-16 | `identity-service` | BC-16 Authentication & IAM | 🟢 Generic | MVP | 8016 |
 | MS-17 | `notification-service` | BC-17 Notification Dispatcher | 🟢 Generic | Phase 2 | 8017 |
 | MS-18 | `audit-service` | BC-18 Audit Trail & Compliance | 🟢 Generic | MVP | 8018 |
+| MS-19 | `ai-agent-service` | BC-19 AI Agent | 🟢 Generic | Phase 3 | 8019 |
 
 ---
 
@@ -488,7 +489,6 @@ GET  /api/v1/products                     # Danh sách sản phẩm (pagination,
 GET  /api/v1/products/{product_id}        # Chi tiết sản phẩm
 GET  /api/v1/products/search?q=...        # Tìm kiếm full-text
 GET  /api/v1/categories                   # Danh mục
-GET  /api/v1/products/recommended         # Sản phẩm đề xuất / AI recommendation
 
 # gRPC Internal (Critical Path)
 rpc GetProductPrice(GetPriceRequest) returns (PriceResponse);     # From MS-04 Order
@@ -820,6 +820,8 @@ PUT  /api/v1/admin/articles/{id}/publish  # Xuất bản
 
 ### MS-11: `analytics-service`
 
+> [Bộ thiết kế MS-11](services/analytics-service/README.md) mô tả Dashboard theo cohort, các điều kiện bật nguồn và lộ trình DSS.
+
 #### Thông tin cơ bản
 
 | Thuộc tính | Chi tiết |
@@ -832,7 +834,7 @@ PUT  /api/v1/admin/articles/{id}/publish  # Xuất bản
 
 #### Business Responsibility
 
-Thu thập, tổng hợp và phân tích dữ liệu toàn hệ thống phục vụ BI Dashboard, RFM segmentation, dự báo nhu cầu, và các khuyến nghị chiến lược (DSS).
+Thu thập, tổng hợp và phân tích dữ liệu toàn hệ thống phục vụ BI Dashboard, RFM segmentation, dự báo nhu cầu và các khuyến nghị chiến lược (DSS). MS-11 cũng đảm nhận engine và API gợi ý sản phẩm tương tự, thường mua cùng và cá nhân hóa cho Storefront theo [thiết kế triển khai](services/analytics-service/12_recommendation_engine_design.md). Catalog, Inventory và Order cung cấp snapshot theo [hợp đồng Recommendation](services/analytics-service/13_recommendation_source_contracts.md).
 
 #### Data sở hữu
 
@@ -1203,6 +1205,52 @@ GET  /api/v1/admin/audit/integrity-check  # Kiểm tra tính liên tục Hash Ch
 
 ---
 
+
+### MS-19: `ai-agent-service`
+
+#### Thông tin cơ bản
+
+| Thuộc tính | Chi tiết |
+| :--- | :--- |
+| **Service Name** | `ai-agent-service` |
+| **Bounded Context** | BC-19: AI Agent |
+| **Domain Type** | 🟢 Generic Domain |
+| **Phase** | Phase 3 |
+| **Team Owner** | AI Team |
+
+#### Business Responsibility
+
+Điều phối các tác nhân AI (tư vấn mua hàng, gợi ý cá nhân hóa, copilot CSKH, hỏi đáp tri thức nội bộ, hỗ trợ nội dung & SEO, khuyến nghị điều hành) trên một agent runtime dùng chung. AI chỉ gợi ý và soạn nháp — con người xác nhận mọi hành động ghi dữ liệu. Phạm vi AI trước đây được gom dưới BC-11 của `analytics-service`; nay MS-11 giữ phần tính toán phân tích (KPI/RFM/forecast/association trên ClickHouse), còn MS-19 đọc kết quả phân tích để diễn giải thành khuyến nghị. Quyết định 2026-11-09: trì hoãn LangGraph và Redis — runtime là workflow xác định do service tự quản, trạng thái phiên lưu ở PostgreSQL của chính service.
+
+#### Data sở hữu
+
+| Bảng/Collection | Mô tả | Ghi chú |
+| :--- | :--- | :--- |
+| `conversations`, `messages`, `conversation_contexts`, `consent_records` | Hội thoại, ngữ cảnh tư vấn và đồng ý cá nhân hóa | Retention: 30 ngày (khách đăng nhập), 15 ngày (khách vãng lai) |
+| `knowledge_documents`, `knowledge_chunks` | Kho tri thức và vector phục vụ RAG | Là bản chiếu từ dữ liệu gốc; không phải nguồn sự thật về giá/tồn kho |
+| `agent_runs`, `tool_calls`, `ai_audit_logs` | Nhật ký thực thi và kiểm toán AI | |
+
+#### Database / Schema
+
+| Loại | Công nghệ | Schema | Mục đích |
+| :--- | :--- | :--- | :--- |
+| Primary | PostgreSQL + pgvector | `ai_db` | Hội thoại, tri thức, vector |
+
+#### API cung cấp
+
+```yaml
+POST /api/v1/ai/shopping/conversations                 # Tạo phiên tư vấn (guest hoặc customer)
+POST /api/v1/ai/shopping/conversations/{id}/messages    # Gửi tin nhắn — SSE: hội thoại + thẻ sản phẩm
+GET  /api/v1/ai/shopping/conversations/{id}             # Lấy ngữ cảnh phiên của chính chủ
+POST /api/v1/ai/shopping/feedback                      # Đánh giá gợi ý
+GET  /health · GET /metrics                             # Vận hành
+```
+
+> [!NOTE]
+> Mọi dữ liệu nghiệp vụ (giá, tồn kho, đơn hàng, ticket) đều được đọc qua API của service sở hữu, thông qua Tool Gateway chỉ-đọc; service này không truy cập trực tiếp database của service khác.
+
+---
+
 ## 4. SERVICE BOUNDARY DIAGRAM
 
 ```mermaid
@@ -1504,6 +1552,7 @@ API Gateway (Kong / Nginx)
     │ ├── Request Routing (by path prefix)
     │ └── TLS Termination
     │
+    ├── GET /api/v1/products/recommended (exact, đề xuất) → MS-11 analytics-service
     ├── /api/v1/products/**    → MS-05 catalog-service (REST)
     ├── /api/v1/cart/**        → MS-04 order-service (REST)
     ├── /api/v1/orders/**      → MS-04 order-service (REST)

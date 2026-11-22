@@ -150,7 +150,7 @@ func (p *Payment) CaseQueue(ctx context.Context, actor PaymentActor, status, cur
 }
 func (p *Payment) SweepManualRefunds(ctx context.Context) error {
 	return p.Store.runner.Do(ctx, func(tx pgx.Tx) error {
-		rows, e := tx.Query(ctx, `UPDATE refunds f SET status='UNKNOWN',execution_state='UNKNOWN',version=version+1 FROM receipts r WHERE r.id=f.receipt_id AND r.connection_id=$1 AND r.receiver_profile_id=$2 AND f.execution_mode='MANUAL' AND f.execution_state IN ('STARTED','EVIDENCE_PENDING') AND EXISTS(SELECT 1 FROM refund_execution_attempts a WHERE a.refund_id=f.id AND a.attempt_no=f.current_attempt AND a.started_at<clock_timestamp()-interval '15 minutes') RETURNING f.id::text`, p.Connection, p.Receiver)
+		rows, e := tx.Query(ctx, `UPDATE refunds f SET status='UNKNOWN',execution_state='UNKNOWN',version=f.version+1 FROM receipts r WHERE r.id=f.receipt_id AND r.connection_id=$1 AND r.receiver_profile_id=$2 AND f.execution_mode='MANUAL' AND f.execution_state IN ('STARTED','EVIDENCE_PENDING') AND EXISTS(SELECT 1 FROM refund_execution_attempts a WHERE a.refund_id=f.id AND a.attempt_no=f.current_attempt AND a.started_at<clock_timestamp()-interval '15 minutes') RETURNING f.id::text`, p.Connection, p.Receiver)
 		if e != nil {
 			return e
 		}

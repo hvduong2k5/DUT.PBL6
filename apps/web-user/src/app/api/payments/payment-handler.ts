@@ -1,7 +1,8 @@
 import { normalizePublicError, type PublicErrorBody } from "@/lib/api-contract";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
-import { hasCustomerCredential } from "@/lib/auth/storefront-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { hasCustomerCredential, withStorefrontAuth, storefrontCustomerCredential } from "@/lib/auth/storefront-credential";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { guestPaymentCookie } from "@/lib/payment/guest-server";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { isPaymentInstructions, isPaymentStatus } from "@/lib/payment/mvp";
@@ -16,13 +17,13 @@ function publicErrorResponse(status: number, code: string, message: string, requ
 function upstreamHeaders(request: NextRequest, scenario?: string, grantToken?: string) {
   const headers = new Headers({ Accept: "application/json" });
   if (grantToken) headers.set("Authorization", `Bearer ${grantToken}`);
-  else applyTrustedAuthorization(headers, request);
+  else credentialHeaders(headers, storefrontCustomerCredential(request));
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
   return headers;
 }
 
 async function upstream(request: NextRequest, path: string, scenario?: string, grantToken?: string) {
-  const base = ((grantToken ? process.env.GUEST_ORDER_UPSTREAM_URL : undefined) ?? process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  const base = grantToken ? process.env.GUEST_ORDER_UPSTREAM_URL!.replace(/\/$/u, "") : customerCommerceUpstreamUrl();
   const response = await fetch(`${base}/${path}`, {
     method: "GET",
     headers: upstreamHeaders(request, scenario, grantToken),
@@ -53,6 +54,10 @@ function relayError(payload: unknown, upstreamResponse: Response) {
 }
 
 export async function handlePaymentRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
+  return withStorefrontAuth(request, () => handleResolvedPaymentRequest(request, path)) as Promise<NextResponse>;
+}
+
+async function handleResolvedPaymentRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
   const route = parsePaymentRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation || !route.orderId) {
     const notFound = route.error?.field === "path";
@@ -69,7 +74,7 @@ export async function handlePaymentRequest(request: NextRequest, path: string[])
 
   let grantToken: string | undefined;
   if (hasCustomerCredential(request)) {
-    try { await authorizeCustomerCapability(getTrustedAccessToken(request), "ORDER_HISTORY_VIEW"); }
+    try { await authorizeCustomerCapability(storefrontCustomerCredential(request), "ORDER_HISTORY_VIEW"); }
     catch(cause) { const failure=customerAccessFailure(cause);return publicErrorResponse(failure.status,failure.code,failure.message,"BFF-PAYMENT-ACCESS"); }
   } else {
     if (!MVP_FEATURE_GATES.guestOrder) return publicErrorResponse(401,"AUTH_REQUIRED","Vui lòng đăng nhập.","BFF-PAYMENT-ACCESS");

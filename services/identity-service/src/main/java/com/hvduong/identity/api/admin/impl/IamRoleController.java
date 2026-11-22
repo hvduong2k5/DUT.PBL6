@@ -32,7 +32,7 @@ public class IamRoleController implements IamRoleApi {
     private final RoleManagementService roleManagementService;
 
     @Override
-    @PreAuthorize("hasAuthority('ROLE_VIEW')")
+    @PreAuthorize("hasAnyAuthority('ROLE_VIEW', 'IDENTITY_SERVICE_ROLE_LIST')")
     public ResponseEntity<ApiResponse<List<IamRoleRow>>> getAllRoles() {
         List<IamRoleRow> roles = roleManagementService.getAllRoles();
         return ResponseEntity.ok(ApiResponse.success(roles));

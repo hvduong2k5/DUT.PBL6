@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasTrustedOrigin } from "./request-origin";
-import { usesIdentityBff } from "./oidc-config";
+import { gatewayUpstreamUrl } from "../upstream";
 
 // Registration creates Identity only. Login always goes through PKCE; Customer
 // provisioning is asynchronous and never replaced with a browser-supplied ID.
@@ -11,8 +11,11 @@ export async function registerIdentity(request: NextRequest) {
   if (!body || typeof body.email !== "string" || typeof body.firstName !== "string" || typeof body.lastName !== "string" || typeof body.password !== "string" || !/^[A-Za-z0-9_-]{16,128}$/u.test(key)) {
     return NextResponse.json({ code: "INVALID_REGISTRATION", message: "Vui lòng kiểm tra thông tin đăng ký." }, { status: 400 });
   }
-  const base = (usesIdentityBff() ? process.env.IDENTITY_UPSTREAM_URL : process.env.CUSTOMER_CORE_UPSTREAM_URL)?.replace(/\/$/u, "");
-  if (!base) throw new Error("Identity unavailable");
+  // The public registration endpoint lives at the gateway root, not under
+  // the identity customer-api mount (ADR-002): in OIDC mode the previous
+  // customer-core base produced …/customer-api/public/customer-registrations
+  // and identity answered 401, so nobody could register (F-12).
+  const base = gatewayUpstreamUrl();
   const response = await fetch(`${base}/public/customer-registrations`, {
     method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key },
     body: JSON.stringify({ email: body.email, firstName: body.firstName, lastName: body.lastName, rawPassword: body.password, idempotencyKey: key }),

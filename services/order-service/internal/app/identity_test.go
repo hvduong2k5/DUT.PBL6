@@ -31,7 +31,7 @@ func jwk(k *rsa.PrivateKey, kid string) map[string]any {
 }
 func signedCustomer(t *testing.T, k *rsa.PrivateKey, kid, issuer, user string, edit func(jwt.MapClaims)) string {
 	t.Helper()
-	c := jwt.MapClaims{"iss": issuer, "aud": []string{"account", "order-api"}, "sub": uuid.NewString(), "user_id": user, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "realm_access": map[string]any{"roles": []string{"CUSTOMER"}}}
+	c := jwt.MapClaims{"iss": issuer, "aud": []string{"account", "order-api"}, "sub": uuid.NewString(), "user_id": user, "typ": "Bearer", "iat": time.Now().Add(-time.Minute).Unix(), "exp": time.Now().Add(time.Hour).Unix(), "principal_type": "CUSTOMER"}
 	if edit != nil {
 		edit(c)
 	}
@@ -70,7 +70,7 @@ func TestKeycloakValidationAndCustomerOwnership(t *testing.T) {
 		t.Fatalf("principal mapping: %+v %v", p, e)
 	}
 	if _, e := s.Authenticate(signedCustomer(t, k, "key-1", s.C.OIDCIssuer, a, func(c jwt.MapClaims) {
-		c["iat"] = time.Now().Add(2 * time.Second).Unix()
+		c["iat"] = time.Now().Add(28 * time.Second).Unix()
 	})); e != nil {
 		t.Fatal("small issuer/verifier clock difference rejected a valid signed token", e)
 	}
@@ -89,15 +89,15 @@ func TestKeycloakValidationAndCustomerOwnership(t *testing.T) {
 		"missing expiry":            func(c jwt.MapClaims) { delete(c, "exp") },
 		"future nbf":                func(c jwt.MapClaims) { c["nbf"] = time.Now().Add(time.Hour).Unix() },
 		"future issued":             func(c jwt.MapClaims) { c["iat"] = time.Now().Add(time.Hour).Unix() },
-		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(10 * time.Second).Unix() },
+		"future issued beyond skew": func(c jwt.MapClaims) { c["iat"] = time.Now().Add(32 * time.Second).Unix() },
 		"missing issued":            func(c jwt.MapClaims) { delete(c, "iat") },
 		"missing subject":           func(c jwt.MapClaims) { delete(c, "sub") },
 		"missing principal":         func(c jwt.MapClaims) { delete(c, "user_id") },
 		"invalid principal":         func(c jwt.MapClaims) { c["user_id"] = "not-a-uuid" },
 		"nil principal":             func(c jwt.MapClaims) { c["user_id"] = uuid.Nil.String() },
 		"id token":                  func(c jwt.MapClaims) { c["typ"] = "ID" },
-		"staff not customer":        func(c jwt.MapClaims) { c["realm_access"] = map[string]any{"roles": []string{"EMPLOYEE", "ADMIN"}} },
-		"self declared role":        func(c jwt.MapClaims) { delete(c, "realm_access"); c["role"] = "CUSTOMER" },
+		"staff not customer":        func(c jwt.MapClaims) { c["principal_type"] = "EMPLOYEE" },
+		"self declared role":        func(c jwt.MapClaims) { delete(c, "principal_type"); c["role"] = "CUSTOMER" },
 	}
 	for name, edit := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -196,11 +196,12 @@ func TestKeycloakProfileResolution(t *testing.T) {
 }
 
 func TestKeycloakConfiguration(t *testing.T) {
-	c := Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "order-api", Profile: "http://profile:8003", ProfileToken: "test-internal-profile-token"}
+	c := Config{Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: "https://identity.example/realms/omama", OIDCAudience: "order-api", Profile: "http://profile:8003", ProfileToken: "test-internal-profile-token", IdentityURL: "https://identity.example"}
 	if _, e := NewCustomerIdentity(c); e != nil {
 		t.Fatal(e)
 	}
 	for _, edit := range []func(*Config){
+		func(c *Config) { c.IdentityURL = "" },
 		func(c *Config) { c.AuthMode = "typo" }, func(c *Config) { c.OIDCAudience = "" }, func(c *Config) { c.Profile = "" },
 		func(c *Config) { c.AuthMode = "" },
 		func(c *Config) { c.OIDCIssuer = "http://identity.example/realms/omama"; c.OIDCAllowLocalHTTP = true },

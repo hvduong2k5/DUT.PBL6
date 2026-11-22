@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/rsa"
 	"database/sql"
+	"dut-pbl6/inventory-service/internal/presentation/httpapi"
 	"errors"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -24,6 +28,7 @@ import (
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
+	traceabilityv1 "dut-pbl6/inventory-service/pkg/proto/traceability/v1"
 	"runtime/debug"
 
 	_ "github.com/lib/pq"
@@ -220,6 +225,7 @@ func main() {
 		go terminal.RunExpiry(workerCtx)
 	}
 	grpcServer := grpc.NewServer(serverOptions...)
+	traceabilityToken := os.Getenv("INVENTORY_TRACEABILITY_TOKEN")
 	if terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer); ok && os.Getenv("INVENTORY_FULFILLMENT_TOKEN_FILE") != "" {
 		var packingSchema bool
 		if e := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&packingSchema); e != nil || !packingSchema {
@@ -229,9 +235,23 @@ func main() {
 		if e != nil || len(strings.TrimSpace(string(packingToken))) < 32 {
 			log.Fatal("valid Fulfillment packing credential required")
 		}
+		if strings.TrimSpace(string(packingToken)) == traceabilityToken {
+			log.Fatal("Fulfillment and Traceability credentials must be distinct")
+		}
 		packingv1.RegisterInventoryPackingInputsCandidateServer(grpcServer, &presentationgrpc.PackingServer{Terminal: terminal, Token: strings.TrimSpace(string(packingToken))})
 	}
 	inventoryv1.RegisterInventoryServiceServer(grpcServer, serviceHandler)
+	if traceabilityToken != "" {
+		terminal, ok := serviceHandler.(*presentationgrpc.TerminalServer)
+		if !ok || len(traceabilityToken) < 32 || traceabilityToken == terminal.Token || traceabilityToken == terminal.CatalogToken {
+			log.Fatal("Traceability source requires the TLS terminal profile and a separate credential")
+		}
+		var hasBatchVersion bool
+		if err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='batches' AND column_name='version')").Scan(&hasBatchVersion); err != nil || !hasBatchVersion {
+			log.Fatal("apply Inventory migration 000003 before enabling Traceability reads")
+		}
+		traceabilityv1.RegisterBatchSourceServer(grpcServer, &presentationgrpc.TraceabilitySource{DB: db, Token: traceabilityToken})
+	}
 	reflection.Register(grpcServer)
 
 	// 8. Bind TCP Listener
@@ -248,6 +268,37 @@ func main() {
 		}
 	}()
 
+	var adminHTTP *http.Server
+	if address := os.Getenv("INVENTORY_ADMIN_HTTP_ADDR"); address != "" {
+		issuer := os.Getenv("INVENTORY_STAFF_ISSUER")
+		audience := getEnv("INVENTORY_STAFF_AUDIENCE", "omama-api")
+		keyPEM, readErr := os.ReadFile(os.Getenv("INVENTORY_STAFF_PUBLIC_KEY_FILE"))
+		var publicKey *rsa.PublicKey
+		if readErr == nil {
+			publicKey, readErr = jwt.ParseRSAPublicKeyFromPEM(keyPEM)
+		}
+		if readErr != nil || issuer == "" {
+			log.Fatal("inventory admin API requires a valid issuer and RSA public key file")
+		}
+		var hasSchema bool
+		if err := db.QueryRow("SELECT to_regclass('stock_receipts') IS NOT NULL").Scan(&hasSchema); err != nil || !hasSchema {
+			log.Fatal("apply inventory migration 000005 before enabling the admin API")
+		}
+		mux := http.NewServeMux()
+		mux.Handle("POST "+httpapi.ReceiptPath, httpapi.ReceiptHandler{DB: db, Key: publicKey, Issuer: issuer, Audience: audience})
+		adminHTTP = &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second}
+		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			log.Fatalf("start inventory admin API: %v", err)
+		}
+		go func() {
+			if err := adminHTTP.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("serve inventory admin API: %v", err)
+			}
+		}()
+	}
+
 	// 10. Graceful Shutdown on SIGINT/SIGTERM
 	stopChan := make(chan os.Signal, 1)
 	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
@@ -262,6 +313,12 @@ func main() {
 	_ = expiryWorker.Stop(3 * time.Second)
 	if consumerListener != nil {
 		_ = consumerListener.Stop(3 * time.Second)
+	}
+
+	if adminHTTP != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = adminHTTP.Shutdown(ctx)
+		cancel()
 	}
 
 	// Stop gRPC server

@@ -1,0 +1,74 @@
+- generic [active] [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - generic [ref=f2e4]: 🚚 Giao hàng chuẩn quốc bảo toàn quốc
+      - generic [ref=f2e5]: ✺ Di sản Ẩm thực Cung Đình Huế
+      - generic [ref=f2e6]: "⌖ Cửa hàng Cố Đô: 128 Lê Lợi, TP. Huế"
+      - strong [ref=f2e7]: ☎ 1900 68 Hue
+    - generic [ref=f2e8]:
+      - link "Ô Mạ - Trang chủ" [ref=f2e9] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=f2e10]: Ô
+        - generic [ref=f2e11]:
+          - strong [ref=f2e12]: Ô MẠ
+          - generic [ref=f2e13]: Tinh hoa bánh mứt Cố Đô
+      - search [ref=f2e14]:
+        - generic [ref=f2e15]: Tìm sản phẩm
+        - textbox "Tìm sản phẩm" [ref=f2e16]:
+          - /placeholder: Tìm mè xửng, hạt sen, trà…
+        - button "Tìm kiếm" [ref=f2e17] [cursor=pointer]: ⌕
+      - navigation "Điều hướng chính" [ref=f2e18]:
+        - link "Trang Chủ" [ref=f2e19] [cursor=pointer]:
+          - /url: /
+        - link "Bánh & Kẹo Cung Đình" [ref=f2e20] [cursor=pointer]:
+          - /url: /products?category=banh-cung-dinh
+        - link "Mè Xửng & Trà Sen" [ref=f2e21] [cursor=pointer]:
+          - /url: /products?category=me-xung-keo-hue
+        - link "Quà Biếu Tặng" [ref=f2e22] [cursor=pointer]:
+          - /url: /products?category=qua-bieu
+        - link "Câu Chuyện Huế" [ref=f2e23] [cursor=pointer]:
+          - /url: /#heritage-story
+        - link "Truy Xuất OCOP" [ref=f2e24] [cursor=pointer]:
+          - /url: /#ocop-traceability
+        - link "Ưu Đãi Tri Kỷ" [ref=f2e25] [cursor=pointer]:
+          - /url: /promotions
+      - link "Đăng nhập xem đơn" [ref=f2e26] [cursor=pointer]:
+        - /url: /login?returnUrl=%2Faccount%2Forders
+      - link "Mở giỏ hàng" [ref=f2e27] [cursor=pointer]:
+        - /url: /cart
+        - text: ♧
+        - generic [ref=f2e28]: Giỏ hàng
+      - link "Đăng nhập tài khoản Tri Kỷ" [ref=f2e29] [cursor=pointer]:
+        - /url: /login?returnUrl=%2Faccount%2Fprofile
+        - text: …
+  - main [ref=f2e30]:
+    - generic "Đang tải chi tiết sản phẩm" [ref=f2e31]
+  - contentinfo [ref=f2e38]:
+    - generic [ref=f2e39]:
+      - generic [ref=f2e40]:
+        - link "Ô Mạ - Trang chủ" [ref=f2e41] [cursor=pointer]:
+          - /url: /
+          - generic [aria-hidden] [ref=f2e42]: Ô
+          - generic [ref=f2e43]:
+            - strong [ref=f2e44]: Ô MẠ
+            - generic [ref=f2e45]: Tinh hoa bánh mứt Cố Đô
+        - paragraph [ref=f2e46]: Gìn giữ và tôn vinh phong vị bánh mứt yến tiệc hoàng triều Cố Đô, chuẩn hóa theo tinh thần OCOP đương đại.
+        - generic [ref=f2e47]: ✺ OCOP 4 Sao Thừa Thiên Huế
+      - generic [ref=f2e48]:
+        - heading "Bộ Sưu Tập" [level=2] [ref=f2e49]
+        - paragraph [ref=f2e50]: Mè Xửng Dẻo Ngự Thiện
+        - paragraph [ref=f2e51]: Bánh Hạt Sen Cung Đình
+        - paragraph [ref=f2e52]: Trà Ướp Hoa Sen Tịnh Tâm
+      - generic [ref=f2e53]:
+        - heading "Chăm Sóc & Hỗ Trợ" [level=2] [ref=f2e54]
+        - paragraph [ref=f2e55]:
+          - link "Trung tâm hỗ trợ khách hàng" [ref=f2e56] [cursor=pointer]:
+            - /url: /support/request
+        - paragraph [ref=f2e57]: Chính sách vận chuyển
+        - paragraph [ref=f2e58]: Cam kết nguồn gốc
+      - generic [ref=f2e59]:
+        - heading "Phòng Trưng Bày & Xưởng Bánh" [level=2] [ref=f2e60]
+        - paragraph [ref=f2e61]: 128 Lê Lợi, Phường Phú Nhuận, Thành phố Huế
+        - paragraph [ref=f2e62]: (0234) 388 9988 · thuquan@omahue.vn
+    - generic [ref=f2e63]: © 2026 Ô Mạ · Tinh tuyển Di sản · Chuẩn hóa OCOP
+  - button "Open Next.js Dev Tools" [ref=f2e69] [cursor=pointer]

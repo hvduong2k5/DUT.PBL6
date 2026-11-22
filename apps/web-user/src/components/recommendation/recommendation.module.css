@@ -1,0 +1,29 @@
+/* Recommendation rails and personalization preferences, styled with the Gói Huế kit tokens. */
+.rail { position: relative; width: min(1280px, 100%); margin: 32px auto; }
+.header { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 28px; }
+.header h2 { margin: 0; padding-inline: 8px; color: var(--nau-dam); font: 600 clamp(1.5rem, 2vw + 0.8rem, 2.2rem)/1.16 var(--font-display); letter-spacing: -0.015em; text-align: center; text-wrap: balance; }
+.line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(112, 81, 59, 0.15), var(--nau) 50%, rgba(112, 81, 59, 0.15)); }
+.grid { --gap: clamp(16px, 2vw, 24px); --cols: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
+/* Fixed column counts that divide a full rail of six (2x3, 3x2, 6x1) so no card is left alone on a row; shorter rails stay centred. */
+@media (min-width: 640px) { .grid { --cols: 3; } }
+@media (min-width: 1180px) { .grid { --cols: 6; } }
+.card { display: flex; flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols)); flex-direction: column; min-width: 0; color: var(--nau-dam); text-decoration: none; }
+.card .media { aspect-ratio: 1 / 1; }
+.fallback { position: absolute; inset: 0; display: grid; place-items: center; color: var(--nau); font: italic 1.5rem var(--font-display); }
+.body { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 14px 8px 6px; border-top: 1px solid var(--vien); margin-top: 10px; }
+.name { min-height: 2.7em; color: var(--nau-dam); font: 600 1.1rem/1.35 var(--font-display); }
+.card:hover .name { color: var(--do-chu-sa); }
+.price { margin-top: auto; color: var(--do-chu-sa); font: 700 1.125rem/1.2 var(--font-be-vietnam), sans-serif; }
+.skeleton { pointer-events: none; }
+.skeleton .media, .skeleton .bar { background: linear-gradient(90deg, #eadbc6 0%, #f4e9d8 50%, #eadbc6 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.skeleton .bar { height: 16px; margin-top: 10px; }
+.skeleton .bar.short { width: 45%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.preferences { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 28px; max-width: 1280px; margin: 20px auto 0; padding: 12px 4px 0; border-top: 1px dashed rgba(112, 81, 59, 0.35); color: var(--phu); font-size: 0.92rem; }
+.preferences h3 { margin: 0; color: var(--nau-dam); font: 600 1rem var(--font-display); }
+.preferences label { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.preferences input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; margin: 0; accent-color: var(--nau-dam); }
+.preferences p { flex-basis: 100%; margin: 0; color: var(--loi); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) { .skeleton .media, .skeleton .bar { animation: none; } }

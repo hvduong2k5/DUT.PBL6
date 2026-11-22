@@ -11,8 +11,7 @@
   "verifyEmail": false,
   "internationalizationEnabled": true,
   "supportedLocales": [
-    "vi",
-    "en"
+    "vi"
   ],
   "defaultLocale": "vi",
   "accessTokenLifespan": 900,
@@ -58,6 +57,9 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
       "publicClient": false,
       "protocol": "openid-connect",
       "defaultClientScopes": [
@@ -68,6 +70,17 @@
         "email"
       ],
       "protocolMappers": [
+        {
+          "name": "identity-roles-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "identity-roles-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
         {
           "name": "realm-management-roles",
           "protocol": "openid-connect",
@@ -213,21 +226,6 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "false"
           }
-        },
-        {
-          "name": "user-permissions-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "consentRequired": false,
-          "config": {
-            "user.attribute": "permissions",
-            "claim.name": "permissions",
-            "jsonType.label": "String",
-            "multivalued": "true",
-            "id.token.claim": "false",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "false"
-          }
         }
       ]
     },
@@ -335,27 +333,42 @@
   ],
   "users": [
     {
+      "username": "service-account-identity-service-admin",
+      "enabled": true,
+      "serviceAccountClientId": "identity-service-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000002",
       "username": "admin",
       "enabled": true,
       "email": "admin@omama.vn",
-      "firstName": "System",
+      "emailVerified": true,
+      "firstName": "Super",
       "lastName": "Admin",
       "credentials": [
         {
           "type": "password",
           "value": "admin",
-          "temporary": true
+          "temporary": false
         }
-      ],
-      "realmRoles": [
-        "ADMIN"
       ],
       "attributes": {
         "app_user_id": [
-          "a0000000-0000-0000-0000-000000000001"
+          "a0000000-0000-0000-0000-000000000002"
         ],
         "principal_type": [
           "EMPLOYEE"
+        ]
+      },
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
         ]
       }
     }
@@ -363,12 +376,21 @@
   "roles": {
     "realm": [
       {
-        "name": "CUSTOMER",
-        "description": "Customer role"
-      },
-      {
         "name": "ADMIN",
-        "description": "Administrator of Identity Service"
+        "description": "Quản trị viên toàn hệ thống (Super Admin)"
+      }
+    ]
+  },
+  "components":   {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"app_user_id\",\"displayName\":\"Internal principal ID\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]}},{\"name\":\"principal_type\",\"displayName\":\"Principal type\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"permission_grants\",\"displayName\":\"Permission grants\",\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"multivalued\":true}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
       }
     ]
   }

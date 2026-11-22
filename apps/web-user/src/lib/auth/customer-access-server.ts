@@ -12,6 +12,15 @@ export class CustomerAccessError extends Error {
   }
 }
 
+const ACTIVATION_REQUIRED_MESSAGE = "Tài khoản của bạn chưa được kích hoạt. Hãy vào Hồ sơ và lưu số điện thoại hợp lệ để bắt đầu mua hàng.";
+
+function capabilityDenial(session: AuthenticatedSession): CustomerAccessError {
+  if (session.customer?.status === "PENDING_VERIFICATION") {
+    return new CustomerAccessError(403, "ACCOUNT_ACTIVATION_REQUIRED", ACTIVATION_REQUIRED_MESSAGE);
+  }
+  return new CustomerAccessError(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền sử dụng chức năng này.");
+}
+
 async function fetchVerifiedSession(accessToken: string): Promise<AuthenticatedSession> {
   if (usesOidc() || usesIdentityBff()) {
     try { return await identitySession(accessToken); }
@@ -62,12 +71,12 @@ export async function authorizeCustomerCapability(
       throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
     }
     if (cause instanceof CapabilityProjectionError && cause.status === 403) {
-      throw new CustomerAccessError(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền sử dụng chức năng này.");
+      throw capabilityDenial(session);
     }
     throw new CustomerAccessError(503, "CAPABILITY_UNAVAILABLE", "Chưa thể kiểm tra quyền Customer lúc này.");
   }
   if (!projection.capabilities.includes(capability)) {
-    throw new CustomerAccessError(403, "CAPABILITY_FORBIDDEN", "Tài khoản không có quyền sử dụng chức năng này.");
+    throw capabilityDenial(session);
   }
   return { session, projection };
 }

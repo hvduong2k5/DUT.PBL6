@@ -48,17 +48,6 @@ public class KeycloakAdminClient {
                 ? principalType.trim().toUpperCase()
                 : PrincipalType.CUSTOMER.name();
 
-        // Order/Profile customer authorization still requires the CUSTOMER
-        // realm role in the token (realm_access.roles); the principal_type
-        // attribute alone does not satisfy those consumers. Resolve the role
-        // up front, mirroring dev, so a realm missing it fails before the
-        // user exists. Keep assigning it until the consumers migrate
-        // (7-B rollout step 3).
-        RoleRepresentation customerRole = null;
-        if (PrincipalType.CUSTOMER.name().equals(effectivePrincipalType)) {
-            customerRole = keycloak.realm(realm).roles().get("CUSTOMER").toRepresentation();
-        }
-
         UsersResource usersResource = keycloak.realm(realm).users();
         
         UserRepresentation user = new UserRepresentation();
@@ -85,12 +74,7 @@ public class KeycloakAdminClient {
         try (var response = usersResource.create(user)) {
             if (response.getStatus() == 201) {
                 String path = response.getLocation().getPath();
-                String subject = path.substring(path.lastIndexOf('/') + 1);
-                if (customerRole != null) {
-                    usersResource.get(subject).roles().realmLevel()
-                            .add(Collections.singletonList(customerRole));
-                }
-                return subject;
+                return path.substring(path.lastIndexOf('/') + 1);
             }
             throw new RuntimeException("Failed to create user in Keycloak, status: " + response.getStatusInfo().getReasonPhrase());
         }
@@ -177,10 +161,15 @@ public class KeycloakAdminClient {
     }
 
     public void deleteRealmRole(String roleName) {
+        // Strict on purpose: the only caller is role hard delete, which runs
+        // inside a database transaction. Propagating the failure rolls the
+        // delete back instead of committing a role removal whose Keycloak
+        // counterpart silently survives as an orphan.
         try {
             keycloak.realm(realm).roles().deleteRole(roleName);
         } catch (Exception ex) {
             log.error("Failed to delete Keycloak realm role '{}'", roleName, ex);
+            throw new IllegalStateException("Failed to delete Keycloak realm role: " + roleName, ex);
         }
     }
 
@@ -220,27 +209,10 @@ public class KeycloakAdminClient {
     }
 
     /**
-     * Replace the flat {@code permissions} user attribute. Kept for consumer cũ
-     * (Catalog, Identity tự kiểm) trong giai đoạn chuyển tiếp.
-     */
-    public void updateUserPermissions(String keycloakUserId, List<String> permissions) {
-       UserResource userResource = keycloak.realm(realm).users().get(keycloakUserId);
-        UserRepresentation user = userResource.toRepresentation();
-        Map<String, List<String>> attributes = user.getAttributes();
-        if (attributes == null) {
-            attributes = new HashMap<>();
-        } else {
-            attributes = new HashMap<>(attributes);
-        }
-        attributes.put(IdentityConstants.ATTR_PERMISSIONS, permissions != null ? permissions : Collections.emptyList());
-        user.setAttributes(attributes);
-        userResource.update(user);
-    }
-
-    /**
-     * Replace both {@code permissions} (flat, consumer cũ) and {@code permission_grants}
-     * (scoped, consumer mới) user attributes. Failures propagate to the caller so
-     * the sync can be audited and retried (see {@code PermissionSyncService}).
+     * Replace the {@code permission_grants} (scoped) user attribute and strip
+     * any legacy flat {@code permissions} attribute left over from before the
+     * grants migration. Failures propagate to the caller so the sync can be
+     * audited and retried (see {@code PermissionSyncService}).
      *
      * <p>{@code permissionGrants} is a list of strings in the format
      * {@code permission#scope_type#scope_id} (scope_id may be empty), because Keycloak
@@ -248,15 +220,13 @@ public class KeycloakAdminClient {
      */
     public void updateUserPermissionsWithGrants(
             String keycloakUserId,
-            List<String> flatPermissions,
             List<String> permissionGrants
     ) {
-        updateUserPermissionsWithGrants(keycloakUserId, flatPermissions, permissionGrants, null);
+        updateUserPermissionsWithGrants(keycloakUserId, permissionGrants, null);
     }
 
     public void updateUserPermissionsWithGrants(
             String keycloakUserId,
-            List<String> flatPermissions,
             List<String> permissionGrants,
             String principalType
     ) {

@@ -20,8 +20,8 @@ import (
 	"github.com/omamx/order-service/internal/domain"
 )
 
-// CustomerIdentity accepts Keycloak access tokens only. Staff IAM and guest
-// credentials intentionally have no mapping in this first integration slice.
+// CustomerIdentity verifies signed staff snapshots and legacy customer personas.
+// Each employee permission retains the scope of its issuing IAM assignment.
 type CustomerIdentity struct {
 	issuer, audience, jwksURL, identityURL string
 	client                                 *http.Client
@@ -43,6 +43,13 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 	if c.OIDCAudience == "" || c.Profile == "" || len(c.ProfileToken) < 16 {
 		return nil, errors.New("keycloak requires ORDER_OIDC_AUDIENCE, PROFILE_URL and PROFILE_INTERNAL_TOKEN")
 	}
+	if c.IdentityURL == "" {
+		u, err := url.Parse(c.OIDCIssuer)
+		localTest := err == nil && u != nil && c.Mode == "sandbox" && c.OIDCAllowLocalHTTP && (u.Hostname() == "localhost" || net.ParseIP(u.Hostname()).IsLoopback())
+		if !localTest {
+			return nil, errors.New("keycloak requires IDENTITY_URL for legacy customer persona verification")
+		}
+	}
 	if c.OIDCJWKSURL == "" {
 		c.OIDCJWKSURL = strings.TrimRight(c.OIDCIssuer, "/") + "/protocol/openid-connect/certs"
 	}
@@ -61,13 +68,14 @@ func NewCustomerIdentity(c Config) (*CustomerIdentity, error) {
 		client: &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
 
+const jwtClockSkew = 30 * time.Second
+
 type customerClaims struct {
 	jwt.RegisteredClaims
-	UserID      string `json:"user_id"`
-	Type        string `json:"typ"`
-	RealmAccess struct {
-		Roles []string `json:"roles"`
-	} `json:"realm_access"`
+	staffAuthorizationClaims
+	UserID        string `json:"user_id"`
+	Type          string `json:"typ"`
+	PrincipalType string `json:"principal_type"`
 }
 
 func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (domain.Principal, error) {
@@ -83,13 +91,20 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 			return nil, errors.New("missing key ID")
 		}
 		return v.key(ctx, kid)
-	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(5*time.Second))
+	}, jwt.WithValidMethods([]string{"RS256"}), jwt.WithIssuer(v.issuer), jwt.WithAudience(v.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt(), jwt.WithLeeway(jwtClockSkew))
 	if err != nil || !token.Valid || claims.Subject == "" || claims.Type != "Bearer" || claims.IssuedAt == nil {
 		return domain.Principal{}, denied
 	}
 	id, err := uuid.Parse(claims.UserID)
 	if err != nil || id == uuid.Nil {
 		return domain.Principal{}, denied
+	}
+	grants, staff, err := claims.staffGrants()
+	if err != nil {
+		return domain.Principal{}, denied
+	}
+	if staff {
+		return domain.Principal{ID: id.String(), Role: "EMPLOYEE", IAM: true, Grants: grants}, nil
 	}
 	if v.identityURL != "" {
 		req, err := http.NewRequestWithContext(ctx, "GET", v.identityURL+"/api/v1/users/me", nil)
@@ -104,6 +119,9 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		defer resp.Body.Close()
 		if resp.StatusCode == 401 {
 			return domain.Principal{}, denied
+		}
+		if resp.StatusCode == 403 {
+			return domain.Principal{}, domain.E("PRINCIPAL_FORBIDDEN", 403)
 		}
 		if resp.StatusCode != 200 {
 			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
@@ -124,16 +142,23 @@ func (v *CustomerIdentity) Authenticate(ctx context.Context, bearer string) (dom
 		if json.Unmarshal(raw, &envelope) != nil || !envelope.Success || envelope.Data.ID != id.String() || envelope.Data.Subject != claims.Subject {
 			return domain.Principal{}, domain.E("IDENTITY_UNAVAILABLE", 503)
 		}
-		if envelope.Data.Type != "CUSTOMER" || envelope.Data.Status != "ACTIVE" {
+		if envelope.Data.Status != "ACTIVE" {
+			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
+		}
+		if envelope.Data.Type == "EMPLOYEE" {
+			return domain.Principal{}, domain.E("STAFF_TOKEN_REQUIRED", 403)
+		}
+		if envelope.Data.Type != "CUSTOMER" {
 			return domain.Principal{}, domain.E("CUSTOMER_REQUIRED", 403)
 		}
 	}
-	for _, role := range claims.RealmAccess.Roles {
-		if role == "CUSTOMER" {
-			// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
-			// CustomerID is deliberately left empty until Profile.Resolve proves it.
-			return domain.Principal{ID: id.String(), Role: "CUSTOMER"}, nil
-		}
+	if claims.PrincipalType == "EMPLOYEE" {
+		return domain.Principal{}, domain.E("STAFF_TOKEN_REQUIRED", 403)
+	}
+	if claims.PrincipalType == "CUSTOMER" {
+		// sub belongs to Keycloak; user_id is Identity's immutable principal UUID.
+		// CustomerID is deliberately left empty until Profile.Resolve proves it.
+		return domain.Principal{ID: id.String(), Role: "CUSTOMER"}, nil
 	}
 	return domain.Principal{}, denied
 }

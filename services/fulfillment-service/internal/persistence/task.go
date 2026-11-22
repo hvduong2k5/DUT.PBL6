@@ -153,7 +153,7 @@ func (s *Store) Mutate(ctx context.Context, p d.Principal, id, key, hash string,
 		}
 		permission := t.Permission(m.Action)
 		if (m.Action == "AssignTask" && m.AssigneeID != "" && m.AssigneeID != p.ID) || (m.Action == "UnassignTask" && (t.Assignee == nil || *t.Assignee != p.ID)) {
-			permission = "fulfillment.task.assign_other"
+			permission = "FULFILLMENT_TASK_ASSIGN_OTHER"
 		}
 		if !p.Can(permission, t.Warehouse) {
 			return d.Fail("FORBIDDEN", 403)

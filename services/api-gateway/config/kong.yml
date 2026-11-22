@@ -5,8 +5,29 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
-  # Fulfillment verifies the signed token and current Employee/ADMIN scope in
-  # Identity. Never expose internal permit/allocation/proof gRPC endpoints.
+  - name: traceability-public
+    url: http://traceability-service:8003/api/v1/trace
+    routes:
+      - name: traceability-public-v2
+        paths: [/api/v2/trace]
+        strip_path: true
+        methods: [GET]
+  - name: traceability-staff
+    url: http://traceability-service:8003
+    routes:
+      - name: traceability-staff-v1
+        paths: [/api/v1/admin/trace/records]
+        strip_path: false
+        methods: [GET, POST, PATCH]
+  - name: inventory-admin-service
+    url: http://inventory-svc:8003
+    routes:
+      - name: inventory-receipts
+        paths: [/api/v1/admin/inventory/workbench/receipts]
+        strip_path: false
+        methods: [POST, OPTIONS]
+
+  # Fulfillment verifies the signed JWT and scoped grants locally.
   - name: fulfillment-service
     url: http://fulfillment-service:8002
     routes:
@@ -72,6 +93,25 @@ services:
             config:
               minute: 10
               policy: local
+      - name: identity-admin-routes
+        hosts: [api-pbl6.hvduong.qzz.io]
+        regex_priority: 100
+        paths:
+          - /api/v1/admin/roles
+          - /api/v1/admin/users
+          - /api/v1/admin/role-assignments
+          - /api/v1/admin/employee-invitations
+          - /api/v1/admin/iam
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      - name: identity-role-list
+        paths: ['~/api/v1/admin/roles$']
+        strip_path: false
+        methods: [GET]
+      - name: identity-staff-order-read
+        paths: [/api/v1/admin/order-api]
+        strip_path: false
+        methods: [GET]
 
   # ----------------------------------------------------------------------------
   # MS-15: PROFILE SERVICE (Profiles, Address Book, Staff)
@@ -120,11 +160,6 @@ services:
           - PUT
           - DELETE
           - OPTIONS
-        plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
 
   # ----------------------------------------------------------------------------
   # MS-05: CATALOG SERVICE (Products, Categories, Search)
@@ -156,11 +191,6 @@ services:
           - DELETE
           - PATCH
           - OPTIONS
-        plugins:
-          - name: jwt
-            config:
-              claims_to_verify:
-                - exp
 
   # ----------------------------------------------------------------------------
   # MS-04: ORDER SERVICE (Cart sessions, Checkout Saga, Order Tracking)
@@ -220,47 +250,18 @@ services:
               minute: 30
               policy: local
 
-  # ----------------------------------------------------------------------------
-  # MS-07: PROMOTION SERVICE (Vouchers, Loyalty)
-  # ----------------------------------------------------------------------------
-  - name: promotion-service
-    url: http://promotion-service:8007
-    connect_timeout: 2000
-    read_timeout: 3000
-    write_timeout: 3000
-    retries: 1
-    routes:
-      - name: promotion-routes
+      - name: order-admin-payments-routes
+        hosts: [api-pbl6.hvduong.qzz.io]
+        regex_priority: 100
         paths:
-          - /api/v1/promotions
-          - /api/v1/vouchers
+          - /api/v1/admin/payments
+          - /api/v1/admin/checkout-operations
         strip_path: false
-        methods:
-          - GET
-          - POST
-          - OPTIONS
-
-  # ----------------------------------------------------------------------------
-  # MS-13: CHANNEL SERVICE (Shopee / TikTok Shop Webhooks & POS Sync)
-  # ----------------------------------------------------------------------------
-  - name: channel-service
-    url: http://channel-service:8013
-    connect_timeout: 3000
-    read_timeout: 5000
-    write_timeout: 5000
-    retries: 1
-    routes:
-      - name: marketplace-webhooks
-        paths:
-          - /webhooks/marketplace
-        strip_path: false
-        methods:
-          - POST
-          - OPTIONS
+        methods: [GET, POST, OPTIONS]
         plugins:
           - name: rate-limiting
             config:
-              minute: 1200
+              minute: 30
               policy: local
 
   # ----------------------------------------------------------------------------
@@ -287,22 +288,43 @@ services:
               policy: local
 
   # ----------------------------------------------------------------------------
-  # MOBILE BFF: GRAPHQL ENDPOINT
+  # MS-19: AI AGENT SERVICE (public shopping copilot only)
+  # Internal knowledge ingestion is intentionally not routed through Kong.
   # ----------------------------------------------------------------------------
-  - name: mobile-bff-service
-    url: http://mobile-bff:4000
+  - name: ai-agent-service
+    url: http://ai-agent-service:8019
     connect_timeout: 2000
-    read_timeout: 5000
+    read_timeout: 65000
     write_timeout: 5000
-    retries: 1
+    retries: 0
     routes:
-      - name: mobile-graphql-route
+      - name: ai-shopping-routes
         paths:
-          - /graphql
+          - /api/v1/ai/shopping
         strip_path: false
-        methods:
-          - POST
-          - OPTIONS
+        methods: [GET, POST, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+              limit_by: ip
+              policy: local
+      - name: ai-recommendation-routes
+        paths:
+          - /api/v1/ai/recommendations
+        strip_path: false
+        methods: [GET, OPTIONS]
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60
+              limit_by: ip
+              policy: local
+      - name: ai-consent-routes
+        paths:
+          - /api/v1/ai/consent
+        strip_path: false
+        methods: [GET, PUT, OPTIONS]
 
 # ==============================================================================
 # 2. GLOBAL PLUGINS (SECURITY, TRACING, METRICS, CORS)
@@ -312,7 +334,8 @@ plugins:
   - name: cors
     config:
       origins:
-        - "https://omama.vn"
+        - "https://omama.hvduong.qzz.io"
+        - "https://pbl.npanhbao.dev"
         - "http://localhost:3000"
       methods:
         - GET
@@ -331,6 +354,7 @@ plugins:
         - X-Idempotency-Key
         - Idempotency-Key
         - If-Match
+        - X-Guest-Conversation-Token
       exposed_headers:
         - X-Request-Id
         - Content-Range
@@ -376,14 +400,3 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
-
-# ==============================================================================
-# 3. CONSUMERS & AUTH CREDENTIALS (FOR LOCAL DEV & TESTING)
-# ==============================================================================
-consumers:
-  - username: omamx-test-customer
-    custom_id: "customer_001"
-    jwt_secrets:
-      - key: "omamx-identity-issuer"
-        secret: "omamx-secret-jwt-key-for-local-development-2026-very-secure"
-        algorithm: "HS256"

@@ -1,0 +1,12 @@
+{
+  "requests": 600,
+  "durationSeconds": 29.97,
+  "targetRps": 20,
+  "actualRps": 20.02,
+  "statuses": {
+    "200": 600
+  },
+  "invalidResults": 0,
+  "p95Ms": 47.0,
+  "p99Ms": 62.0
+}

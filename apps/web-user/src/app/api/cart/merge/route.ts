@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedAuthorization, getTrustedAccessToken } from "@/lib/auth/server-credential";
-import { GUEST_COOKIE, hasCustomerCredential } from "@/lib/auth/storefront-credential";
+import { GUEST_COOKIE, hasCustomerCredential, withStorefrontAuth, storefrontCustomerCredential, applyStorefrontAuthorization } from "@/lib/auth/storefront-credential";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { normalizePublicError } from "@/lib/api-contract";
@@ -12,12 +12,16 @@ export const dynamic = "force-dynamic";
 function failure(status: number, code: string, message: string) { return NextResponse.json({ code, message, requestId: "BFF-CART-MERGE" }, { status, headers: { "Cache-Control": "no-store" } }); }
 
 async function mergeRequest(request: NextRequest, guestToken?: string, key?: string) {
+  return withStorefrontAuth(request, () => resolvedMergeRequest(request, guestToken, key));
+}
+
+async function resolvedMergeRequest(request: NextRequest, guestToken?: string, key?: string) {
   if (!hasCustomerCredential(request)) return failure(401,"AUTH_REQUIRED","Vui lòng đăng nhập để gộp giỏ hàng.");
-  try { await authorizeCustomerCapability(getTrustedAccessToken(request),"CART_MANAGE"); }
+  try { await authorizeCustomerCapability(storefrontCustomerCredential(request),"CART_MANAGE"); }
   catch(cause) { const error=customerAccessFailure(cause);return failure(error.status,error.code,error.message); }
-  const headers=new Headers({ Accept:"application/json" });applyTrustedAuthorization(headers,request);
+  const headers=new Headers({ Accept:"application/json" });applyStorefrontAuthorization(headers,request);
   if (guestToken) { headers.set("Idempotency-Key",key!);headers.set("Content-Type","application/json"); }
-  const base=(process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u,"");
+  const base=customerCommerceUpstreamUrl();
   try {
     const response=await fetch(`${base}/cart${guestToken ? "" : `?merge_key=${encodeURIComponent(key!)}`}`,{method:guestToken ? "POST" : "GET",headers,body:guestToken ? JSON.stringify({guest_token:guestToken}) : undefined,cache:"no-store",redirect:"manual"});
     const raw=await response.text();

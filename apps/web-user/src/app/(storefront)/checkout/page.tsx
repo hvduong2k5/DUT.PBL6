@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Thông tin và thanh toán",
-  description: "Kiểm tra thông tin nhận hàng, phí vận chuyển và xác nhận đơn Ô Mạ Huế."
+  description: "Kiểm tra thông tin nhận hàng, phí vận chuyển và xác nhận đơn Gói Huế."
 };
 
 export default function CheckoutPage() {

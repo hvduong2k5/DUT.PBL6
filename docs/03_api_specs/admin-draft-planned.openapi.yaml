@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "Internal Employee Web API - Draft and Planned"
-  version: "0.1.0"
+  version: "0.2.0"
   license:
     name: "Proprietary"
     identifier: "LicenseRef-Proprietary"
@@ -35,6 +35,30 @@ tags:
     name: "Inventory"
     description: "Inventory proposed operations for the admin web application."
 paths:
+  /api/v1/admin/access/employees:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1employees'
+  /api/v1/admin/access/employees/{id}:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1employees~1{id}'
+  /api/v1/admin/access/roles:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1roles'
+  /api/v1/admin/access/roles/{id}:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1roles~1{id}'
+  /api/v1/admin/access/permissions:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1permissions'
+  /api/v1/admin/access/permissions/{id}:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1access~1permissions~1{id}'
+  /api/v1/admin/orders:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1orders'
+  /api/v1/admin/orders/queue:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1orders~1queue'
+  /api/v1/admin/orders/{id}:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1orders~1{id}'
+  /api/v1/admin/order-api/orders:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1order-api~1orders'
+  /api/v1/admin/order-api/orders/queue:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1order-api~1orders~1queue'
+  /api/v1/admin/order-api/orders/{id}:
+    $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1order-api~1orders~1{id}'
   "/api/v1/admin/orders/{orderId}/actions":
     post:
       tags:

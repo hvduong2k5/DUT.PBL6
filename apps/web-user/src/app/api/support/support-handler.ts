@@ -2,7 +2,8 @@ import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCustomerCapabilities } from "@/lib/auth/capability-server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import type { CreateSupportTicketResult, SupportContext, SupportMessage, SupportPriority, SupportPublicAttachment, SupportSubjectCode, SupportTicketDetail, SupportTicketStatus } from "@/lib/support/types";
 import { parseSupportRoute, validateCreateSupportTicket, validateSupportMessage } from "@/lib/support/validation";
 
@@ -28,10 +29,10 @@ function errorResponse(code: string, message: string, status: number, options: {
 
 async function readJson(request: NextRequest): Promise<unknown> { try { return await request.json(); } catch { return undefined; } }
 
-async function upstream(path: string, method: string, request: NextRequest, scenario?: string, body?: object, idempotencyKey?: string) {
+async function upstream(path: string, method: string, request: NextRequest, credential: string | undefined, scenario?: string, body?: object, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (body) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -88,14 +89,17 @@ function mapDetail(payload: Record<string, unknown>): SupportTicketDetail {
 }
 
 export async function handleSupportRequest(request: NextRequest, path: string[]) {
+  return withCustomerAuth(request, (credential) => handleSupportRequestWithCredential(request, path, credential));
+}
+
+async function handleSupportRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined) {
   const route = parseSupportRoute(path);
   const scenario = request.nextUrl.searchParams.get("mockScenario") ?? undefined;
   if (route.kind === "invalid") return errorResponse("NOT_FOUND", "Support route không tồn tại.", 404);
   if (request.method === "POST" && (route.kind === "tickets" || route.kind === "messages")) {
-    const sessionCookie = getTrustedSessionCookie(request);
     try {
-      const projection = sessionCookie
-        ? (await authorizeCustomerCapability(sessionCookie, "SUPPORT_CREATE")).projection
+      const projection = credential
+        ? (await authorizeCustomerCapability(credential, "SUPPORT_CREATE")).projection
         : await fetchCustomerCapabilities();
       if (!projection.capabilities.includes("SUPPORT_CREATE")) return errorResponse("CAPABILITY_FORBIDDEN", "Actor hiện tại không có quyền gửi yêu cầu hỗ trợ.", 403);
     } catch (cause) {
@@ -104,7 +108,7 @@ export async function handleSupportRequest(request: NextRequest, path: string[])
     }
   }
   if (request.method === "GET" && route.kind === "context") {
-    try { return NextResponse.json(mapContext(await upstream("support/context", "GET", request, scenario))); }
+    try { return NextResponse.json(mapContext(await upstream("support/context", "GET", request, credential, scenario))); }
     catch (cause) { return handleError(cause); }
   }
   if (request.method === "POST" && route.kind === "tickets") {
@@ -113,13 +117,13 @@ export async function handleSupportRequest(request: NextRequest, path: string[])
     if (!parsed.ok) return errorResponse("VALIDATION_ERROR", "Thông tin yêu cầu chưa hợp lệ.", 422, { errors: parsed.errors });
     try {
       const { idempotencyKey, ...body } = parsed.data;
-      const payload = await upstream("support/tickets", "POST", request, scenario, body, idempotencyKey);
+      const payload = await upstream("support/tickets", "POST", request, credential, scenario, body, idempotencyKey);
       const result: CreateSupportTicketResult = { ticketId: string(payload.ticketId), ticketNumber: string(payload.ticketNumber), status: "NEW", ticketPath: `/support/tickets/${encodeURIComponent(string(payload.ticketId))}`, createdAt: date(payload.createdAt), message: string(payload.message, "Yêu cầu hỗ trợ đã được tiếp nhận.") };
       return NextResponse.json(result, { status: 201 });
     } catch (cause) { return handleError(cause); }
   }
   if (request.method === "GET" && route.kind === "ticket") {
-    try { return NextResponse.json(mapDetail(await upstream(`support/tickets/${encodeURIComponent(route.ticketId)}`, "GET", request, scenario))); }
+    try { return NextResponse.json(mapDetail(await upstream(`support/tickets/${encodeURIComponent(route.ticketId)}`, "GET", request, credential, scenario))); }
     catch (cause) { return handleError(cause); }
   }
   if (request.method === "POST" && route.kind === "messages") {
@@ -127,7 +131,7 @@ export async function handleSupportRequest(request: NextRequest, path: string[])
     const parsed = validateSupportMessage(await readJson(request));
     if (!parsed.ok) return errorResponse("VALIDATION_ERROR", "Nội dung phản hồi chưa hợp lệ.", 422, { errors: parsed.errors });
     try {
-      const payload = await upstream(`support/tickets/${encodeURIComponent(route.ticketId)}/messages`, "POST", request, scenario, { message: parsed.data.message, attachments: parsed.data.attachments }, parsed.data.idempotencyKey);
+      const payload = await upstream(`support/tickets/${encodeURIComponent(route.ticketId)}/messages`, "POST", request, credential, scenario, { message: parsed.data.message, attachments: parsed.data.attachments }, parsed.data.idempotencyKey);
       return NextResponse.json(mapMessage(payload), { status: 201 });
     } catch (cause) { return handleError(cause); }
   }

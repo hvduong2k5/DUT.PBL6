@@ -97,8 +97,9 @@ quota is 60/session/minute. PostgreSQL admission locks the session and permits
 at most 3 unpaid pending orders, counting in-flight operations; concurrent keys
 cannot bypass it and existing idempotent results can replay at quota.
 
-Real Catalog COD requires `ORDER_COD_POLICY_REFERENCE` (an explicit versioned
-collection policy; empty keeps that provider's COD admission off). Placement
+Real Catalog COD retains the `dev` default policy `cod-collection-1.0`;
+`ORDER_COD_POLICY_REFERENCE` is an optional versioned override. Guest COD still
+requires its independent feature flag. Placement
 snapshots only the amount to collect and leaves payment UNPAID. The previous
 blanket rejection mixed placement with the later Finance settlement requirement;
 the completion evidence gate remains enforced. No paid/settled proof is created.

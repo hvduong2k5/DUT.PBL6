@@ -128,3 +128,50 @@ func TestCustomerRepository_OptimisticConcurrencyControl(t *testing.T) {
 		})
 	}
 }
+
+func TestCustomerRepository_UpdateProfileActivatesPendingVerification(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping PostgreSQL integration test in short mode")
+	}
+
+	ctx := context.Background()
+	pool, cleanup := testhelper.SetupPostgresContainer(t)
+	defer cleanup()
+
+	repo := repository.NewCustomerRepository(pool)
+	now := time.Now().UTC()
+
+	seed := func(status, email string) uuid.UUID {
+		id := uuid.New()
+		err := repo.Create(ctx, &domain.CustomerProfile{
+			ID:          id,
+			UserID:      uuid.New(),
+			FullName:    "Nguyen Van Kiem",
+			PhoneNumber: "",
+			Email:       email,
+			Gender:      "UNSPECIFIED",
+			Status:      status,
+			Version:     1,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			Preferences: map[string]any{},
+		})
+		require.NoError(t, err)
+		return id
+	}
+
+	// A profile provisioned from a registration event (no phone yet,
+	// PENDING_VERIFICATION) becomes ACTIVE when the customer completes the
+	// number through the normal profile update flow.
+	pendingID := seed("PENDING_VERIFICATION", "kiem.pending@hue-ocop.vn")
+	updated, err := repo.UpdateProfileWithOptimisticLock(ctx, pendingID, "Nguyen Van Kiem", "+84912345678", "kiem.pending@hue-ocop.vn", 1)
+	require.NoError(t, err)
+	require.Equal(t, "ACTIVE", updated.Status)
+	require.Equal(t, "+84912345678", updated.PhoneNumber)
+
+	// A suspended profile must not be resurrected by a profile update.
+	suspendedID := seed("SUSPENDED", "kiem.suspended@hue-ocop.vn")
+	updated, err = repo.UpdateProfileWithOptimisticLock(ctx, suspendedID, "Nguyen Van Kiem", "+84912345679", "kiem.suspended@hue-ocop.vn", 1)
+	require.NoError(t, err)
+	require.Equal(t, "SUSPENDED", updated.Status)
+}

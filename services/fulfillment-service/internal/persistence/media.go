@@ -56,7 +56,7 @@ func (s *Store) CreateMedia(ctx context.Context, p d.Principal, id, key string, 
 		if err != nil {
 			return err
 		}
-		if !p.Can("fulfillment.media.upload", current.Warehouse) {
+		if !p.Can("FULFILLMENT_MEDIA_UPLOAD", current.Warehouse) {
 			return d.Fail("FORBIDDEN", 403)
 		}
 		if b, found, err := registry(ctx, tx, c); err != nil {
@@ -110,7 +110,7 @@ func (s *Store) CompleteMedia(ctx context.Context, p d.Principal, id, key string
 		if err != nil {
 			return err
 		}
-		if !p.Can("fulfillment.media.upload", current.Warehouse) || p.ID != f.Uploader {
+		if !p.Can("FULFILLMENT_MEDIA_UPLOAD", current.Warehouse) || p.ID != f.Uploader {
 			return d.Fail("FORBIDDEN", 403)
 		}
 		if b, found, err := registry(ctx, tx, c); err != nil {
@@ -174,7 +174,7 @@ func (s *Store) MediaAccessAudit(ctx context.Context, p d.Principal, f d.File, p
 	if e != nil {
 		return "", e
 	}
-	if !p.Can("fulfillment.media.view", t.Warehouse) {
+	if !p.Can("FULFILLMENT_MEDIA_VIEW", t.Warehouse) {
 		return "", d.Fail("FORBIDDEN", 403)
 	}
 	if purpose != "PACKING_REVIEW" && purpose != "QUALITY_INVESTIGATION" {

@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -58,8 +57,7 @@ func main() {
 	}
 	var auth transport.Auth
 	auth.Issuer = os.Getenv("FULFILLMENT_JWT_ISSUER")
-	auth.IdentityURL = os.Getenv("IDENTITY_URL")
-	auth.StaffAudience = env("FULFILLMENT_STAFF_AUDIENCE", "fulfillment-api")
+	auth.StaffAudience = env("FULFILLMENT_STAFF_AUDIENCE", "omama-api")
 	if path := os.Getenv("FULFILLMENT_ORDER_CALLER_TOKEN_FILE"); path != "" {
 		raw, e := os.ReadFile(path)
 		if e != nil || len(strings.TrimSpace(string(raw))) < 32 {
@@ -78,20 +76,14 @@ func main() {
 		}
 	}
 	local := env("FULFILLMENT_ENV", "production") == "local"
-	if auth.IdentityURL != "" {
-		u, e := url.Parse(auth.IdentityURL)
-		if e != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || (u.Scheme != "https" && !(local && u.Scheme == "http")) {
-			log.Fatal("trusted Identity base URL requires HTTPS outside isolated local mode")
-		}
-	}
 	certificate, key := os.Getenv("FULFILLMENT_TLS_CERT"), os.Getenv("FULFILLMENT_TLS_KEY")
 	if !local && (certificate == "" || key == "" || auth.Key == nil || auth.Issuer == "") {
 		log.Fatal("production requires TLS certificate/key and JWT issuer/public key")
 	}
 	store := &persistence.Store{DB: pool}
 	svc := &application.Service{Store: store, Authority: application.Unavailable{}, AdmissionEnabled: enabled("FULFILLMENT_ADMISSION_ENABLED"), SealEnabled: enabled("FULFILLMENT_SEAL_ENABLED"), Integrated: enabled("FULFILLMENT_PACKING_V2_ENABLED")}
-	if svc.Integrated && auth.IdentityURL == "" {
-		log.Fatal("integrated staff APIs require verified Identity persona and role/scope")
+	if svc.Integrated && (auth.Key == nil || auth.Issuer == "") {
+		log.Fatal("integrated staff APIs require verified JWT issuer and public key")
 	}
 	if enabled("FULFILLMENT_REOPEN_ENABLED") || enabled("FULFILLMENT_MULTI_PACKAGE_ENABLED") || enabled("FULFILLMENT_CUSTOMER_MEDIA_ENABLED") {
 		log.Fatal("unsupported capability flag")
@@ -179,7 +171,11 @@ func main() {
 	go runtime.Run(ctx)
 	rpc := &transport.RPC{Service: svc, Auth: auth}
 	options := []grpc.ServerOption{grpc.UnaryInterceptor(auth.Interceptor), grpc.MaxRecvMsgSize(65536)}
-	if !local {
+	// Serve gRPC over TLS whenever a certificate is configured, even in the
+	// local profile: peers such as order-service verify packing proofs over
+	// this endpoint with a pinned CA and refuse plaintext, while the local
+	// profile's HTTP staff API and S3 test double stay plaintext by design.
+	if certificate != "" && key != "" {
 		creds, e := credentials.NewServerTLSFromFile(certificate, key)
 		if e != nil {
 			log.Fatal(e)

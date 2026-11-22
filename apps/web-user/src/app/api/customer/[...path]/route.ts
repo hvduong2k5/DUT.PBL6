@@ -11,7 +11,8 @@ import {
 } from "@/lib/api-contract";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import { parseCheckoutLocations } from "@/lib/checkout/locations";
 import { NextRequest } from "next/server";
 
@@ -51,11 +52,11 @@ async function readBody<T>(request: NextRequest): Promise<T | undefined> {
   }
 }
 
-function headersFor(request: NextRequest, hasBody = false): Headers {
+function headersFor(request: NextRequest, credential: string | undefined, hasBody = false): Headers {
   const headers = new Headers({ Accept: "application/json" });
   const scenario = request.headers.get("x-mock-scenario");
   const ifMatch = request.headers.get("if-match");
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (ifMatch) headers.set("If-Match", ifMatch);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
@@ -64,11 +65,11 @@ function headersFor(request: NextRequest, hasBody = false): Headers {
   return headers;
 }
 
-async function upstream(request: NextRequest, path: string, method: string, body?: unknown) {
+async function upstream(request: NextRequest, credential: string | undefined, path: string, method: string, body?: unknown) {
   const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers: headersFor(request, body !== undefined),
+    headers: headersFor(request, credential, body !== undefined),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -78,11 +79,11 @@ async function upstream(request: NextRequest, path: string, method: string, body
   return { response, payload };
 }
 
-async function locationUpstream(request: NextRequest) {
+async function locationUpstream(request: NextRequest, credential: string | undefined) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const response = await fetch(`${base}/locations/checkout`, {
     method: "GET",
-    headers: headersFor(request),
+    headers: headersFor(request, credential),
     cache: "no-store",
     redirect: "manual"
   });
@@ -221,15 +222,19 @@ function addressUpdateFrom(address: ShippingAddress): AddressUpdate {
   };
 }
 
-async function developmentAddressList(request: NextRequest): Promise<{ response: Response; addresses: ShippingAddress[] } | undefined> {
+async function developmentAddressList(request: NextRequest, credential: string | undefined): Promise<{ response: Response; addresses: ShippingAddress[] } | undefined> {
   if (process.env.NODE_ENV === "production") return undefined;
-  const result = await upstream(request, "profile/addresses", "GET");
+  const result = await upstream(request, credential, "profile/addresses", "GET");
   if (!result.response.ok) return undefined;
   const addresses = normalizeAddressList(result.payload, result.response);
   return addresses ? { response: result.response, addresses } : undefined;
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
+  return withCustomerAuth(request, (credential) => proxyWithCredential(request, context, credential));
+}
+
+async function proxyWithCredential(request: NextRequest, context: { params: Promise<{ path: string[] }> }, credential: string | undefined): Promise<Response> {
   const method = request.method.toUpperCase();
   const parts = (await context.params).path;
   const path = parts.join("/");
@@ -238,10 +243,9 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     return publicErrorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", "BFF-CUSTOMER-ORIGIN");
   }
 
-  const sessionCookie = getTrustedSessionCookie(request);
   const requiredCapability: CustomerCapability = path === "profile" ? "PROFILE_MANAGE" : "ADDRESS_MANAGE";
   try {
-    await authorizeCustomerCapability(sessionCookie, requiredCapability);
+    await authorizeCustomerCapability(credential, requiredCapability);
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CUSTOMER-ACCESS");
@@ -249,7 +253,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
   try {
     if (path === "locations") {
-      const result = await locationUpstream(request);
+      const result = await locationUpstream(request, credential);
       if (!result.response.ok) return relayError(result.payload, result.response);
       const locations = parseCheckoutLocations(result.payload);
       if (!locations) return publicErrorResponse(502, "CUSTOMER_LOCATIONS_INVALID", "Danh mục Tỉnh/Thành phố và Phường/Xã không hợp lệ.", "BFF-CUSTOMER-LOCATIONS");
@@ -261,7 +265,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       if (method === "PUT" && !isProfileUpdate(body)) {
         return publicErrorResponse(400, "INVALID_REQUEST", "Thông tin hồ sơ không hợp lệ.", "BFF-PROFILE-REQUEST");
       }
-      const result = await upstream(request, "profile", method, body);
+      const result = await upstream(request, credential, "profile", method, body);
       if (!result.response.ok) return relayError(result.payload, result.response);
       const profile = normalizeProfile(result.payload, result.response);
       if (!profile) return publicErrorResponse(502, "INVALID_PROFILE_RESPONSE", "Dữ liệu hồ sơ không đúng contract.", "BFF-PROFILE-RESPONSE");
@@ -270,7 +274,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
     if (path === "addresses") {
       if (method === "GET") {
-        const result = await upstream(request, "profile/addresses", "GET");
+        const result = await upstream(request, credential, "profile/addresses", "GET");
         if (!result.response.ok) return relayError(result.payload, result.response);
         const addresses = normalizeAddressList(result.payload, result.response);
         if (!addresses) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Danh sách địa chỉ không đúng contract.", "BFF-ADDRESS-LIST");
@@ -278,7 +282,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       }
       const body = await readBody<unknown>(request);
       if (!isAddressInput(body)) return publicErrorResponse(400, "INVALID_REQUEST", "Địa chỉ không hợp lệ.", "BFF-ADDRESS-CREATE");
-      const result = await upstream(request, "profile/addresses", "POST", body);
+      const result = await upstream(request, credential, "profile/addresses", "POST", body);
       if (!result.response.ok) return relayError(result.payload, result.response);
       const address = normalizeAddress(result.payload, result.response);
       if (!address) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Địa chỉ trả về không đúng contract.", "BFF-ADDRESS-CREATE");
@@ -287,7 +291,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
 
     const addressId = parts[1];
     if (parts[2] === "default") {
-      const result = await upstream(request, `profile/addresses/${encodeURIComponent(addressId)}/default`, method);
+      const result = await upstream(request, credential, `profile/addresses/${encodeURIComponent(addressId)}/default`, method);
       if (result.response.ok) {
         const addresses = normalizeAddressList(result.payload, result.response);
         if (!addresses) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Danh sách địa chỉ không đúng contract.", "BFF-ADDRESS-DEFAULT");
@@ -295,23 +299,23 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       }
       if (process.env.NODE_ENV === "production" || result.response.status !== 404) return relayError(result.payload, result.response);
 
-      const legacy = await developmentAddressList(request);
+      const legacy = await developmentAddressList(request, credential);
       const selected = legacy?.addresses.find((item) => item.id === addressId);
       if (!legacy || !selected) return publicErrorResponse(404, "ADDRESS_NOT_FOUND", "Không tìm thấy địa chỉ yêu cầu.", "BFF-ADDRESS-DEFAULT");
-      const update = await upstream(request, `profile/addresses/${encodeURIComponent(addressId)}`, "PUT", addressUpdateFrom(selected));
+      const update = await upstream(request, credential, `profile/addresses/${encodeURIComponent(addressId)}`, "PUT", addressUpdateFrom(selected));
       if (!update.response.ok) return relayError(update.payload, update.response);
       return Response.json(legacy.addresses.map((item) => ({ ...item, is_default: item.id === addressId })));
     }
 
     if (method === "GET") {
-      const result = await upstream(request, `profile/addresses/${encodeURIComponent(addressId)}`, "GET");
+      const result = await upstream(request, credential, `profile/addresses/${encodeURIComponent(addressId)}`, "GET");
       if (result.response.ok) {
         const address = normalizeAddress(result.payload, result.response);
         if (!address) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Địa chỉ trả về không đúng contract.", "BFF-ADDRESS-DETAIL");
         return Response.json(address, { headers: responseHeaders(result.response, address.version) });
       }
       if (process.env.NODE_ENV === "production" || result.response.status !== 404) return relayError(result.payload, result.response);
-      const legacy = await developmentAddressList(request);
+      const legacy = await developmentAddressList(request, credential);
       const address = legacy?.addresses.find((item) => item.id === addressId);
       return address
         ? Response.json(address, { headers: { ETag: `"${address.version}"` } })
@@ -319,18 +323,18 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     }
 
     if (method === "DELETE") {
-      const result = await upstream(request, `profile/addresses/${encodeURIComponent(addressId)}`, "DELETE");
+      const result = await upstream(request, credential, `profile/addresses/${encodeURIComponent(addressId)}`, "DELETE");
       if (!result.response.ok) return relayError(result.payload, result.response);
       const addresses = normalizeAddressList(result.payload, result.response);
       if (addresses) return Response.json(addresses, { headers: responseHeaders(result.response) });
-      const legacy = await developmentAddressList(request);
+      const legacy = await developmentAddressList(request, credential);
       if (!legacy) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Danh sách địa chỉ không đúng contract.", "BFF-ADDRESS-DELETE");
       return Response.json(legacy.addresses.filter((item) => item.id !== addressId));
     }
 
     const body = await readBody<unknown>(request);
     if (!isAddressInput(body)) return publicErrorResponse(400, "INVALID_REQUEST", "Địa chỉ không hợp lệ.", "BFF-ADDRESS-UPDATE");
-    const result = await upstream(request, `profile/addresses/${encodeURIComponent(addressId)}`, "PUT", body);
+    const result = await upstream(request, credential, `profile/addresses/${encodeURIComponent(addressId)}`, "PUT", body);
     if (!result.response.ok) return relayError(result.payload, result.response);
     const address = normalizeAddress(result.payload, result.response);
     if (!address) return publicErrorResponse(502, "INVALID_ADDRESS_RESPONSE", "Địa chỉ trả về không đúng contract.", "BFF-ADDRESS-UPDATE");

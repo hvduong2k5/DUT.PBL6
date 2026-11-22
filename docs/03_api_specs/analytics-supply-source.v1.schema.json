@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "Batch": {
+      "additionalProperties": false,
+      "properties": {
+        "batchCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Batchcode",
+          "type": "string"
+        },
+        "expiresOn": {
+          "format": "date",
+          "title": "Expireson",
+          "type": "string"
+        },
+        "sellableUnits": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Sellableunits",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "batchCode",
+        "expiresOn",
+        "sellableUnits"
+      ],
+      "title": "Batch",
+      "type": "object"
+    },
+    "InventoryBatches": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "warehouseId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "businessDate": {
+          "format": "date",
+          "title": "Businessdate",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "sourceAsOf": {
+          "format": "date-time",
+          "title": "Sourceasof",
+          "type": "string"
+        },
+        "approvedBy": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Approvedby",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidenceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "inventory_batches",
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "const": "inventory-service",
+          "title": "Source",
+          "type": "string"
+        },
+        "batches": {
+          "items": {
+            "$ref": "#/$defs/Batch"
+          },
+          "maxItems": 2000,
+          "title": "Batches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "skuCode",
+        "warehouseId",
+        "businessDate",
+        "revision",
+        "sourceAsOf",
+        "approvedBy",
+        "evidenceRef",
+        "kind",
+        "source",
+        "batches"
+      ],
+      "title": "InventoryBatches",
+      "type": "object"
+    },
+    "InventoryDay": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "warehouseId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "businessDate": {
+          "format": "date",
+          "title": "Businessdate",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "sourceAsOf": {
+          "format": "date-time",
+          "title": "Sourceasof",
+          "type": "string"
+        },
+        "approvedBy": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Approvedby",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidenceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "inventory_day",
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "const": "inventory-service",
+          "title": "Source",
+          "type": "string"
+        },
+        "stockoutMinutes": {
+          "maximum": 1440,
+          "minimum": 0,
+          "title": "Stockoutminutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "skuCode",
+        "warehouseId",
+        "businessDate",
+        "revision",
+        "sourceAsOf",
+        "approvedBy",
+        "evidenceRef",
+        "kind",
+        "source",
+        "stockoutMinutes"
+      ],
+      "title": "InventoryDay",
+      "type": "object"
+    },
+    "OrderDay": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": "1",
+          "title": "Schemaversion",
+          "type": "string"
+        },
+        "skuCode": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Skucode",
+          "type": "string"
+        },
+        "warehouseId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+          "title": "Warehouseid",
+          "type": "string"
+        },
+        "businessDate": {
+          "format": "date",
+          "title": "Businessdate",
+          "type": "string"
+        },
+        "revision": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "sourceAsOf": {
+          "format": "date-time",
+          "title": "Sourceasof",
+          "type": "string"
+        },
+        "approvedBy": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Approvedby",
+          "type": "string"
+        },
+        "evidenceRef": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Evidenceref",
+          "type": "string"
+        },
+        "kind": {
+          "const": "order_day",
+          "title": "Kind",
+          "type": "string"
+        },
+        "source": {
+          "const": "order-service",
+          "title": "Source",
+          "type": "string"
+        },
+        "soldUnits": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Soldunits",
+          "type": "integer"
+        },
+        "returnedUnits": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Returnedunits",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "skuCode",
+        "warehouseId",
+        "businessDate",
+        "revision",
+        "sourceAsOf",
+        "approvedBy",
+        "evidenceRef",
+        "kind",
+        "source",
+        "soldUnits",
+        "returnedUnits"
+      ],
+      "title": "OrderDay",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "inventory_batches": "#/$defs/InventoryBatches",
+      "inventory_day": "#/$defs/InventoryDay",
+      "order_day": "#/$defs/OrderDay"
+    },
+    "propertyName": "kind"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/OrderDay"
+    },
+    {
+      "$ref": "#/$defs/InventoryDay"
+    },
+    {
+      "$ref": "#/$defs/InventoryBatches"
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -2,12 +2,16 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { authorizeStorefrontCapability, hasCustomerCredential, storefrontUpstream } from "@/lib/auth/storefront-credential";
+import { authorizeStorefrontCapability, hasCustomerCredential, storefrontUpstream, withStorefrontAuth } from "@/lib/auth/storefront-credential";
 import { normalizePublicError } from "@/lib/api-contract";
 
 export function guestPaymentCookie(orderId: string): string { return `oma_guest_payment_${orderId.replaceAll("-", "")}`; }
 
 export async function handleGuestPaymentAccess(request: NextRequest, orderId: string): Promise<NextResponse> {
+  return withStorefrontAuth(request, () => handleResolvedGuestPaymentAccess(request, orderId)) as Promise<NextResponse>;
+}
+
+async function handleResolvedGuestPaymentAccess(request: NextRequest, orderId: string): Promise<NextResponse> {
   const error = (status: number, code: string, message: string) => NextResponse.json({ code, message, requestId: "BFF-GUEST-PAYMENT" }, { status, headers: { "Cache-Control": "no-store" } });
   if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/iu.test(orderId)) return error(400, "INVALID_ORDER_ID", "Mã đơn không hợp lệ.");
   if (!hasTrustedOrigin(request)) return error(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.");

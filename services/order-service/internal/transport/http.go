@@ -130,6 +130,10 @@ func Handler(s *app.Service) http.Handler {
 	r.Group(func(api chi.Router) {
 		api.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if len(r.Header.Values("Authorization")) != 1 {
+					failure(s, w, domain.E("UNAUTHENTICATED", 401))
+					return
+				}
 				p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
 				if e == nil {
 					e = authorizeGuestRequest(s, p, r)
@@ -140,6 +144,13 @@ func Handler(s *app.Service) http.Handler {
 				if e != nil {
 					failure(s, w, e)
 					return
+				}
+				w.Header().Set("Cache-Control", "no-store")
+				if p.IAM {
+					if !staffOrderRoute(r.Method, r.URL.Path) {
+						failure(s, w, domain.E("CUSTOMER_REQUIRED", 403))
+						return
+					}
 				}
 				if s.Payment != nil && p.Role == "GUEST" {
 					if e := s.Payment.CheckGuestSession(r.Context(), p.ID); e != nil {
@@ -323,15 +334,17 @@ func Handler(s *app.Service) http.Handler {
 				views := make([]any, 0, len(items))
 				for _, item := range items {
 					if strings.Contains(r.Header.Get("Accept"), app.CustomerMediaType) {
-						if item.Cohort == "order-core-1" {
-							var err error
-							item, err = s.GetOrder(r.Context(), item.ID, p, false)
-							if err != nil {
-								failure(s, w, err)
-								return
-							}
+						// The customer contract renders list previews from the
+						// frozen snapshot, so every item is re-read with its
+						// snapshot loaded (core and legacy alike) before the
+						// customer projection runs.
+						var err error
+						item, err = s.GetOrder(r.Context(), item.ID, p, true)
+						if err != nil {
+							failure(s, w, err)
+							return
 						}
-						views = append(views, s.CustomerOrder(item, p, false))
+						views = append(views, s.CustomerOrder(item, p, true))
 					} else {
 						views = append(views, s.OrderResponse(item, p, false))
 					}
@@ -340,8 +353,9 @@ func Handler(s *app.Service) http.Handler {
 			}
 		}
 		api.Get("/api/v1/orders", list(false, false))
-		api.Get("/api/v1/admin/orders", list(true, false))
-		api.Get("/api/v1/admin/orders/queue", list(true, true))
+		api.Get("/api/v1/admin/orders", adminOrderList(s, false, list(true, false)))
+		api.Get("/api/v1/admin/orders/queue", adminOrderList(s, true, list(true, true)))
+		api.Get("/api/v1/admin/orders/{id}", adminOrderProjection(s, false, true))
 		api.Get("/api/v1/orders/{id}", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), true)
 			if e != nil {
@@ -542,4 +556,28 @@ func Handler(s *app.Service) http.Handler {
 		})
 	})
 	return r
+}
+
+// Keep employee access explicit as customer routes grow. Object permissions
+// are still enforced by the application on every admitted route.
+func staffOrderRoute(method, path string) bool {
+	if method == http.MethodGet && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
+		return true
+	}
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 1 && parts[0] != ""
+	}
+	if strings.HasPrefix(path, "/api/v1/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")
+		if parts[0] == "" {
+			return false
+		}
+		return method == http.MethodGet && (len(parts) == 1 || len(parts) == 2 && parts[1] == "tracking") || method == http.MethodPost && len(parts) == 2 && parts[1] == "cancellation-requests"
+	}
+	if method == http.MethodPost && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 2 && parts[0] != "" && parts[1] == "hold"
+	}
+	return false
 }

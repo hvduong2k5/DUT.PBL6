@@ -102,7 +102,11 @@ func (s *Service) mutateStorefrontCart(ctx context.Context, p domain.Principal, 
 	if e = persistence.WriteStorefrontCart(ctx, tx, p.Scope(), cart, id); e != nil {
 		return cart, e
 	}
-	return cart, tx.Commit(ctx)
+	if e = tx.Commit(ctx); e != nil {
+		return cart, e
+	}
+	s.enrichCart(ctx, &cart)
+	return cart, nil
 }
 
 func (s *Service) coreCartID(ctx context.Context, p domain.Principal, create bool) (string, error) {

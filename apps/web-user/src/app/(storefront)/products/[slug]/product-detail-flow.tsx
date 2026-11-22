@@ -6,13 +6,14 @@ import { PublicApiError } from "@/lib/api-contract";
 import { useEffect, useMemo, useState } from "react";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import type { ProductDetail, ProductSku } from "@/lib/product-detail/types";
-import { ProductReviewsSection } from "@/components/product/product-reviews";
 import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { useAuth } from "@/components/auth/auth-provider";
+import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
+import { useRecommendation } from "@/components/recommendation/recommendation-provider";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 
@@ -36,6 +37,8 @@ function ProductDetailLoading() {
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
   const { isEmployee, status } = useAuth();
+  const recommendation = useRecommendation();
+  const { record, consent } = recommendation;
   const { updateFromCart } = useCartSummary();
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
@@ -45,6 +48,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string }>();
   const [selectionMessage, setSelectionMessage] = useState("");
+  const [selectionErrorCode, setSelectionErrorCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
@@ -84,6 +88,10 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
   const hasAvailableSku = product?.skus.some((sku) => sku.availability === "AVAILABLE") ?? false;
   const hasUnknownSku = product?.skus.some((sku) => sku.availability === "UNKNOWN") ?? false;
 
+  useEffect(() => {
+    if (selectedSkuId) record(selectedSkuId, "VIEW_ITEM");
+  }, [selectedSkuId, record, consent?.consentVersion]);
+
   function selectSku(sku: ProductSku) {
     if (sku.availability !== "AVAILABLE") return;
     setSelectedSkuId(sku.skuId);
@@ -104,13 +112,16 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     setAddingToCart(true);
     setAddedToCart(false);
     setSelectionMessage("");
+    setSelectionErrorCode("");
     try {
       const cart = await cartService.addItem({ skuId: selectedSku.skuId, quantity }, scenario);
+      recommendation.record(selectedSku.skuId, "ADD_TO_CART");
       updateFromCart(cart);
       setAddedToCart(true);
       setSelectionMessage(`Đã thêm ${quantity} × ${selectedSku.label} vào giỏ. Giỏ hiện có ${cart.itemCount} sản phẩm.`);
     } catch (cause) {
       setSelectionMessage(cause instanceof PublicApiError ? cause.message : "Không thể thêm vào giỏ hàng lúc này.");
+      setSelectionErrorCode(cause instanceof PublicApiError ? cause.code : "");
     } finally {
       setAddingToCart(false);
     }
@@ -123,7 +134,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     return (
       <main className="product-detail-page">
         <section className="detail-state" role="alert">
-          <span aria-hidden="true">{notFound ? "⌕" : "!"}</span>
+          <span className="gh-emblem" aria-hidden="true" />
           <p className="eyebrow">{notFound ? "Không tìm thấy" : "Kết nối gián đoạn"}</p>
           <h1>{notFound ? "Sản phẩm chưa sẵn sàng để xem" : "Chưa thể mở chi tiết sản phẩm"}</h1>
           <p>{notFound ? "Sản phẩm có thể không tồn tại hoặc chưa được phép công khai." : error.message}</p>
@@ -149,7 +160,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         <div className="product-gallery">
           <div className="gallery-main">
             {activeImage ? <ProductImage src={activeImage} alt={product.images.find((image) => image.url === activeImage)?.alt ?? product.name} fill priority loading="eager" sizes="(max-width: 860px) 100vw, 52vw" /> : <div className="gallery-empty">Chưa có ảnh sản phẩm</div>}
-            {product.ocopCertification ? <span className="gallery-certification">✺ {product.ocopCertification.label}</span> : null}
+            {product.ocopCertification ? <span className="gallery-certification">{product.ocopCertification.label}</span> : null}
           </div>
           {product.images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ảnh sản phẩm">{product.images.map((image) => <button type="button" className={activeImage === image.url ? "active" : ""} aria-pressed={activeImage === image.url} onClick={() => setActiveImageUrl(image.url)} key={image.id}><ProductImage src={image.url} alt={image.alt} fill sizes="92px" /></button>)}</div> : null}
         </div>
@@ -191,11 +202,11 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             </div>
             <button className="cart-integration-button" type="button" disabled={!hasAvailableSku || addingToCart} onClick={addToCart}>{!hasAvailableSku ? "Tạm thời không thể mua" : addingToCart ? "Đang thêm vào giỏ…" : selectedSku ? "Thêm vào giỏ hàng" : "Chọn SKU để tiếp tục"}</button>
           </div>
-          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
+          {selectionMessage ? <div id="sku-message" className={addedToCart ? "integration-note" : "selection-error"} role={addedToCart ? "status" : "alert"}><p>{selectionMessage}</p>{selectionErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? <Link href="/account/profile">Hoàn thiện hồ sơ →</Link> : addedToCart ? <Link href="/cart">Xem giỏ hàng →</Link> : null}</div> : <p id="sku-message" className="integration-caption">Giỏ hàng không giữ tồn hoặc cố định giá; hệ thống sẽ kiểm tra lại khi mở cart.</p>}</>}
         </div>
       </section>
 
-      {!hasAvailableSku ? <section className="availability-banner" role="status"><span aria-hidden="true">◇</span><div><h2>{hasUnknownSku ? "Tồn kho sản phẩm đang được đồng bộ" : "Sản phẩm đang tạm hết khả dụng"}</h2><p>{hasUnknownSku ? "Hệ thống chưa có dữ liệu tồn kho đủ tin cậy nên chưa cho phép chọn SKU này." : "Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật."}</p></div></section> : null}
+      {!hasAvailableSku ? <section className="availability-banner" role="status"><span className="gh-emblem" aria-hidden="true" /><div><h2>{hasUnknownSku ? "Tồn kho sản phẩm đang được đồng bộ" : "Sản phẩm đang tạm hết khả dụng"}</h2><p>{hasUnknownSku ? "Hệ thống chưa có dữ liệu tồn kho đủ tin cậy nên chưa cho phép chọn SKU này." : "Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật."}</p></div></section> : null}
 
       <section className="product-story" aria-labelledby="product-story-title">
         <div><p className="eyebrow">Thông tin đã công bố</p><h2 id="product-story-title">Câu chuyện của thức quà</h2><p>{product.longDescription}</p></div>
@@ -205,13 +216,17 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       {foodInformation ? <section className="food-information" aria-labelledby="food-title">
         <div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Hiểu rõ trước khi lựa chọn</h2><p>Dữ liệu catalog chung; ngày cụ thể của Batch/Lot không được hiển thị tại đây.</p></div>
         <div className="food-grid">
-          <article><span aria-hidden="true">✦</span><h3>Thành phần</h3><p>{foodInformation.ingredients}</p>{foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{foodInformation.allergenStatement}</p></div> : null}</article>
-          <article><span aria-hidden="true">⌂</span><h3>Bảo quản</h3><p>{foodInformation.storageInstructions}</p></article>
-          <article><span aria-hidden="true">◷</span><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Thành phần</h3><p>{foodInformation.ingredients}</p>{foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{foodInformation.allergenStatement}</p></div> : null}</article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Bảo quản</h3><p>{foodInformation.storageInstructions}</p></article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
         </div>
       </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
 
-      <ProductReviewsSection key={product.id} productId={product.id} productName={product.name} mockScenario={scenario} />
+      {/* F-27: the reviews section is hidden until a reviews backend exists.
+          No service owns reviews today, so ProductReviewsSection could only
+          render its error state. The component is kept in the codebase for
+          the future reviews build (F-27-build in the findings register). */}
+      <RecommendationRail placement="product_detail" productId={product.id} skuCode={selectedSkuId} />
     </main>
   );
 }

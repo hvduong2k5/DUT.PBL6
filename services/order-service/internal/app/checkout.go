@@ -19,6 +19,7 @@ func (s *Service) Cart(ctx context.Context, p domain.Principal) (domain.Cart, er
 	if s.sqlCarts() {
 		cart, _, err := readSQLCart(ctx, s.DB, p.Scope())
 		if err == nil {
+			s.enrichCart(ctx, &cart)
 			return cart, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -36,8 +37,43 @@ func (s *Service) redisCart(ctx context.Context, p domain.Principal) (domain.Car
 		return domain.Cart{}, domain.E("CART_UNAVAILABLE", 503)
 	}
 	var c domain.Cart
-	e = json.Unmarshal(v, &c)
-	return c, e
+	if e = json.Unmarshal(v, &c); e != nil {
+		return domain.Cart{}, e
+	}
+	s.enrichCart(ctx, &c)
+	return c, nil
+}
+
+// enrichCart fills display-only catalog data (product name, unit price,
+// weight) into cart items (F-35). The cart itself persists only SKU +
+// quantity, so without this the storefront can show nothing but the SKU
+// and "awaiting quote". Any enrichment failure degrades silently to the
+// SKU-only cart - the previous behaviour - and never blocks a cart read
+// or mutation: checkout always re-quotes from a fresh catalog snapshot,
+// so these values are never a pricing source.
+func (s *Service) enrichCart(ctx context.Context, c *domain.Cart) {
+	if s.C.CatalogURL == "" || len(c.Items) == 0 {
+		return
+	}
+	snapshot, err := s.catalogSnapshot(ctx, c.Items)
+	if err != nil {
+		return
+	}
+	bySKU := make(map[string]int, len(snapshot.Items))
+	for index, item := range snapshot.Items {
+		bySKU[item.SKU] = index
+	}
+	for i := range c.Items {
+		index, ok := bySKU[c.Items[i].SKU]
+		if !ok {
+			continue
+		}
+		item := snapshot.Items[index]
+		c.Items[i].Name = item.Name
+		c.Items[i].UnitPrice = item.Price
+		c.Items[i].Weight = item.Weight
+		c.Items[i].Version = snapshot.Version
+	}
 }
 func (s *Service) MutateCart(ctx context.Context, p domain.Principal, sku string, qty int, revision int64, add bool) (domain.Cart, error) {
 	if len(sku) == 0 || len(sku) > 64 || qty < 0 || qty > 999 || revision < 0 {
@@ -113,6 +149,9 @@ func (s *Service) mutateRedisCart(ctx context.Context, p domain.Principal, sku s
 		if errors.Is(e, redis.TxFailedErr) {
 			continue
 		}
+		if e == nil {
+			s.enrichCart(ctx, &result)
+		}
 		return result, e
 	}
 	return result, domain.E("VERSION_CONFLICT", 409)
@@ -144,14 +183,16 @@ func (s *Service) Address(ctx context.Context, p domain.Principal, id string) (d
 			return domain.Address{}, 0, domain.E("PROFILE_UNAVAILABLE", 503)
 		}
 		var saved struct {
-			ID         string `json:"id"`
-			CustomerID string `json:"customer_id"`
-			Name       string `json:"recipient_name"`
-			Phone      string `json:"phone_number"`
-			Street     string `json:"street_address"`
-			Ward       string `json:"ward_code"`
-			Province   string `json:"province_code"`
-			Version    int64  `json:"version"`
+			ID           string `json:"id"`
+			CustomerID   string `json:"customer_id"`
+			Name         string `json:"recipient_name"`
+			Phone        string `json:"phone_number"`
+			Street       string `json:"street_address"`
+			Ward         string `json:"ward_code"`
+			WardName     string `json:"ward_name"`
+			Province     string `json:"province_code"`
+			ProvinceName string `json:"province_name"`
+			Version      int64  `json:"version"`
 		}
 		if e = json.NewDecoder(resp.Body).Decode(&saved); e != nil {
 			return domain.Address{}, 0, e
@@ -159,7 +200,7 @@ func (s *Service) Address(ctx context.Context, p domain.Principal, id string) (d
 		if saved.ID != id || saved.CustomerID != p.CustomerID || saved.Version <= 0 {
 			return domain.Address{}, 0, domain.E("ADDRESS_NOT_FOUND", 404)
 		}
-		return domain.Address{Name: saved.Name, Phone: saved.Phone, Street: saved.Street, Ward: saved.Ward, Province: saved.Province}, saved.Version, nil
+		return domain.Address{Name: saved.Name, Phone: saved.Phone, Street: saved.Street, Ward: saved.Ward, WardName: saved.WardName, Province: saved.Province, ProvinceName: saved.ProvinceName}, saved.Version, nil
 	}
 	var out struct {
 		Address domain.Address `json:"address"`
@@ -258,6 +299,9 @@ func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain
 		q.Address, q.AddressVersion, e = s.Address(ctx, p, in.AddressID)
 	} else if in.Address != nil {
 		q.Address = *in.Address
+		// Only the authoritative address lookup supplies names for the snapshot.
+		q.Address.WardName = ""
+		q.Address.ProvinceName = ""
 	} else {
 		e = domain.E("ADDRESS_REQUIRED", 422)
 	}

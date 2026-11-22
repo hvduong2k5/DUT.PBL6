@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,33 @@ function isAllowed(method: string, parts: string[]) {
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
   const parts = (await context.params).path;
+  if (request.method === "GET" && parts.length === 2 && parts[0] === "trace" && SAFE_SEGMENT.test(parts[1])) {
+    const base = process.env.TRACEABILITY_UPSTREAM_URL?.replace(/\/$/u, "");
+    if (base) {
+      try {
+        const upstream = await fetch(`${base}/${encodeURIComponent(parts[1])}`, {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(5000)
+        });
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+            "Cache-Control": "no-store"
+          }
+        });
+      } catch {
+        return Response.json({ error_code: "ERR_UPSTREAM_UNAVAILABLE", user_message: "Dịch vụ truy xuất tạm thời gián đoạn." }, { status: 503 });
+      }
+    }
+  }
+  return withCustomerAuth(request, (credential) => proxyWithCredential(request, context, credential));
+}
+
+async function proxyWithCredential(request: NextRequest, context: { params: Promise<{ path: string[] }> }, credential: string | undefined): Promise<Response> {
+  const parts = (await context.params).path;
   const path = parts.join("/");
   if (!isAllowed(request.method, parts)) {
     return Response.json({ error_code: "ERR_NOT_FOUND", user_message: "Customer route is not available." }, { status: 404 });
@@ -29,8 +57,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const upstreamBase = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
   const scenario = request.nextUrl.searchParams.get("mockScenario");
   const headers = new Headers({ Accept: "application/json" });
-  const sessionCookie = getTrustedSessionCookie(request);
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (request.method === "POST") headers.set("Content-Type", "application/json");
   if (process.env.NODE_ENV !== "production" && scenario && SCENARIO_PATTERN.test(scenario)) {
     headers.set("X-Mock-Scenario", scenario);
@@ -39,7 +66,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const requiredCapability: CustomerCapability | undefined = path === "reviews" ? "REVIEW_CREATE" : path === "loyalty/points" ? "LOYALTY_VIEW" : undefined;
   if (requiredCapability) {
     try {
-      await authorizeCustomerCapability(sessionCookie, requiredCapability);
+      await authorizeCustomerCapability(credential, requiredCapability);
     } catch (cause) {
       const failure = customerAccessFailure(cause);
       return Response.json({ error_code: failure.code, user_message: failure.message }, { status: failure.status });

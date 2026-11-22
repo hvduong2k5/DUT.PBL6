@@ -9,7 +9,7 @@ it("reads guest and registered COD orders without a bank-transfer deadline", () 
   for (const customer_id of [null, "30000000-0000-4000-8000-000000000053"]) {
     const value = { ...order, customer_id };
     expect(isOwnedOrder(value)).toBe(true);
-    if (isOwnedOrder(value)) expect(mapMvpOrderDetail(value).payment.expiresAt).toBe("");
+    if (isOwnedOrder(value)) expect(mapMvpOrderDetail(value).payment.expiresAt).toBeNull();
   }
 });
 it("still requires a valid VietQR payment deadline", () => {

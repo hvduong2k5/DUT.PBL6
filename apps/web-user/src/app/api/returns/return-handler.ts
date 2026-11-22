@@ -1,7 +1,9 @@
 import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import { NextRequest, NextResponse } from "next/server";
 import { customerAccessFailure, requireCustomerSession } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import type { CustomerCoreOrderDetail } from "@/lib/orders/customer-core";
 import {
   mapCustomerCoreReturnCreated,
@@ -22,10 +24,10 @@ async function readJson(request: NextRequest): Promise<unknown> {
   try { return await request.json(); } catch { return undefined; }
 }
 
-async function upstream(request: NextRequest, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
-  const base = (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+async function upstream(request: NextRequest, credential: string | undefined, path: string, method: string, scenario?: string, body?: unknown, idempotencyKey?: string) {
+  const base = customerCommerceUpstreamUrl();
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("X-Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -49,13 +51,17 @@ function relayError(payload: unknown, status: number) {
 }
 
 export async function handleReturnRequest(request: NextRequest, path: string[]): Promise<NextResponse> {
+  return withCustomerAuth(request, (credential) => handleReturnRequestWithCredential(request, path, credential)) as Promise<NextResponse>;
+}
+
+async function handleReturnRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<NextResponse> {
   const route = parseReturnRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) return errorResponse(route.error?.field === "path" ? "NOT_FOUND" : "INVALID_REQUEST", route.error?.message ?? "Yêu cầu hậu mãi không hợp lệ.", route.error?.field === "path" ? 404 : 400, route.error ? [route.error] : []);
   if (process.env.NODE_ENV === "production" && route.mockScenario) return errorResponse("INVALID_REQUEST", "Mock scenario không khả dụng trong production.", 400);
   if (request.method !== "GET" && !hasTrustedOrigin(request)) return errorResponse("ORIGIN_NOT_ALLOWED", "Request origin không được phép.", 403);
 
   try {
-    await requireCustomerSession(getTrustedSessionCookie(request));
+    await requireCustomerSession(credential);
   } catch (cause) {
     const failure = customerAccessFailure(cause);
     return errorResponse(failure.code, failure.message, failure.status);
@@ -63,7 +69,7 @@ export async function handleReturnRequest(request: NextRequest, path: string[]):
 
   try {
     if (route.operation === "eligibility" && route.orderId) {
-      const result = await upstream(request, `orders/${encodeURIComponent(route.orderId)}`, "GET", route.mockScenario);
+      const result = await upstream(request, credential, `orders/${encodeURIComponent(route.orderId)}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response.status);
       return NextResponse.json(mapOrderToReturnEligibility(result.payload as CustomerCoreOrderDetail));
     }
@@ -71,13 +77,13 @@ export async function handleReturnRequest(request: NextRequest, path: string[]):
     if (route.operation === "create") {
       const parsed = validateCreateReturnCase(await readJson(request));
       if (!parsed.data) return errorResponse("VALIDATION_ERROR", "Thông tin yêu cầu đổi trả chưa hợp lệ.", 422, parsed.errors);
-      const result = await upstream(request, "returns", "POST", route.mockScenario, toCustomerCoreReturnRequest(parsed.data), parsed.data.idempotencyKey);
+      const result = await upstream(request, credential, "returns", "POST", route.mockScenario, toCustomerCoreReturnRequest(parsed.data), parsed.data.idempotencyKey);
       if (!result.response.ok) return relayError(result.payload, result.response.status);
       return NextResponse.json(mapCustomerCoreReturnCreated(result.payload as CustomerCoreReturnTicket), { status: 201 });
     }
 
     if (route.operation === "detail" && route.caseId) {
-      const result = await upstream(request, `returns/${encodeURIComponent(route.caseId)}`, "GET", route.mockScenario);
+      const result = await upstream(request, credential, `returns/${encodeURIComponent(route.caseId)}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayError(result.payload, result.response.status);
       return NextResponse.json(mapCustomerCoreReturnDetail(result.payload as CustomerCoreReturnTicket));
     }

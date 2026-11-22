@@ -142,6 +142,39 @@ func TestGuestCartMergeRollbackKeepsCartLedgerAndSessionTogether(t *testing.T) {
 	}
 }
 
+func TestMergedCartRetainsCatalogDisplayMetadata(t *testing.T) {
+	h, _, customer, token := mergeCarts(t)
+	key := uuid.NewString()
+	if _, err := h.S.MergeGuestCart(h.ctx, customer, token, key); err != nil {
+		t.Fatal(err)
+	}
+	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Items []domain.Item `json:"items"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || len(in.Items) != 1 {
+			http.Error(w, "invalid selection", 400)
+			return
+		}
+		quantity := in.Items[0].Quantity
+		json.NewEncoder(w).Encode(map[string]any{"snapshot_id": uuid.NewString(), "catalog_version": 2, "valid_until": time.Now().Add(time.Minute), "contract_version": "catalog-checkout-1.0", "channel": "D2C_WEB", "subtotal": 120000 * quantity, "items": []map[string]any{{"sku_code": "MX-GION-500G", "quantity": quantity, "product_name": "Current catalog name", "unit_price": 120000, "weight_grams": 500, "packaging_type": "BOX", "is_active": true}}})
+	}))
+	defer catalog.Close()
+	h.S.C.CatalogURL = catalog.URL
+	cart, err := h.S.Cart(h.ctx, customer)
+	if err != nil || cart.Items[0].Name != "Current catalog name" || cart.Items[0].UnitPrice != 120000 {
+		t.Fatal("SQL cart read lost current Catalog display metadata", cart, err)
+	}
+	cart, err = h.S.MutateCart(h.ctx, customer, "MX-GION-500G", 6, cart.Revision, false)
+	if err != nil || cart.Items[0].Name != "Current catalog name" || cart.Items[0].Quantity != 6 || cart.Items[0].UnitPrice != 120000 {
+		t.Fatal("SQL cart mutation lost Catalog display metadata", cart, err)
+	}
+	result, err := h.S.CartMergeResult(h.ctx, customer, key)
+	if err != nil || result.Cart.Items[0].Quantity != 5 || result.Cart.Items[0].UnitPrice != 110000 {
+		t.Fatal("display enrichment changed the immutable merge result", result, err)
+	}
+}
+
 func TestGuestCartMergeConcurrentRetryAndQuantityCap(t *testing.T) {
 	h, guest, customer, token := mergeCarts(t)
 	if _, e := h.S.MutateCart(h.ctx, guest, "MX-GION-500G", 999, 1, false); e != nil {

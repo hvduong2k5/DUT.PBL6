@@ -1,4 +1,3 @@
-import type { AdminPermission } from "@/features/employee/auth/types";
 
 export type EmployeeAccountStatus = "INVITED" | "PENDING_ACTIVATION" | "ACTIVE" | "LOCKED" | "DISABLED";
 export type EmployeeAccessState = "ENABLED" | "BLOCKED_ACCOUNT" | "NO_ACTIVE_ROLE";
@@ -23,7 +22,7 @@ export interface EmployeeAccessSummary {
   statusLabel: string;
   invitationStatus: "NOT_SENT" | "PENDING" | "DELIVERED" | "FAILED" | "ACCEPTED";
   roles: EmployeeRoleSummary[];
-  effectivePermissionCodes: AdminPermission[];
+  effectivePermissionCodes: string[];
   accessState: EmployeeAccessState;
   accessStateLabel: string;
   updatedAt: string;
@@ -35,7 +34,7 @@ export interface EmployeeAccessList {
   statusCounts: Array<{ status: "ALL" | EmployeeAccountStatus; label: string; count: number }>;
   departments: string[];
   roles: Array<{ roleCode: string; roleName: string }>;
-  permissions: Array<{ permissionCode: AdminPermission; permissionName: string }>;
+  permissions: Array<{ permissionCode: string; permissionName: string }>;
   calculatedAt: string;
 }
 
@@ -52,7 +51,7 @@ export interface EmployeeRoleAssignment {
 }
 
 export interface EffectivePermission {
-  permissionCode: AdminPermission;
+  permissionCode: string;
   permissionName: string;
   action: string;
   resource: string;
@@ -62,7 +61,7 @@ export interface EffectivePermission {
 
 export interface EmployeeAccessDetail extends EmployeeAccessSummary {
   profileReference: { employeeId: string; employeeCode: string; profileOwner: "EPIC_02" };
-  identity: { emailVerified: boolean; lastAuthenticatedAt: string | null; credentialReadable: false };
+  identity: { credentialReadable: false };
   lock: null | { effectiveAt: string; reason: string; decidedByLabel: string };
   roleAssignments: EmployeeRoleAssignment[];
   effectivePermissions: EffectivePermission[];
@@ -95,7 +94,7 @@ export interface AdminRoleList {
 
 export interface AdminRoleDetail extends AdminRoleSummary {
   protectedRole: boolean;
-  permissions: Array<{ permissionCode: AdminPermission; permissionName: string; action: string; resource: string; scopeLabel: string }>;
+  permissions: Array<{ permissionCode: string; permissionName: string; action: string; resource: string; scopeLabel: string }>;
   impact: { activeEmployees: number; scheduledAssignments: number; lockedAccounts: number };
 }
 
@@ -103,7 +102,7 @@ export type AdminPermissionStatus = "ACTIVE" | "DEPRECATED" | "ARCHIVED";
 export type AdminPermissionKind = "SYSTEM" | "CONFIGURABLE";
 
 export interface AdminPermissionSummary {
-  permissionCode: AdminPermission;
+  permissionCode: string;
   permissionName: string;
   description: string;
   action: string;
@@ -129,6 +128,12 @@ export interface AdminPermissionDetail extends AdminPermissionSummary {
   usedByModules: string[];
   rolesUsing: Array<{ roleCode: string; roleName: string; status: AdminRoleStatus; employeeCount: number }>;
 }
+
+export interface CreateRoleInput { roleCode: string; roleName: string; description: string }
+export interface UpdateRoleInput { roleName?: string; description?: string; isEnabled?: boolean }
+export interface AssignRoleInput { roleCode: string; scopeType: "GLOBAL" | "WAREHOUSE" | "DEPARTMENT"; scopeId?: string; validFrom?: string; validUntil?: string; reason?: string }
+export interface ResetPasswordInput { newPassword: string; temporary: boolean }
+export interface InvitationCreated { invitationId: string; principalId: string; status: string; expiresAt: string }
 
 interface AdminAccessErrorBody { code?: string; message?: string; errors?: Array<{ field: string; message: string }> }
 export class AdminAccessApiError extends Error {

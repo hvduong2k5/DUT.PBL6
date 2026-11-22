@@ -3,13 +3,28 @@ import { isIP } from "node:net";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import type { CustomerCapability } from "./capabilities";
 import { authorizeCustomerCapability, CustomerAccessError } from "./customer-access-server";
-import { ACCESS_TOKEN_COOKIE, SESSION_COOKIE, applyTrustedAuthorization, getTrustedAccessToken } from "./server-credential";
+import { ACCESS_TOKEN_COOKIE, SESSION_COOKIE, credentialHeaders, getTrustedAccessToken } from "./server-credential";
+import { withCustomerAuth } from "./customer-auth";
+import { customerCommerceUpstreamUrl } from "@/lib/upstream";
 import { usesIdentityBff } from "./oidc-config";
 
 export const GUEST_COOKIE = "oma_guest_session";
 export const GUEST_CAPABILITIES: readonly CustomerCapability[] = ["CART_MANAGE", "CHECKOUT_CREATE", "ORDER_HISTORY_VIEW"];
 type StorefrontCredential = { kind: "customer" | "guest"; token?: string; fresh?: boolean };
 const credentials = new WeakMap<NextRequest, StorefrontCredential>();
+const customerCredentials = new WeakMap<NextRequest, string | undefined>();
+
+export function storefrontCustomerCredential(request: NextRequest): string | undefined {
+  return customerCredentials.has(request) ? customerCredentials.get(request) : getTrustedAccessToken(request);
+}
+
+export function withStorefrontAuth(request: NextRequest, handler: () => Promise<Response>): Promise<Response> {
+  if (!hasCustomerCredential(request) || customerCredentials.has(request)) return handler();
+  return withCustomerAuth(request, async (credential) => {
+    customerCredentials.set(request, credential);
+    return handler();
+  });
+}
 
 function guestOrderBase(): string {
   if (usesIdentityBff() && !process.env.GUEST_ORDER_UPSTREAM_URL) throw new CustomerAccessError(503, "GUEST_ROUTE_UNAVAILABLE", "Chưa cấu hình cổng mua hàng không cần tài khoản.");
@@ -18,12 +33,12 @@ function guestOrderBase(): string {
 
 export function hasCustomerCredential(request: NextRequest): boolean {
   // Presence is significant, including malformed or expired credentials.
-  return request.cookies.has(SESSION_COOKIE) || request.cookies.has(ACCESS_TOKEN_COOKIE);
+  return request.cookies.has(SESSION_COOKIE) || request.cookies.has(ACCESS_TOKEN_COOKIE) || request.cookies.has("oma_refresh_token");
 }
 
 export async function authorizeStorefrontCapability(request: NextRequest, capability: CustomerCapability, issue = false): Promise<StorefrontCredential> {
   if (hasCustomerCredential(request)) {
-    const token = getTrustedAccessToken(request);
+    const token = storefrontCustomerCredential(request);
     if (!token) throw new CustomerAccessError(401, "AUTH_REQUIRED", "Phiên đăng nhập không hợp lệ hoặc đã hết hạn.");
     await authorizeCustomerCapability(token, capability);
     const credential: StorefrontCredential = { kind: "customer", token };
@@ -70,18 +85,22 @@ export function applyStorefrontAuthorization(headers: Headers, request: NextRequ
     headers.delete("Cookie");
     headers.delete("Authorization");
     if (credential.token) headers.set("Authorization", `Bearer ${credential.token}`);
-  } else applyTrustedAuthorization(headers, request);
+  } else credentialHeaders(headers, storefrontCustomerCredential(request));
 }
 
 export function storefrontUpstream(request: NextRequest): string {
   if (credentials.get(request)?.kind === "guest") return guestOrderBase();
-  return (process.env.CUSTOMER_CORE_UPSTREAM_URL ?? "http://127.0.0.1:4010/api/v1").replace(/\/$/u, "");
+  return customerCommerceUpstreamUrl();
 }
 
 export function guestCredential(request: NextRequest): boolean { return credentials.get(request)?.kind === "guest"; }
 export function hasStorefrontToken(request: NextRequest): boolean { return Boolean(credentials.get(request)?.token); }
 
 export async function withGuestCookie(request: NextRequest, handler: () => Promise<Response>): Promise<Response> {
+  return withStorefrontAuth(request, () => attachGuestCookie(request, handler));
+}
+
+async function attachGuestCookie(request: NextRequest, handler: () => Promise<Response>): Promise<Response> {
   const response = await handler();
   response.headers.set("Cache-Control", "no-store");
   const credential = credentials.get(request);

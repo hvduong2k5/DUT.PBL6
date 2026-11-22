@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" role="img" aria-labelledby="title description">
-  <title id="title">Ảnh sản phẩm Ô Mạ</title>
+  <title id="title">Ảnh sản phẩm Gói Huế</title>
   <desc id="description">Minh họa hộp quà màu nâu và vàng dùng khi ảnh sản phẩm chưa sẵn sàng.</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
@@ -29,5 +29,5 @@
     <circle cx="600" cy="506" r="72" fill="#f6e7c8" stroke="#d6a34c" stroke-width="9"/>
     <path d="M600 466c-18 24-30 43-30 61 0 19 13 32 30 32s30-13 30-32c0-18-12-37-30-61Z" fill="#70452e"/>
   </g>
-  <text x="600" y="850" text-anchor="middle" fill="#563a26" font-family="'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="7">Ô MẠ · CỐ ĐÔ HUẾ</text>
+  <text x="600" y="850" text-anchor="middle" fill="#563a26" font-family="'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="7">GÓI HUẾ · CỐ ĐÔ</text>
 </svg>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseAdminSession } from "./types";
+import { parseAdminSession, toEmployeeSession } from "./types";
+import type { IdentityProfile } from "@/lib/auth/identity";
 
 const employee = { employeeId: "EMP-001", displayName: "Lê Thị Đoan Trang", email: "trang@oma.vn", jobTitle: "Sales Manager", department: "Kinh doanh B2B" };
 
@@ -63,5 +64,48 @@ describe("admin session projection", () => {
   it("accepts atomic Customer Service Ticket permissions", () => {
     expect(parseAdminSession({ authenticated: true, employee, roles: ["CUSTOMER_SERVICE"], permissions: ["TICKET_QUEUE_VIEW", "TICKET_CONVERSATION_VIEW", "TICKET_CONTEXT_VIEW", "TICKET_INTERNAL_NOTE_VIEW"], scopes: [{ resource: "SUPPORT_TICKET", level: "ASSIGNED_ONLY" }], version: 1 }))
       .toMatchObject({ permissions: ["TICKET_QUEUE_VIEW", "TICKET_CONVERSATION_VIEW", "TICKET_CONTEXT_VIEW", "TICKET_INTERNAL_NOTE_VIEW"] });
+  });
+});
+
+describe("employee session IAM alias expansion (F-37B administration)", () => {
+  const staffProfile = { principalId: "p1", principalType: "EMPLOYEE" as const, email: "staff@example.com", displayName: "Staff One", provisioningStatus: "ACTIVE", roles: [{ roleCode: "ADMIN", roleName: "Administrator", scopeType: "GLOBAL" as const }], permissions: ["USER_VIEW", "ROLE_VIEW"] };
+
+  it("lets the IAM USER_VIEW grant satisfy the administration page gates", () => {
+    const session = toEmployeeSession(staffProfile);
+    expect(session?.permissions).toContain("EMPLOYEE_ACCOUNT_VIEW");
+    expect(session?.permissions).toContain("ACCESS_REVIEW_VIEW");
+    expect(session?.permissions).toContain("ROLE_VIEW");
+    expect(session?.permissions).not.toContain("USER_VIEW");
+  });
+
+  it("does not invent administration access without the grant", () => {
+    const session = toEmployeeSession({ ...staffProfile, permissions: ["ORDER_VIEW"] });
+    expect(session?.permissions).not.toContain("EMPLOYEE_ACCOUNT_VIEW");
+    expect(session?.permissions).not.toContain("ACCESS_REVIEW_VIEW");
+  });
+});
+
+describe("employee session projection from identity profiles", () => {
+  const profileWith = (permissions: string[]): IdentityProfile => ({
+    principalId: "emp-1",
+    principalType: "EMPLOYEE",
+    email: "staff@oma.vn",
+    displayName: "Staff One",
+    provisioningStatus: "ACTIVE",
+    roles: [{ roleCode: "ADMIN", scopeType: "GLOBAL" }],
+    permissions
+  });
+
+  it("expands catalog IAM grants into the catalog workspace draft permission names", () => {
+    const session = toEmployeeSession(profileWith(["CATALOG_VIEW", "CATALOG_MANAGE", "ORDER_VIEW", "USER_VIEW"]));
+    expect(session?.permissions).toEqual(expect.arrayContaining(["CATALOG_VIEW", "CATALOG_MANAGE", "PRODUCT_VIEW", "PRODUCT_MANAGE", "ORDER_VIEW"]));
+    // USER_VIEW is outside the web session vocabulary and stays out.
+    expect(session?.permissions).not.toContain("USER_VIEW");
+  });
+
+  it("does not invent draft permissions without the underlying IAM grant", () => {
+    const session = toEmployeeSession(profileWith(["ORDER_VIEW"]));
+    expect(session?.permissions).not.toContain("PRODUCT_VIEW");
+    expect(session?.permissions).not.toContain("PRODUCT_MANAGE");
   });
 });

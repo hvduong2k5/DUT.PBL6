@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { applyTrustedSessionCookie, getTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { credentialHeaders } from "@/lib/auth/server-credential";
+import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import type { CustomerCapability } from "@/lib/auth/capabilities";
 import type { AcceptB2BQuoteResult, B2BAttachmentMetadata, B2BContext, B2BOrganization, B2BQuoteDetail, B2BQuoteStatus, B2BRequestStatus, CreateB2BQuoteRequestResult } from "@/lib/b2b/types";
 import { parseB2BRoute, validateCreateB2BQuoteRequest } from "@/lib/b2b/validation";
@@ -28,10 +29,10 @@ function trustedOrigin(request: NextRequest) {
 
 async function readJson(request: NextRequest): Promise<unknown> { try { return await request.json(); } catch { return undefined; } }
 
-async function upstream(request: NextRequest, path: string, method: string, body?: object, idempotencyKey?: string) {
+async function upstream(request: NextRequest, credential: string | undefined, path: string, method: string, body?: object, idempotencyKey?: string) {
   const base = (process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
   const headers = new Headers({ Accept: "application/json" });
-  applyTrustedSessionCookie(headers, request);
+  credentialHeaders(headers, credential);
   if (body) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   const scenario = request.nextUrl.searchParams.get("mockScenario");
@@ -81,10 +82,9 @@ function mapQuote(payload: Record<string, unknown>): B2BQuoteDetail {
   };
 }
 
-async function requireCapability(request: NextRequest, capability: CustomerCapability) {
-  const sessionCookie = getTrustedSessionCookie(request);
+async function requireCapability(request: NextRequest, capability: CustomerCapability, credential: string | undefined) {
   try {
-    const { projection } = await authorizeCustomerCapability(sessionCookie, capability);
+    const { projection } = await authorizeCustomerCapability(credential, capability);
     if (projection.actor !== "B2B") return errorResponse("B2B_CAPABILITY_FORBIDDEN", "Tài khoản không có quyền thực hiện chức năng B2B này.", 403);
     return null;
   } catch (cause) {
@@ -94,29 +94,33 @@ async function requireCapability(request: NextRequest, capability: CustomerCapab
 }
 
 export async function handleB2BRequest(request: NextRequest, path: string[]) {
+  return withCustomerAuth(request, (credential) => handleB2BRequestWithCredential(request, path, credential));
+}
+
+async function handleB2BRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined) {
   const route = parseB2BRoute(path);
   if (route.kind === "invalid") return errorResponse("NOT_FOUND", "B2B route không tồn tại.", 404);
   const expectedMethod = route.kind === "context" || route.kind === "quote" ? "GET" : "POST";
   if (request.method !== expectedMethod) return errorResponse("METHOD_NOT_ALLOWED", "Method không được hỗ trợ.", 405);
   if (request.method === "POST" && !trustedOrigin(request)) return errorResponse("UNTRUSTED_ORIGIN", "Origin không hợp lệ.", 403);
   const capability: CustomerCapability = route.kind === "context" ? "B2B_COMPANY_VIEW" : route.kind === "quote" ? "B2B_QUOTE_VIEW" : route.kind === "requests" ? "B2B_QUOTE_CREATE" : "B2B_QUOTE_ACCEPT";
-  const forbidden = await requireCapability(request, capability);
+  const forbidden = await requireCapability(request, capability, credential);
   if (forbidden) return forbidden;
 
   try {
-    if (route.kind === "context") return NextResponse.json(mapContext(await upstream(request, "b2b/context", "GET")));
+    if (route.kind === "context") return NextResponse.json(mapContext(await upstream(request, credential, "b2b/context", "GET")));
     if (route.kind === "requests") {
       const parsed = validateCreateB2BQuoteRequest(await readJson(request));
       if (!parsed.ok) return errorResponse("VALIDATION_ERROR", "Thông tin yêu cầu báo giá chưa hợp lệ.", 422, parsed.errors);
       const { idempotencyKey, ...body } = parsed.data;
-      const payload = await upstream(request, "b2b/quote-requests", "POST", body, idempotencyKey);
+      const payload = await upstream(request, credential, "b2b/quote-requests", "POST", body, idempotencyKey);
       const result: CreateB2BQuoteRequestResult = { requestId: string(payload.requestId), requestNumber: string(payload.requestNumber), status: "REQUESTED", statusLabel: string(payload.statusLabel, "Đã tiếp nhận"), submittedAt: isoDate(payload.submittedAt), totalQuantity: number(payload.totalQuantity), purposeLabel: string(payload.purposeLabel), quoteId: string(payload.quoteId) || undefined, message: string(payload.message, "Yêu cầu báo giá đã được tiếp nhận.") };
       return NextResponse.json(result, { status: 201 });
     }
-    if (route.kind === "quote") return NextResponse.json(mapQuote(await upstream(request, `b2b/quotes/${encodeURIComponent(route.quoteId)}`, "GET")));
+    if (route.kind === "quote") return NextResponse.json(mapQuote(await upstream(request, credential, `b2b/quotes/${encodeURIComponent(route.quoteId)}`, "GET")));
     const body = await readJson(request);
     if (!record(body) || body.confirmation !== true || string(body.idempotencyKey).length < 16) return errorResponse("VALIDATION_ERROR", "Xác nhận chấp thuận báo giá không hợp lệ.", 422);
-    const payload = await upstream(request, `b2b/quotes/${encodeURIComponent(route.quoteId)}/accept`, "POST", { confirmation: true }, string(body.idempotencyKey));
+    const payload = await upstream(request, credential, `b2b/quotes/${encodeURIComponent(route.quoteId)}/accept`, "POST", { confirmation: true }, string(body.idempotencyKey));
     const result: AcceptB2BQuoteResult = { quoteId: string(payload.quoteId, route.quoteId), status: "ACCEPTED", acceptedAt: isoDate(payload.acceptedAt), orderId: string(payload.orderId), orderNumber: string(payload.orderNumber), message: string(payload.message, "Báo giá đã được chấp thuận.") };
     return NextResponse.json(result);
   } catch (cause) {

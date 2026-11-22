@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
@@ -72,50 +73,52 @@ class _IdentityPasswordPageState extends State<IdentityPasswordPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Đổi mật khẩu', showBack: true),
-    body: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          if (_message != null)
-            Semantics(liveRegion: true, child: Text(_message!)),
-          if (!_done) ...[
-            const SizedBox(height: 16),
-            AppTextField(
-              controller: _current,
-              label: 'Mật khẩu hiện tại',
-              obscureText: true,
-              enabled: !_pending,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.password],
-            ),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _next,
-              label: 'Mật khẩu mới',
-              obscureText: true,
-              enabled: !_pending,
-              onChanged: (_) => setState(() {}),
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.newPassword],
-            ),
-            PasswordChecklist(password: _next.text),
-            const SizedBox(height: 12),
-            AppTextField(
-              controller: _confirm,
-              label: 'Xác nhận mật khẩu mới',
-              obscureText: true,
-              enabled: !_pending,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 24),
-            AppPrimaryButton(
-              label: 'Cập nhật mật khẩu',
-              loading: _pending,
-              onPressed: _submit,
-            ),
+    body: HeritageSurface(
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            if (_message != null)
+              Semantics(liveRegion: true, child: Text(_message!)),
+            if (!_done) ...[
+              const SizedBox(height: 16),
+              AppTextField(
+                controller: _current,
+                label: 'Mật khẩu hiện tại',
+                obscureText: true,
+                enabled: !_pending,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.password],
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _next,
+                label: 'Mật khẩu mới',
+                obscureText: true,
+                enabled: !_pending,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.newPassword],
+              ),
+              PasswordChecklist(password: _next.text),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _confirm,
+                label: 'Xác nhận mật khẩu mới',
+                obscureText: true,
+                enabled: !_pending,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+              ),
+              const SizedBox(height: 24),
+              AppPrimaryButton(
+                label: 'Cập nhật mật khẩu',
+                loading: _pending,
+                onPressed: _submit,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     ),
   );
