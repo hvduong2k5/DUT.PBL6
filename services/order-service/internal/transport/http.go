@@ -558,26 +558,6 @@ func Handler(s *app.Service) http.Handler {
 	return r
 }
 
-// Keep employee access explicit as customer routes grow. Object permissions
-// are still enforced by the application on every admitted route.
 func staffOrderRoute(method, path string) bool {
-	if method == http.MethodGet && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
-		return true
-	}
-	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
-		return len(parts) == 1 && parts[0] != ""
-	}
-	if strings.HasPrefix(path, "/api/v1/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")
-		if parts[0] == "" {
-			return false
-		}
-		return method == http.MethodGet && (len(parts) == 1 || len(parts) == 2 && parts[1] == "tracking") || method == http.MethodPost && len(parts) == 2 && parts[1] == "cancellation-requests"
-	}
-	if method == http.MethodPost && strings.HasPrefix(path, "/api/v1/admin/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
-		return len(parts) == 2 && parts[0] != "" && parts[1] == "hold"
-	}
-	return false
+	return app.EmployeeOrderRouteAllowed(method, path)
 }

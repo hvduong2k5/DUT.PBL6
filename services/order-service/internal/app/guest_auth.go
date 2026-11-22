@@ -188,16 +188,33 @@ func AuthorizeRoute(p domain.Principal, method, path string) error {
 			}
 		}
 	case domain.Employee:
-		if method == "GET" && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
-			return nil
-		}
-		parts := strings.Split(strings.Trim(path, "/"), "/")
-		if method == "POST" && len(parts) == 6 && strings.Join(parts[:4], "/") == "api/v1/admin/orders" && parts[5] == "hold" {
-			return nil
-		}
-		if method == "GET" && len(parts) >= 4 && strings.Join(parts[:3], "/") == "api/v1/orders" && (len(parts) == 4 || len(parts) == 5 && parts[4] == "tracking") {
+		if EmployeeOrderRouteAllowed(method, path) {
 			return nil
 		}
 	}
 	return domain.E("PERMISSION_DENIED", 403)
+}
+
+// EmployeeOrderRouteAllowed keeps employee access explicit as customer routes grow. Object permissions
+// are still enforced by the application on every admitted route.
+func EmployeeOrderRouteAllowed(method, path string) bool {
+	if method == "GET" && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
+		return true
+	}
+	if method == "GET" && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 1 && parts[0] != ""
+	}
+	if strings.HasPrefix(path, "/api/v1/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")
+		if parts[0] == "" {
+			return false
+		}
+		return method == "GET" && (len(parts) == 1 || len(parts) == 2 && parts[1] == "tracking") || method == "POST" && len(parts) == 2 && parts[1] == "cancellation-requests"
+	}
+	if method == "POST" && strings.HasPrefix(path, "/api/v1/admin/orders/") {
+		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
+		return len(parts) == 2 && parts[0] != "" && parts[1] == "hold"
+	}
+	return false
 }
