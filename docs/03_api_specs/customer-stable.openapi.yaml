@@ -1535,7 +1535,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -2257,7 +2257,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -2864,7 +2864,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -3792,7 +3792,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -3869,59 +3869,7 @@ paths:
                   variants:
                     type: array
                     items:
-                      type: object
-                      required:
-                      - variant_id
-                      - sku_code
-                      - name
-                      - weight_gram
-                      - price
-                      - stock_status
-                      properties:
-                        variant_id:
-                          type: string
-                        sku_code:
-                          type: string
-                        name:
-                          type: string
-                        weight_gram:
-                          type: integer
-                        price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        price_version:
-                          type: integer
-                          format: int64
-                          description: Revision đơn điệu của giá SKU.
-                        stock_status:
-                          type: string
-                          enum:
-                          - UNKNOWN
-                          - IN_STOCK
-                          - OUT_OF_STOCK
-                          description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Current sellable quantity for this SKU from
-                            Catalog's durable stock projection, updated asynchronously
-                            by Inventory events. Null means not synchronized yet;
-                            Inventory remains the source of truth.
-                      additionalProperties: false
+                      $ref: '#/components/schemas/PublicProductVariantItem'
                 additionalProperties: false
               examples:
                 success:
@@ -4083,7 +4031,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -4148,73 +4096,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - variant
-                properties:
-                  variant:
-                    type: object
-                    required:
-                    - variant_id
-                    - sku_code
-                    - name
-                    - channel
-                    - weight_gram
-                    - price
-                    - price_version
-                    - stock_status
-                    properties:
-                      variant_id:
-                        type: string
-                      sku_code:
-                        type: string
-                      name:
-                        type: string
-                      channel:
-                        type: string
-                        enum:
-                        - D2C_WEB
-                        - MOBILE_APP
-                        - B2B_WHOLESALE
-                        - POS_QUAY
-                        - SHOPEE
-                        - TIKTOK
-                      weight_gram:
-                        type: integer
-                        format: int64
-                      price:
-                        type: object
-                        required:
-                        - currency_code
-                        - units
-                        - nanos
-                        properties:
-                          currency_code:
-                            type: string
-                          units:
-                            type: integer
-                          nanos:
-                            type: integer
-                        additionalProperties: false
-                      price_version:
-                        type: integer
-                        format: int64
-                        description: Revision đơn điệu của giá SKU trên kênh bán.
-                      stock_status:
-                        type: string
-                        enum:
-                        - UNKNOWN
-                        - IN_STOCK
-                        - OUT_OF_STOCK
-                        description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
-                      stock_available:
-                        type:
-                        - integer
-                        - 'null'
-                        format: int64
-                        description: Số lượng tồn kho tham khảo (nếu được phép công khai).
-                    additionalProperties: false
-                additionalProperties: false
+                $ref: '#/components/schemas/PublicProductVariantDetailResponse'
               examples:
                 success:
                   summary: Phản hồi thành công
@@ -4557,7 +4439,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -5097,7 +4979,7 @@ paths:
           - D2C_WEB
           - SHOPEE
           - TIKTOK
-          - LAZADA
+          - MOBILE_APP
           - B2B_WHOLESALE
           - POS_QUAY
           default: D2C_WEB
@@ -6881,6 +6763,66 @@ components:
           type: integer
         total_pages:
           type: integer
+      additionalProperties: false
+    PublicProductVariantItem:
+      type: object
+      required:
+      - variant_id
+      - sku_code
+      - name
+      - weight_gram
+      - price
+      - stock_status
+      properties:
+        variant_id:
+          type: string
+          description: Variant UUID.
+        sku_code:
+          type: string
+        name:
+          type: string
+        channel:
+          type:
+          - string
+          - 'null'
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+        weight_gram:
+          type: integer
+          format: int64
+        price:
+          $ref: '#/components/schemas/PublicMoney'
+        price_version:
+          type: integer
+          format: int64
+          description: Revision đơn điệu của giá SKU trên kênh bán.
+        stock_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - IN_STOCK
+          - OUT_OF_STOCK
+          description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
+        stock_available:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+          description: Số lượng tồn kho tham khảo (nếu được phép công khai).
+      additionalProperties: false
+    PublicProductVariantDetailResponse:
+      type: object
+      required:
+      - variant
+      properties:
+        variant:
+          $ref: '#/components/schemas/PublicProductVariantItem'
       additionalProperties: false
     ProductSearchResponse:
       type: object

@@ -3133,36 +3133,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  data:
-                    type: object
-                    required: [categoryId, name, slug, position]
-                    properties:
-                      categoryId:
-                        type: string
-                        format: uuid
-                      name:
-                        type: string
-                      slug:
-                        type: string
-                      position:
-                        type: integer
-                      parentId:
-                        type: [string, 'null']
-                        format: uuid
-                      description:
-                        type: [string, 'null']
-                      imageUrl:
-                        type: [string, 'null']
-                      children:
-                        type: [array, 'null']
-                        items:
-                          type: object
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
               example:
                 success: true
                 data:
@@ -3170,6 +3141,8 @@ paths:
                   name: Mè xửng
                   slug: me-xung
                   position: 0
+                  isActive: true
+                  version: 0
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3241,36 +3214,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  data:
-                    type: object
-                    required: [categoryId, name, slug, position]
-                    properties:
-                      categoryId:
-                        type: string
-                        format: uuid
-                      name:
-                        type: string
-                      slug:
-                        type: string
-                      position:
-                        type: integer
-                      parentId:
-                        type: [string, 'null']
-                        format: uuid
-                      description:
-                        type: [string, 'null']
-                      imageUrl:
-                        type: [string, 'null']
-                      children:
-                        type: [array, 'null']
-                        items:
-                          type: object
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3307,36 +3251,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  data:
-                    type: object
-                    required: [categoryId, name, slug, position]
-                    properties:
-                      categoryId:
-                        type: string
-                        format: uuid
-                      name:
-                        type: string
-                      slug:
-                        type: string
-                      position:
-                        type: integer
-                      parentId:
-                        type: [string, 'null']
-                        format: uuid
-                      description:
-                        type: [string, 'null']
-                      imageUrl:
-                        type: [string, 'null']
-                      children:
-                        type: [array, 'null']
-                        items:
-                          type: object
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3402,36 +3317,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  data:
-                    type: object
-                    required: [categoryId, name, slug, position]
-                    properties:
-                      categoryId:
-                        type: string
-                        format: uuid
-                      name:
-                        type: string
-                      slug:
-                        type: string
-                      position:
-                        type: integer
-                      parentId:
-                        type: [string, 'null']
-                        format: uuid
-                      description:
-                        type: [string, 'null']
-                      imageUrl:
-                        type: [string, 'null']
-                      children:
-                        type: [array, 'null']
-                        items:
-                          type: object
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -12496,83 +12382,7 @@ components:
           type: array
           description: Toàn bộ ảnh của sản phẩm, gồm cả ảnh chưa duyệt (admin view).
           items:
-            type: object
-            required:
-            - imageId
-            - objectKey
-            - role
-            - position
-            - mediaStatus
-            - scanStatus
-            properties:
-              imageId:
-                type: string
-              objectKey:
-                type: string
-              url:
-                type:
-                - string
-                - 'null'
-                format: uri
-              altText:
-                type:
-                - string
-                - 'null'
-              role:
-                type: string
-                enum:
-                - COVER
-                - GALLERY
-                - THUMBNAIL
-              position:
-                type: integer
-                minimum: 0
-              mediaStatus:
-                type: string
-                enum:
-                - PENDING_SCAN
-                - PENDING_REVIEW
-                - APPROVED
-                - REJECTED
-              scanStatus:
-                type: string
-                enum:
-                - PENDING
-                - CLEAN
-                - INFECTED
-                - FAILED
-              scannedAt:
-                type:
-                - string
-                - 'null'
-                format: date-time
-              rejectedReason:
-                type:
-                - string
-                - 'null'
-              uploadedBy:
-                type:
-                - string
-                - 'null'
-              reviewedBy:
-                type:
-                - string
-                - 'null'
-              reviewedAt:
-                type:
-                - string
-                - 'null'
-                format: date-time
-              revision:
-                type: integer
-                format: int64
-              createdAt:
-                type: string
-                format: date-time
-              updatedAt:
-                type: string
-                format: date-time
-            additionalProperties: false
+            $ref: '#/components/schemas/CatalogAdminProductImage'
         foodInformation:
           type: object
           required:
@@ -13346,6 +13156,163 @@ components:
                 $ref: '#/components/schemas/CatalogAdminCategoryItem'
           additionalProperties: false
         timestamp:
+          type: string
+          format: date-time
+      additionalProperties: false
+    CatalogAdminCategoryDetail:
+      type: object
+      required:
+        - categoryId
+        - name
+        - slug
+        - position
+        - isActive
+        - version
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: ID danh mục cha (null nếu là root).
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        imageUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+        position:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        createdAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updatedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        children:
+          type:
+            - array
+            - 'null'
+          items:
+            $ref: '#/components/schemas/CatalogAdminCategoryDetail'
+      additionalProperties: false
+    CatalogAdminCategoryResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          const: true
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Thao tác thành công
+        data:
+          $ref: '#/components/schemas/CatalogAdminCategoryDetail'
+      additionalProperties: false
+    CatalogAdminProductImage:
+      type: object
+      required:
+        - imageId
+        - objectKey
+        - role
+        - position
+        - mediaStatus
+        - scanStatus
+      properties:
+        imageId:
+          type: string
+        objectKey:
+          type: string
+        url:
+          type:
+            - string
+            - 'null'
+          format: uri
+        altText:
+          type:
+            - string
+            - 'null'
+        role:
+          type: string
+          enum:
+            - COVER
+            - GALLERY
+            - THUMBNAIL
+        position:
+          type: integer
+          minimum: 0
+        mediaStatus:
+          type: string
+          enum:
+            - PENDING_SCAN
+            - PENDING_REVIEW
+            - APPROVED
+            - REJECTED
+        scanStatus:
+          type: string
+          enum:
+            - PENDING
+            - CLEAN
+            - INFECTED
+            - FAILED
+        scannedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        rejectedReason:
+          type:
+            - string
+            - 'null'
+        uploadedBy:
+          type:
+            - string
+            - 'null'
+        reviewedBy:
+          type:
+            - string
+            - 'null'
+        reviewedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
       additionalProperties: false

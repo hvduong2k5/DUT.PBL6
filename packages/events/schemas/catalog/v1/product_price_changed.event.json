@@ -21,17 +21,23 @@
         "product_id": { "type": "string", "format": "uuid" },
         "variant_id": { "type": "string", "format": "uuid" },
         "sku_code": { "type": "string" },
+        "price_revision": { "type": "integer", "minimum": 0 },
         "prices": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["channel", "currency_code", "amount_units", "amount_nanos"],
+            "required": ["channel", "currency_code", "amount_units", "amount_nanos", "effective_from", "status"],
             "properties": {
               "channel": { "type": "string" },
               "currency_code": { "type": "string", "minLength": 3, "maxLength": 3 },
               "amount_units": { "type": "integer", "minimum": 0 },
-              "amount_nanos": { "type": "integer", "minimum": 0, "maximum": 999999999 }
+              "amount_nanos": { "type": "integer", "minimum": 0, "maximum": 999999999 },
+              "effective_from": { "type": "string", "format": "date-time" },
+              "effective_to": { "type": ["string", "null"], "format": "date-time" },
+              "status": { "type": "string", "enum": ["ACTIVE", "SUPERSEDED", "EXPIRED"] },
+              "version": { "type": "integer", "minimum": 0 },
+              "price_revision": { "type": "integer", "minimum": 0 }
             },
             "additionalProperties": false
           }
