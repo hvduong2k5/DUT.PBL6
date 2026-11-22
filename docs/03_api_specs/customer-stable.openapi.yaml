@@ -1484,13 +1484,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -2158,13 +2206,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -2717,13 +2813,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -3551,87 +3695,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - items
-                - total
-                - page
-                - page_size
-                - total_pages
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - product_id
-                      - name
-                      - slug
-                      - summary
-                      - thumbnail_url
-                      - base_price
-                      - ocop_star
-                      - category_name
-                      - in_stock
-                      - stock_available
-                      properties:
-                        product_id:
-                          type: string
-                        name:
-                          type: string
-                        slug:
-                          type: string
-                        summary:
-                          type: string
-                        thumbnail_url:
-                          type: string
-                          format: uri
-                        base_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        ocop_star:
-                          type: integer
-                        category_name:
-                          type: string
-                        in_stock:
-                          type:
-                          - boolean
-                          - 'null'
-                          description: Backward-compatible flag; null means Inventory
-                            stock has not been synchronized yet; otherwise must equal
-                            stock_available > 0.
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Total sellable quantity across active SKUs,
-                            excluding reserved, expired, quarantined, and otherwise
-                            unavailable stock. Null means not synchronized yet. Read
-                            from Catalog's durable stock projection, updated asynchronously
-                            by Inventory events; Inventory remains the source of truth.
-                      additionalProperties: false
-                  total:
-                    type: integer
-                  page:
-                    type: integer
-                  page_size:
-                    type: integer
-                  total_pages:
-                    type: integer
-                additionalProperties: false
+                $ref: '#/components/schemas/PublicProductListResponse'
               examples:
                 success:
                   summary: Successful response
@@ -3677,13 +3741,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -3878,81 +3990,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - query
-                - items
-                - total
-                properties:
-                  query:
-                    type: string
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - product_id
-                      - name
-                      - slug
-                      - summary
-                      - thumbnail_url
-                      - base_price
-                      - ocop_star
-                      - category_name
-                      - in_stock
-                      - stock_available
-                      properties:
-                        product_id:
-                          type: string
-                        name:
-                          type: string
-                        slug:
-                          type: string
-                        summary:
-                          type: string
-                        thumbnail_url:
-                          type: string
-                          format: uri
-                        base_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        ocop_star:
-                          type: integer
-                        category_name:
-                          type: string
-                        in_stock:
-                          type:
-                          - boolean
-                          - 'null'
-                          description: Backward-compatible flag; null means Inventory
-                            stock has not been synchronized yet; otherwise must equal
-                            stock_available > 0.
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Total sellable quantity across active SKUs,
-                            excluding reserved, expired, quarantined, and otherwise
-                            unavailable stock. Null means not synchronized yet. Read
-                            from Catalog's durable stock projection, updated asynchronously
-                            by Inventory events; Inventory remains the source of truth.
-                      additionalProperties: false
-                  total:
-                    type: integer
-                additionalProperties: false
+                $ref: '#/components/schemas/ProductSearchResponse'
               examples:
                 success:
                   summary: Successful response
@@ -3994,13 +4032,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -4420,13 +4506,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -4912,13 +5046,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - LAZADA
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -6620,6 +6802,108 @@ components:
           type: string
           minLength: 8
           description: Mật khẩu mới (tối thiểu 8 ký tự)
+    PublicMoney:
+      type: object
+      required:
+      - currency_code
+      - units
+      - nanos
+      properties:
+        currency_code:
+          type: string
+        units:
+          type: integer
+        nanos:
+          type: integer
+      additionalProperties: false
+    PublicProductSummaryItem:
+      type: object
+      required:
+      - product_id
+      - name
+      - slug
+      - summary
+      - thumbnail_url
+      - base_price
+      - ocop_star
+      - category_name
+      - in_stock
+      - stock_available
+      properties:
+        product_id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+        thumbnail_url:
+          type: string
+          format: uri
+        base_price:
+          $ref: '#/components/schemas/PublicMoney'
+        ocop_star:
+          type: integer
+        category_name:
+          type: string
+        in_stock:
+          type:
+          - boolean
+          - 'null'
+          description: Backward-compatible flag; null means Inventory stock has not been synchronized yet; otherwise must equal stock_available > 0.
+        stock_available:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+          description: Total sellable quantity across active SKUs, excluding reserved, expired, quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read from Catalog's durable stock projection, updated asynchronously by Inventory events; Inventory remains the source of truth.
+      additionalProperties: false
+    PublicProductListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - total_pages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductSummaryItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+      additionalProperties: false
+    ProductSearchResponse:
+      type: object
+      required:
+      - query
+      - items
+      - total
+      properties:
+        query:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductSummaryItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+      additionalProperties: false
   responses:
     BadRequest:
       description: Malformed request or invalid query parameters.

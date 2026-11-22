@@ -3660,12 +3660,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminProductCreateRequest'
       responses:
-        '200':
+        '201':
           description: Đã tạo Product thành công.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3868,7 +3868,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3924,7 +3924,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3981,7 +3981,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4033,12 +4033,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminSkuCreateRequest'
       responses:
-        '200':
+        '201':
           description: Đã tạo SKU thành công.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4101,7 +4101,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4293,7 +4293,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4474,7 +4474,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4537,7 +4537,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -4593,7 +4593,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '401':
           $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
@@ -4650,7 +4650,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
