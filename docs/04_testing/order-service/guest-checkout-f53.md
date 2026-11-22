@@ -224,6 +224,69 @@ passed, as did the persistence package on the clean full rerun. The cause was
 not established; no payment/deadline guard was changed. The failed run is
 preserved locally in `E:/DUT.K1N4/stage/f53-go-tests-deadline-guard.log`.
 
+## Integration with current dev (2026-11-22)
+
+PR #164 integrates `dev` at `6971c2f5` through merge commit `f1fded3c`.
+All 15 conflicted files were reconciled, including semantic integration:
+
+- Customer requests retain `withCustomerAuth` renewal, rotated response cookies,
+  refresh-only credential precedence and `customerCommerceUpstreamUrl` routing.
+  Invalid Customer renewal never switches to a guest credential.
+- Principals retain both F-53 kinds and current IAM/permission grant fields.
+  Current storefront styling, recommendations and frozen order views are kept.
+- COD retains the current `dev` default policy `cod-collection-1.0`; the optional
+  server override and independent Guest COD gate remain available. COD UI
+  deadlines remain null, matching the current read model.
+- Converted SQL carts retain F-35 live Catalog display enrichment on reads and
+  mutations. Enrichment never changes the immutable stored merge outcome.
+- The provider contract is corrected/versioned at 3.2.1, the public generator
+  retains version 1.1.0-integration, and the design verifier pins the new provider
+  version. Regenerating the public artifact is now deterministic.
+
+PASS: Web typecheck/lint, 255 tests across 63 files, production build; five
+frontend/MVP OpenAPI lint checks; `mvp/verify.py` and `verify_order_design.py`
+including OpenAPI, wire baselines, registry, proof and negative guards.
+PASS: `go vet ./...` and the complete `go test -p 1 -count=1 ./...` with
+real PostgreSQL/Redis/Kafka and `ORDER_GUEST_TEST_KONG=true` on the integrated
+branch. The [Order CI gate on `44eb2034`](https://github.com/hvduong2k5/DUT.PBL6/actions/runs/45000410088/job/137140482890)
+also passed the complete suite with the race detector, contract/runtime-payload
+verification, code generation/formatting and sandbox image build.
+The first integrated real-stack run passed guest COD/VietQR, exact-order grant
+polling, OIDC cart merge/replay/revocation, registered COD/VietQR through delivery,
+account isolation, and exact Inventory totals. Its final staff projection check
+then failed with 403: the new F-53 principal-kind gate did not admit the current
+`dev` admin-detail route, although the existing staff gate did. The failed log is
+preserved at `E:/DUT.K1N4/stage/f53-merge-web-identity.log`.
+
+Commit `06f5a16a` shares the existing employee route allowlist between both gates,
+retaining admin detail and cancellation requests. Application permission and
+warehouse checks remain unchanged. App/transport tests pass, including principal
+boundary and route-allowlist regressions. The full guest-enabled fixture is rerun
+with output at `E:/DUT.K1N4/stage/f53-merge-web-identity-final.log`; its final status
+and the latest CI results are recorded on [PR #164](https://github.com/hvduong2k5/DUT.PBL6/pull/164).
+The ignored `.system_generated/web-identity/result.json` is written only after
+all fixture assertions succeed. The hosted Web CI additionally runs real
+Fulfillment video processing and the Flutter client; local guest verification
+uses TEST Fulfillment and SePay statements, a FAKE carrier and no external money.
+
+Two earlier local full-suite runs exposed timing assumptions in test fixtures:
+a single refund scheduler tick was assumed to reach UNKNOWN, and a foreground
+checkout tick treated a stale epoch from a competing worker as fatal. Commit
+`777b240e` waits for the asserted refund state and retries only `ErrLease` while
+still requiring a successful checkout. Financial effect counts, terminal-state
+assertions and all production lease/deadline guards are unchanged. SQL display
+enrichment and the refund lost-ACK scenario also passed five focused repetitions.
+
+The initial CI race run detected test fixtures writing guest authentication
+configuration after Kafka workers had started. Commit `44eb2034` configures
+those fixtures before `Start()`; the complete race suite passed afterward.
+No production synchronization or race checks were weakened.
+
+The GitHub `dev` ruleset requires at least one approving review, Code Owner
+review where applicable, resolved review threads and linear target history.
+Repository auto-merge is disabled. These requirements remain separate from
+resolving textual conflicts and running local tests.
+
 ## Release acceptance
 
 B-G1 must not start before the B-G0 regression gate passes. B-G1, B-G2 and B-G3
