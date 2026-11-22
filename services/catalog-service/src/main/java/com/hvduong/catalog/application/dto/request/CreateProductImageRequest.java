@@ -17,11 +17,10 @@ public class CreateProductImageRequest {
   @Size(max = 500)
   private String altText;
 
-  /** COVER | GALLERY | THUMBNAIL | NUTRITION | CERTIFICATE. Mặc định GALLERY. */
+  /** COVER | GALLERY | THUMBNAIL. Mặc định GALLERY. */
   @Pattern(
-      regexp = "^(COVER|GALLERY|THUMBNAIL|NUTRITION|CERTIFICATE)$",
-      message =
-          "Role ảnh không hợp lệ. Chỉ chấp nhận: COVER, GALLERY, THUMBNAIL, NUTRITION, CERTIFICATE")
+      regexp = "^(COVER|GALLERY|THUMBNAIL)$",
+      message = "Role ảnh không hợp lệ. Chỉ chấp nhận: COVER, GALLERY, THUMBNAIL")
   private String role = "GALLERY";
 
   @Min(value = 0, message = "position phải lớn hơn hoặc bằng 0")

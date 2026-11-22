@@ -25,6 +25,7 @@ public interface CatalogDtoMapper {
 
   // ── Category ──────────────────────────────────────────────────────────────
   @Mapping(source = "id", target = "categoryId")
+  @Mapping(source = "active", target = "isActive")
   @Mapping(target = "children", ignore = true)
   CategoryResponse toCategoryResponse(Category category);
 

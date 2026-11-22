@@ -1255,6 +1255,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         price.put("currency_code", currency);
         price.put("amount_units", entry.getAmountUnits());
         price.put("amount_nanos", nanos);
+        price.put("effective_from", formatInstant(priceEntity.getEffectiveFrom()));
+        price.put("effective_to", formatInstant(priceEntity.getEffectiveTo()));
+        price.put("status", priceEntity.getStatus());
+        price.put("version", priceEntity.getVersion());
         changedPrices.add(price);
       }
     }
@@ -1347,6 +1351,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       price.put("currency_code", currency);
       price.put("amount_units", request.getAmountUnits());
       price.put("amount_nanos", nanos);
+      price.put("effective_from", formatInstant(newPrice.getEffectiveFrom()));
+      price.put("effective_to", formatInstant(newPrice.getEffectiveTo()));
+      price.put("status", newPrice.getStatus());
+      price.put("version", newPrice.getVersion());
       price.put("price_revision", currentPriceRevision);
 
       Map<String, Object> eventData = new LinkedHashMap<>();

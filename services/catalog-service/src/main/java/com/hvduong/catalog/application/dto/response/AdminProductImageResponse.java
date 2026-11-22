@@ -27,4 +27,12 @@ public class AdminProductImageResponse {
   private Long revision;
   private String createdAt;
   private String updatedAt;
+
+  public Long getVersion() {
+    return revision;
+  }
+
+  public void setVersion(Long version) {
+    this.revision = version;
+  }
 }
