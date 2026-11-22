@@ -16,7 +16,6 @@ import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
@@ -130,9 +129,9 @@ class CatalogAdminControllerTest {
     req.setName("Kẹo Mè Xửng Giòn 250g");
     req.setSlug("keo-me-xung-gion-250g");
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder()
-            .productId(UUID.randomUUID())
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(UUID.randomUUID().toString())
             .name("Kẹo Mè Xửng Giòn 250g")
             .slug("keo-me-xung-gion-250g")
             .build();
@@ -144,7 +143,7 @@ class CatalogAdminControllerTest {
             post("/api/v1/admin/catalog/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Tạo sản phẩm thành công"));
   }
@@ -155,8 +154,11 @@ class CatalogAdminControllerTest {
     ProductTransitionRequest req =
         ProductTransitionRequest.builder().transition("APPROVE").expectedVersion(1L).build();
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder().productId(id).name("Kẹo Mè Xửng Giòn").build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(id.toString())
+            .name("Kẹo Mè Xửng Giòn")
+            .build();
 
     when(adminService.approveProduct(eq(id), any(), eq(1L))).thenReturn(res);
 
@@ -177,8 +179,11 @@ class CatalogAdminControllerTest {
     req.setStory("Câu chuyện thương hiệu O Mạ");
     req.setExpectedVersion(1L);
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder().productId(id).story("Câu chuyện thương hiệu O Mạ").build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(id.toString())
+            .story("Câu chuyện thương hiệu O Mạ")
+            .build();
 
     when(adminService.patchProduct(eq(id), any(), any())).thenReturn(res);
 
@@ -200,7 +205,8 @@ class CatalogAdminControllerTest {
     req.setSaleStatus("PAUSED");
     req.setExpectedVersion(2L);
 
-    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
 
     when(adminService.patchVariant(eq(productId), eq(skuId), any(), any())).thenReturn(res);
 
@@ -215,13 +221,41 @@ class CatalogAdminControllerTest {
   }
 
   @Test
+  void addVariant_ReturnsCreated() throws Exception {
+    UUID productId = UUID.randomUUID();
+    com.hvduong.catalog.application.dto.request.CreateVariantRequest req =
+        new com.hvduong.catalog.application.dto.request.CreateVariantRequest();
+    req.setSkuCode("MX-GION-250G");
+    req.setVariantName("Kẹo Mè Xửng Giòn 250g");
+    req.setWeightValue(new java.math.BigDecimal("250"));
+    req.setWeightUnit("GRAM");
+    req.setPackagingType("HOP_GIAY_KRAFT");
+    req.setBasePriceUnits(50000L);
+
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+
+    when(adminService.addVariant(eq(productId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/skus")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Thêm biến thể thành công"));
+  }
+
+  @Test
   void addImage_ReturnsSuccess() throws Exception {
     UUID productId = UUID.randomUUID();
     CreateProductImageRequest req = new CreateProductImageRequest();
     req.setObjectKey("products/cover.jpg");
     req.setRole("COVER");
 
-    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
 
     when(adminService.addImage(eq(productId), any(), any())).thenReturn(res);
 
@@ -242,7 +276,8 @@ class CatalogAdminControllerTest {
     ReviewProductImageRequest req =
         ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
 
-    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
     when(adminService.reviewImage(eq(productId), eq(imageId), any(), any())).thenReturn(res);
 
     mockMvc

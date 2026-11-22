@@ -23,6 +23,17 @@ public class UpdatePriceRequest {
 
   private Long expectedVariantVersion;
 
+  /** Alias tương thích cho expectedVersion. */
+  public Long getExpectedVersion() {
+    return expectedVariantVersion;
+  }
+
+  public void setExpectedVersion(Long expectedVersion) {
+    if (this.expectedVariantVersion == null) {
+      this.expectedVariantVersion = expectedVersion;
+    }
+  }
+
   @NotEmpty(message = "Danh sách giá không được bỏ trống")
   @Valid
   private List<PriceEntry> prices;

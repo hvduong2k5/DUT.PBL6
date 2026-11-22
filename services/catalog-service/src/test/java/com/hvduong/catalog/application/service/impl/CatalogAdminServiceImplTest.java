@@ -18,7 +18,7 @@ import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
 import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
 import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogCacheEvictor;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
@@ -94,11 +94,15 @@ class CatalogAdminServiceImplTest {
     when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(false);
     when(categoryMapper.findById(req.getCategoryId())).thenReturn(Optional.of(new Category()));
 
-    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-    mockResponse.setProductId(productId);
-    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+    Product product = Product.builder().id(productId).version(0L).build();
+    when(productMapper.findById(any())).thenReturn(Optional.of(product));
+    when(imageMapper.findAllByProductId(any())).thenReturn(List.of());
 
-    ProductDetailResponse result = adminService.createProduct(req, "admin-1");
+    AdminProductDetailResponse mockResponse =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+    when(dtoMapper.toAdminDetailResponse(any())).thenReturn(mockResponse);
+
+    AdminProductDetailResponse result = adminService.createProduct(req, "admin-1");
 
     assertNotNull(result);
     verify(productMapper, times(1)).insert(any(Product.class));
@@ -120,6 +124,7 @@ class CatalogAdminServiceImplTest {
     UpdateProductRequest req = new UpdateProductRequest();
     req.setSlug("new-slug");
     req.setName("Updated Name");
+    req.setExpectedVersion(1L);
 
     Product existingProduct = new Product();
     existingProduct.setId(productId);
@@ -128,11 +133,13 @@ class CatalogAdminServiceImplTest {
     when(productMapper.findById(productId)).thenReturn(Optional.of(existingProduct));
     when(productMapper.existsBySlug("new-slug", productId)).thenReturn(false);
     when(productMapper.update(any(Product.class))).thenReturn(1);
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
 
-    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+    AdminProductDetailResponse mockResponse =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+    when(dtoMapper.toAdminDetailResponse(any())).thenReturn(mockResponse);
 
-    ProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
 
     assertNotNull(result);
     verify(productMapper, times(1)).update(any(Product.class));
@@ -157,7 +164,7 @@ class CatalogAdminServiceImplTest {
     when(productMapper.update(any(Product.class))).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.patchProduct(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.patchProduct(productId, req, "admin-1");
 
     assertNotNull(result);
     assertEquals("Câu chuyện thương hiệu mới", existing.getStory());
@@ -215,7 +222,8 @@ class CatalogAdminServiceImplTest {
     when(variantMapper.update(any(ProductVariant.class))).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.patchVariant(productId, variantId, req, "admin-1");
+    AdminProductDetailResponse result =
+        adminService.patchVariant(productId, variantId, req, "admin-1");
 
     assertNotNull(result);
     assertEquals("Hộp 500g", variant.getVariantName());
@@ -258,7 +266,7 @@ class CatalogAdminServiceImplTest {
     when(productMapper.findById(productId)).thenReturn(Optional.of(product));
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.addImage(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.addImage(productId, req, "admin-1");
 
     assertNotNull(result);
     ArgumentCaptor<ProductImage> captor = ArgumentCaptor.forClass(ProductImage.class);
@@ -298,7 +306,8 @@ class CatalogAdminServiceImplTest {
     when(imageMapper.update(any(ProductImage.class))).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.reviewImage(productId, imageId, req, "moderator-2");
+    AdminProductDetailResponse result =
+        adminService.reviewImage(productId, imageId, req, "moderator-2");
 
     assertNotNull(result);
     verify(imageMapper).demoteOtherApprovedCovers(productId, imageId);
@@ -419,7 +428,8 @@ class CatalogAdminServiceImplTest {
         .thenReturn(1);
     stubDetailMappingFromEntity();
 
-    ProductDetailResponse result = adminService.submitProductForReview(productId, "admin-1", 0L);
+    AdminProductDetailResponse result =
+        adminService.submitProductForReview(productId, "admin-1", 0L);
 
     assertEquals("PENDING", result.getApprovalStatus());
     assertEquals(1L, result.getVersion());
@@ -442,25 +452,24 @@ class CatalogAdminServiceImplTest {
         .thenReturn(1);
     stubDetailMappingFromEntity();
 
-    ProductDetailResponse result = adminService.approveProduct(productId, "admin-1", 1L);
+    AdminProductDetailResponse result = adminService.approveProduct(productId, "admin-1", 1L);
 
     assertEquals("APPROVED", result.getApprovalStatus());
     assertEquals(2L, result.getVersion());
   }
 
   private void stubDetailMappingFromEntity() {
-    when(dtoMapper.toDetailResponse(any()))
+    when(dtoMapper.toAdminDetailResponse(any()))
         .thenAnswer(
             invocation -> {
               Product p = invocation.getArgument(0);
-              return ProductDetailResponse.builder()
-                  .productId(p.getId())
+              return AdminProductDetailResponse.builder()
+                  .productId(p.getId().toString())
                   .approvalStatus(p.getApprovalStatus().name())
-                  .version(p.getVersion())
+                  .revision(p.getVersion())
                   .build();
             });
-    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
-    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
   }
 
   @Test
@@ -479,10 +488,9 @@ class CatalogAdminServiceImplTest {
   }
 
   private void stubDetailMapping() {
-    when(dtoMapper.toDetailResponse(any()))
-        .thenReturn(ProductDetailResponse.builder().productId(productId).build());
-    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
-    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+    when(dtoMapper.toAdminDetailResponse(any()))
+        .thenReturn(AdminProductDetailResponse.builder().productId(productId.toString()).build());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
   }
 
   @Test

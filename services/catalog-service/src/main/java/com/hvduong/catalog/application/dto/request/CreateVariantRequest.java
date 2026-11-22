@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -24,12 +25,19 @@ public class CreateVariantRequest {
   @Positive(message = "weightValue phải lớn hơn 0")
   private BigDecimal weightValue;
 
+  @Pattern(
+      regexp = "^(GRAM|KILOGRAM)$",
+      message = "Đơn vị trọng lượng không hợp lệ. Chỉ chấp nhận: GRAM, KILOGRAM")
   private String weightUnit = "GRAM";
 
   @Size(max = 200)
   private String flavor;
 
   @NotBlank(message = "packagingType không được bỏ trống")
+  @Pattern(
+      regexp = "^(HOP_GIAY_KRAFT|HOP_THIEC|GOI_HUT_CHAN_KHONG|HOP_QUA_TANG|DANG_ROI)$",
+      message =
+          "Loại bao bì không hợp lệ. Chỉ chấp nhận: HOP_GIAY_KRAFT, HOP_THIEC, GOI_HUT_CHAN_KHONG, HOP_QUA_TANG, DANG_ROI")
   private String packagingType;
 
   @Positive private Integer shelfLifeDays;

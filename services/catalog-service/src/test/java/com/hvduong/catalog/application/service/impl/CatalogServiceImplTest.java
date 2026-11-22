@@ -19,6 +19,7 @@ import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
 import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
@@ -224,6 +225,51 @@ class CatalogServiceImplTest {
     assertNotNull(result);
     assertTrue(result.getItems().isEmpty());
     assertEquals(0, result.getTotal());
+  }
+
+  @Test
+  void testSearchProducts_WithFilters() {
+    // Given
+    UUID filterCategoryId = UUID.randomUUID();
+    when(productMapper.findPublicProducts(
+            eq("Mè"),
+            eq(filterCategoryId),
+            eq(4),
+            eq(10000L),
+            eq(50000L),
+            eq("PRICE_ASC"),
+            eq("D2C_WEB"),
+            eq(0),
+            eq(10)))
+        .thenReturn(List.of(mockProduct));
+    when(productMapper.countPublicProducts(
+            eq("Mè"), eq(filterCategoryId), eq(4), eq(10000L), eq(50000L), eq("D2C_WEB")))
+        .thenReturn(1L);
+
+    ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
+    when(dtoMapper.toListItemResponse(any(Product.class))).thenReturn(mockListItemResponse);
+    when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+    when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+        .thenReturn(List.of(mockPrice));
+    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+    // When
+    PageResponse<ProductListItemResponse> result =
+        catalogService.searchProducts(
+            "Mè",
+            filterCategoryId,
+            10000L,
+            50000L,
+            4,
+            SortBy.PRICE_ASC,
+            SalesChannel.D2C_WEB,
+            1,
+            10);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(1, result.getItems().size());
+    assertEquals(1, result.getTotal());
   }
 
   @Test

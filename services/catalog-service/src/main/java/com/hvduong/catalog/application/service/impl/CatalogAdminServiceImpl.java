@@ -521,6 +521,9 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
                         "Không tìm thấy sản phẩm: " + productId));
 
     List<ProductImage> images = imageMapper.findAllByProductId(id);
+    if (images == null) {
+      images = List.of();
+    }
     product.setImages(images);
 
     AdminProductDetailResponse response = dtoMapper.toAdminDetailResponse(product);
@@ -544,6 +547,9 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     response.setCoverImageAlt(AdminCatalogMapper.coverImageAlt(images, product.getName()));
 
     List<ProductVariant> variants = variantMapper.findAllByProductId(id);
+    if (variants == null) {
+      variants = List.of();
+    }
     List<UUID> variantIds =
         variants.stream().map(ProductVariant::getId).collect(Collectors.toList());
     Map<UUID, ChannelPrice> currentPriceByVariant = new HashMap<>();
@@ -583,7 +589,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   @Override
   @Transactional
-  public ProductDetailResponse createProduct(CreateProductRequest request, String actorId) {
+  public AdminProductDetailResponse createProduct(CreateProductRequest request, String actorId) {
     log.info("[CATALOG-ADMIN] createProduct: slug={}, actor={}", request.getSlug(), actorId);
 
     if (productMapper.existsBySlug(request.getSlug(), null)) {
@@ -630,13 +636,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             "listing_status", product.getListingStatus().name(),
             "version", product.getVersion()));
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(product);
+    return getAdminProductDetail(product.getId().toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse updateProduct(
+  public AdminProductDetailResponse updateProduct(
       UUID productId, UpdateProductRequest request, String actorId) {
     log.info("[CATALOG-ADMIN] updateProduct: id={}, version={}", productId, request.getVersion());
 
@@ -669,19 +675,23 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (request.getOcopCertificateNo() != null)
       existing.setOcopCertificateNo(request.getOcopCertificateNo());
     if (request.getStory() != null) existing.setStory(request.getStory());
-    existing.setVersion(request.getVersion());
+    Long expectedVersion =
+        request.getExpectedVersion() != null ? request.getExpectedVersion() : request.getVersion();
+    if (expectedVersion != null) {
+      existing.setVersion(expectedVersion);
+    }
 
     int updated = productMapper.update(existing);
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse patchProduct(
+  public AdminProductDetailResponse patchProduct(
       UUID productId, PatchProductRequest request, String actorId) {
     log.info(
         "[CATALOG-ADMIN] patchProduct: id={}, expectedVersion={}",
@@ -720,12 +730,12 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
-  public ProductDetailResponse submitProductForReview(
+  public AdminProductDetailResponse submitProductForReview(
       UUID productId, String actorId, long expectedVersion) {
     log.info("[CATALOG-ADMIN] submitForReview: id={}", productId);
     Product product =
@@ -749,13 +759,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse approveProduct(
+  public AdminProductDetailResponse approveProduct(
       UUID productId, String approverActorId, long expectedVersion) {
     log.info("[CATALOG-ADMIN] approveProduct: id={}, approver={}", productId, approverActorId);
     Product product =
@@ -778,12 +788,12 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
-  public ProductDetailResponse rejectProduct(
+  public AdminProductDetailResponse rejectProduct(
       UUID productId, String approverActorId, long expectedVersion) {
     Product product =
         productMapper
@@ -804,13 +814,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse suspendProduct(
+  public AdminProductDetailResponse suspendProduct(
       UUID productId, String actorId, long expectedVersion) {
     Product product =
         productMapper
@@ -830,13 +840,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse archiveProduct(
+  public AdminProductDetailResponse archiveProduct(
       UUID productId, String actorId, long expectedVersion) {
     Product product =
         productMapper
@@ -856,12 +866,12 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (updated == 0) throw CatalogException.versionConflict(productId.toString());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
-  public ProductDetailResponse addVariant(
+  public AdminProductDetailResponse addVariant(
       UUID productId, CreateVariantRequest request, String actorId) {
     log.info("[CATALOG-ADMIN] addVariant: productId={}, sku={}", productId, request.getSkuCode());
 
@@ -910,13 +920,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(productMapper.findById(productId).orElseThrow());
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse patchVariant(
+  public AdminProductDetailResponse patchVariant(
       UUID productId, UUID variantId, PatchVariantRequest request, String actorId) {
     log.info(
         "[CATALOG-ADMIN] patchVariant: productId={}, variantId={}, expectedVersion={}",
@@ -972,7 +982,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
@@ -1001,7 +1011,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse addImage(
+  public AdminProductDetailResponse addImage(
       UUID productId, CreateProductImageRequest request, String actorId) {
     findProductOrThrow(productId);
 
@@ -1023,13 +1033,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .build());
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse updateImage(
+  public AdminProductDetailResponse updateImage(
       UUID productId, UUID imageId, UpdateProductImageRequest request, String actorId) {
     findProductOrThrow(productId);
     ProductImage image = findImageOfProduct(productId, imageId);
@@ -1059,13 +1069,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse reviewImage(
+  public AdminProductDetailResponse reviewImage(
       UUID productId, UUID imageId, ReviewProductImageRequest request, String actorId) {
     // 1. Khóa dòng Product bằng FOR UPDATE để serialize concurrent cover reviews
     productMapper
@@ -1125,7 +1135,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
@@ -1160,18 +1170,18 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId) {
+  public AdminProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId) {
     findProductOrThrow(productId);
     ProductImage image = findImageOfProduct(productId, imageId);
     imageMapper.deleteById(image.getId());
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(findProductOrThrow(productId));
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
-  public ProductDetailResponse updateVariantPrices(
+  public AdminProductDetailResponse updateVariantPrices(
       UUID productId, UUID variantId, UpdatePriceRequest request, String actorId) {
     log.info("[CATALOG-ADMIN] updateVariantPrices: variantId={}", variantId);
 
@@ -1190,8 +1200,11 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
           "Variant " + variantId + " không thuộc Product " + productId);
     }
 
-    if (request.getExpectedVariantVersion() != null
-        && variant.getVersion() != request.getExpectedVariantVersion()) {
+    Long expectedVersion =
+        request.getExpectedVersion() != null
+            ? request.getExpectedVersion()
+            : request.getExpectedVariantVersion();
+    if (expectedVersion != null && variant.getVersion() != expectedVersion) {
       throw CatalogException.versionConflict(variantId.toString());
     }
 
@@ -1265,7 +1278,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     cacheEvictor.evictCategoriesCache();
-    return buildDetailResponse(productMapper.findById(productId).orElseThrow());
+    return getAdminProductDetail(productId.toString());
   }
 
   @Override

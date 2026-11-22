@@ -94,21 +94,35 @@ public class CatalogHttpController {
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(name = "page_size", required = false) Integer requestedSize,
       @RequestParam(name = "pageSize", required = false) Integer legacySize,
-      @RequestParam(required = false) UUID category_id,
-      @RequestParam(required = false) Long min_price,
-      @RequestParam(required = false) Long max_price,
-      @RequestParam(defaultValue = "BEST_SELLING") SortBy sort_by,
+      @RequestParam(name = "category_id", required = false) UUID category_id,
+      @RequestParam(name = "categoryId", required = false) UUID categoryId,
+      @RequestParam(name = "min_price", required = false) Long min_price,
+      @RequestParam(name = "minPrice", required = false) Long minPrice,
+      @RequestParam(name = "max_price", required = false) Long max_price,
+      @RequestParam(name = "maxPrice", required = false) Long maxPrice,
+      @RequestParam(name = "ocop_star", required = false) Integer ocop_star,
+      @RequestParam(name = "ocopStar", required = false) Integer ocopStar,
+      @RequestParam(name = "sort_by", required = false) SortBy sort_by,
+      @RequestParam(name = "sortBy", required = false) SortBy sortBy,
       @RequestParam(defaultValue = "D2C_WEB") SalesChannel channel) {
     int size = pageSize(requestedSize, legacySize);
     if (page < 1 || page > 100000) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+    UUID targetCategoryId = category_id != null ? category_id : categoryId;
+    Long targetMinPrice = min_price != null ? min_price : minPrice;
+    Long targetMaxPrice = max_price != null ? max_price : maxPrice;
+    Integer targetOcopStar = ocop_star != null ? ocop_star : ocopStar;
+    SortBy targetSortBy =
+        sort_by != null ? sort_by : (sortBy != null ? sortBy : SortBy.BEST_SELLING);
+
     var filter = new ProductFilterRequest();
     filter.setPage(page);
     filter.setPageSize(size);
-    filter.setCategoryId(category_id);
-    filter.setMinPrice(min_price);
-    filter.setMaxPrice(max_price);
-    filter.setSortBy(sort_by);
-    filter.setChannel(channel);
+    filter.setCategoryId(targetCategoryId);
+    filter.setMinPrice(targetMinPrice);
+    filter.setMaxPrice(targetMaxPrice);
+    filter.setOcopStar(targetOcopStar);
+    filter.setSortBy(targetSortBy);
+    filter.setChannel(channel != null ? channel : SalesChannel.D2C_WEB);
     var result = catalog.getPublicProducts(filter);
     return Map.of(
         "items",
@@ -129,21 +143,56 @@ public class CatalogHttpController {
       @RequestParam(name = "q", required = false) String legacyQuery,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(name = "page_size", required = false) Integer requestedSize,
-      @RequestParam(name = "pageSize", required = false) Integer legacySize) {
+      @RequestParam(name = "pageSize", required = false) Integer legacySize,
+      @RequestParam(name = "category_id", required = false) UUID category_id,
+      @RequestParam(name = "categoryId", required = false) UUID categoryId,
+      @RequestParam(name = "min_price", required = false) Long min_price,
+      @RequestParam(name = "minPrice", required = false) Long minPrice,
+      @RequestParam(name = "max_price", required = false) Long max_price,
+      @RequestParam(name = "maxPrice", required = false) Long maxPrice,
+      @RequestParam(name = "ocop_star", required = false) Integer ocop_star,
+      @RequestParam(name = "ocopStar", required = false) Integer ocopStar,
+      @RequestParam(name = "sort_by", required = false) SortBy sort_by,
+      @RequestParam(name = "sortBy", required = false) SortBy sortBy,
+      @RequestParam(defaultValue = "D2C_WEB") SalesChannel channel) {
     int size = pageSize(requestedSize, legacySize);
     if (query != null && legacyQuery != null && !query.equals(legacyQuery))
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
     if (query == null) query = legacyQuery;
     if (page < 1 || page > 100000 || query == null || query.isBlank())
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
-    var result = catalog.searchProducts(query, page, size);
+
+    UUID targetCategoryId = category_id != null ? category_id : categoryId;
+    Long targetMinPrice = min_price != null ? min_price : minPrice;
+    Long targetMaxPrice = max_price != null ? max_price : maxPrice;
+    Integer targetOcopStar = ocop_star != null ? ocop_star : ocopStar;
+    SortBy targetSortBy = sort_by != null ? sort_by : (sortBy != null ? sortBy : SortBy.NEWEST);
+    SalesChannel targetChannel = channel != null ? channel : SalesChannel.D2C_WEB;
+
+    var result =
+        catalog.searchProducts(
+            query,
+            targetCategoryId,
+            targetMinPrice,
+            targetMaxPrice,
+            targetOcopStar,
+            targetSortBy,
+            targetChannel,
+            page,
+            size);
     return Map.of(
         "query",
         query,
         "items",
         result.getItems().stream().map(this::summary).toList(),
         "total",
-        result.getTotal());
+        result.getTotal(),
+        "page",
+        result.getPage(),
+        "page_size",
+        result.getPageSize(),
+        "total_pages",
+        result.getTotalPages());
   }
 
   @GetMapping("/products/{slug}")

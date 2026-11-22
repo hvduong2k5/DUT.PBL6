@@ -228,4 +228,53 @@ class CatalogHttpControllerTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INVALID_ARGUMENT"));
   }
+
+  @Test
+  void searchProducts_WithFilters_Success() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var item =
+        com.hvduong.catalog.application.dto.response.ProductListItemResponse.builder()
+            .productId(UUID.randomUUID())
+            .name("Kẹo Mè Xửng Giòn 500g")
+            .slug("keo-me-xung-gion-500g")
+            .summary("Đặc sản Huế")
+            .thumbnailUrl("https://cdn.omama.vn/products/mx_gion.jpg")
+            .basePrice(MoneyResponse.ofVnd(35000L))
+            .ocopStar(4)
+            .categoryName("Mè xửng")
+            .stockAvailable(100L)
+            .build();
+    var pageResponse =
+        com.hvduong.catalog.common.response.PageResponse.of(List.of(item), 1, 10, 1L);
+
+    when(catalogService.searchProducts(
+            eq("mè"),
+            eq(categoryId),
+            eq(10000L),
+            eq(50000L),
+            eq(4),
+            eq(com.hvduong.catalog.common.enums.SortBy.PRICE_ASC),
+            eq(SalesChannel.D2C_WEB),
+            eq(1),
+            eq(10)))
+        .thenReturn(pageResponse);
+
+    mockMvc
+        .perform(
+            get("/api/v1/products/search")
+                .param("query", "mè")
+                .param("category_id", categoryId.toString())
+                .param("min_price", "10000")
+                .param("max_price", "50000")
+                .param("ocop_star", "4")
+                .param("sort_by", "PRICE_ASC")
+                .param("channel", "D2C_WEB")
+                .param("page", "1")
+                .param("page_size", "10"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.query").value("mè"))
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.items[0].name").value("Kẹo Mè Xửng Giòn 500g"))
+        .andExpect(jsonPath("$.items[0].base_price.units").value(35000));
+  }
 }

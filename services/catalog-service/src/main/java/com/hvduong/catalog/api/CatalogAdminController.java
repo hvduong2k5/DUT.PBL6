@@ -19,7 +19,6 @@ import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.response.BaseResponse;
@@ -265,14 +264,16 @@ public class CatalogAdminController {
       description = "Khởi tạo sản phẩm mới ở trạng thái DRAFT")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> createProduct(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> createProduct(
       @Valid @RequestBody CreateProductRequest request,
       @AuthenticationPrincipal Jwt jwt,
-      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     String actorId = resolveActorId(jwt, actorHeader);
-    log.info("[REST-ADMIN] createProduct: actor={}", actorId);
-    ProductDetailResponse result = adminService.createProduct(request, actorId);
-    return ResponseEntity.ok(BaseResponse.success("Tạo sản phẩm thành công", result));
+    log.info("[REST-ADMIN] createProduct: actor={}, idempotencyKey={}", actorId, idempotencyKey);
+    AdminProductDetailResponse result = adminService.createProduct(request, actorId);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(BaseResponse.success("Tạo sản phẩm thành công", result));
   }
 
   @Operation(
@@ -280,14 +281,14 @@ public class CatalogAdminController {
       description = "Cập nhật tên, mô tả, sao OCOP và các thông tin cơ bản")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PutMapping("/products/{productId}")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> updateProduct(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> updateProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Valid @RequestBody UpdateProductRequest request,
       @AuthenticationPrincipal Jwt jwt,
       @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
     String actorId = resolveActorId(jwt, actorHeader);
     log.info("[REST-ADMIN] updateProduct: id={}, actor={}", productId, actorId);
-    ProductDetailResponse result = adminService.updateProduct(productId, request, actorId);
+    AdminProductDetailResponse result = adminService.updateProduct(productId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật sản phẩm thành công", result));
   }
 
@@ -299,7 +300,7 @@ public class CatalogAdminController {
               + "Field không gửi lên sẽ giữ nguyên; chuỗi rỗng dùng để xóa field optional.")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> patchProduct(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> patchProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Valid @RequestBody PatchProductRequest request,
       @AuthenticationPrincipal Jwt jwt,
@@ -310,7 +311,7 @@ public class CatalogAdminController {
         productId,
         request.getExpectedVersion(),
         actorId);
-    ProductDetailResponse result = adminService.patchProduct(productId, request, actorId);
+    AdminProductDetailResponse result = adminService.patchProduct(productId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật nội dung sản phẩm thành công", result));
   }
 
@@ -319,7 +320,7 @@ public class CatalogAdminController {
       description = "Hỗ trợ các chuyển đổi: SUBMIT_FOR_REVIEW, APPROVE, REJECT, SUSPEND, ARCHIVE")
   @PreAuthorize("hasAuthority('CATALOG_APPROVE')")
   @PostMapping("/products/{productId}/transition")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> transitionProduct(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> transitionProduct(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Valid @RequestBody ProductTransitionRequest request,
       @AuthenticationPrincipal Jwt jwt,
@@ -334,7 +335,7 @@ public class CatalogAdminController {
         transition,
         actorId);
 
-    ProductDetailResponse result =
+    AdminProductDetailResponse result =
         switch (transition) {
           case "SUBMIT_FOR_REVIEW" -> adminService.submitProductForReview(
               productId, actorId, version);
@@ -354,15 +355,21 @@ public class CatalogAdminController {
       description = "Tạo mã SKU và quy cách đóng gói mới")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/skus")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> addVariant(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> addVariant(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Valid @RequestBody CreateVariantRequest request,
       @AuthenticationPrincipal Jwt jwt,
-      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     String actorId = resolveActorId(jwt, actorHeader);
-    log.info("[REST-ADMIN] addVariant: productId={}, actor={}", productId, actorId);
-    ProductDetailResponse result = adminService.addVariant(productId, request, actorId);
-    return ResponseEntity.ok(BaseResponse.success("Thêm biến thể thành công", result));
+    log.info(
+        "[REST-ADMIN] addVariant: productId={}, actor={}, idempotencyKey={}",
+        productId,
+        actorId,
+        idempotencyKey);
+    AdminProductDetailResponse result = adminService.addVariant(productId, request, actorId);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(BaseResponse.success("Thêm biến thể thành công", result));
   }
 
   @Operation(
@@ -372,7 +379,7 @@ public class CatalogAdminController {
               + "trạng thái bán. Mã SKU là bất biến, không thể đổi qua API này.")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}/skus/{skuId}")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> patchVariant(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> patchVariant(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId,
       @Valid @RequestBody PatchVariantRequest request,
@@ -385,7 +392,8 @@ public class CatalogAdminController {
         skuId,
         request.getExpectedVersion(),
         actorId);
-    ProductDetailResponse result = adminService.patchVariant(productId, skuId, request, actorId);
+    AdminProductDetailResponse result =
+        adminService.patchVariant(productId, skuId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật SKU thành công", result));
   }
 
@@ -433,14 +441,19 @@ public class CatalogAdminController {
   })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PostMapping("/products/{productId}/images")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> addImage(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> addImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Valid @RequestBody CreateProductImageRequest request,
       @AuthenticationPrincipal Jwt jwt,
-      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader) {
+      @RequestHeader(value = "X-Actor-Principal-Id", required = false) String actorHeader,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
     String actorId = resolveActorId(jwt, actorHeader);
-    log.info("[REST-ADMIN] addImage: productId={}, actor={}", productId, actorId);
-    ProductDetailResponse result = adminService.addImage(productId, request, actorId);
+    log.info(
+        "[REST-ADMIN] addImage: productId={}, actor={}, idempotencyKey={}",
+        productId,
+        actorId,
+        idempotencyKey);
+    AdminProductDetailResponse result = adminService.addImage(productId, request, actorId);
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(BaseResponse.success("Thêm ảnh sản phẩm thành công", result));
   }
@@ -459,7 +472,7 @@ public class CatalogAdminController {
   })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PatchMapping("/products/{productId}/images/{imageId}")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> updateImage(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> updateImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
       @Valid @RequestBody UpdateProductImageRequest request,
@@ -471,7 +484,8 @@ public class CatalogAdminController {
         productId,
         imageId,
         actorId);
-    ProductDetailResponse result = adminService.updateImage(productId, imageId, request, actorId);
+    AdminProductDetailResponse result =
+        adminService.updateImage(productId, imageId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật ảnh sản phẩm thành công", result));
   }
 
@@ -490,7 +504,7 @@ public class CatalogAdminController {
   })
   @PreAuthorize("hasAuthority('CATALOG_APPROVE')")
   @PostMapping("/products/{productId}/images/{imageId}/review")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> reviewImage(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> reviewImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
       @Valid @RequestBody ReviewProductImageRequest request,
@@ -503,7 +517,8 @@ public class CatalogAdminController {
         imageId,
         request.getDecision(),
         actorId);
-    ProductDetailResponse result = adminService.reviewImage(productId, imageId, request, actorId);
+    AdminProductDetailResponse result =
+        adminService.reviewImage(productId, imageId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Kiểm duyệt ảnh sản phẩm thành công", result));
   }
 
@@ -519,7 +534,7 @@ public class CatalogAdminController {
   })
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @DeleteMapping("/products/{productId}/images/{imageId}")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> deleteImage(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> deleteImage(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Parameter(description = "ID ảnh (UUID)", required = true) @PathVariable UUID imageId,
       @AuthenticationPrincipal Jwt jwt,
@@ -530,7 +545,7 @@ public class CatalogAdminController {
         productId,
         imageId,
         actorId);
-    ProductDetailResponse result = adminService.deleteImage(productId, imageId, actorId);
+    AdminProductDetailResponse result = adminService.deleteImage(productId, imageId, actorId);
     return ResponseEntity.ok(BaseResponse.success("Xóa ảnh sản phẩm thành công", result));
   }
 
@@ -539,7 +554,7 @@ public class CatalogAdminController {
       description = "Cập nhật giá bán theo từng kênh (D2C, Shopee, TikTok...)")
   @PreAuthorize("hasAuthority('CATALOG_MANAGE')")
   @PutMapping("/products/{productId}/skus/{skuId}/prices")
-  public ResponseEntity<BaseResponse<ProductDetailResponse>> updateVariantPrices(
+  public ResponseEntity<BaseResponse<AdminProductDetailResponse>> updateVariantPrices(
       @Parameter(description = "ID sản phẩm (UUID)", required = true) @PathVariable UUID productId,
       @Parameter(description = "ID SKU (UUID)", required = true) @PathVariable UUID skuId,
       @Valid @RequestBody UpdatePriceRequest request,
@@ -551,7 +566,7 @@ public class CatalogAdminController {
         productId,
         skuId,
         actorId);
-    ProductDetailResponse result =
+    AdminProductDetailResponse result =
         adminService.updateVariantPrices(productId, skuId, request, actorId);
     return ResponseEntity.ok(BaseResponse.success("Cập nhật bảng giá thành công", result));
   }

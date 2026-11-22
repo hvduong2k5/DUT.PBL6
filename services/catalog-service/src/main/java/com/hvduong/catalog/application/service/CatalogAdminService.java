@@ -18,7 +18,6 @@ import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 
 import java.util.List;
@@ -49,48 +48,53 @@ public interface CatalogAdminService {
 
   void deleteCategory(UUID categoryId, String actorId);
 
-  ProductDetailResponse createProduct(CreateProductRequest request, String actorId);
+  AdminProductDetailResponse createProduct(CreateProductRequest request, String actorId);
 
-  ProductDetailResponse updateProduct(UUID productId, UpdateProductRequest request, String actorId);
+  AdminProductDetailResponse updateProduct(
+      UUID productId, UpdateProductRequest request, String actorId);
 
   /** PATCH: cập nhật một phần nội dung sản phẩm (name, slug, story, OCOP, mô tả...). */
-  ProductDetailResponse patchProduct(UUID productId, PatchProductRequest request, String actorId);
+  AdminProductDetailResponse patchProduct(
+      UUID productId, PatchProductRequest request, String actorId);
 
-  ProductDetailResponse submitProductForReview(
+  AdminProductDetailResponse submitProductForReview(
       UUID productId, String actorId, long expectedVersion);
 
-  ProductDetailResponse approveProduct(
+  AdminProductDetailResponse approveProduct(
       UUID productId, String approverActorId, long expectedVersion);
 
-  ProductDetailResponse rejectProduct(UUID productId, String approverActorId, long expectedVersion);
+  AdminProductDetailResponse rejectProduct(
+      UUID productId, String approverActorId, long expectedVersion);
 
-  ProductDetailResponse suspendProduct(UUID productId, String actorId, long expectedVersion);
+  AdminProductDetailResponse suspendProduct(UUID productId, String actorId, long expectedVersion);
 
-  ProductDetailResponse archiveProduct(UUID productId, String actorId, long expectedVersion);
+  AdminProductDetailResponse archiveProduct(UUID productId, String actorId, long expectedVersion);
 
-  ProductDetailResponse addVariant(UUID productId, CreateVariantRequest request, String actorId);
+  AdminProductDetailResponse addVariant(
+      UUID productId, CreateVariantRequest request, String actorId);
 
   /** PATCH: cập nhật một phần thông tin SKU (tên, khối lượng, bao bì, hạn dùng, trạng thái). */
-  ProductDetailResponse patchVariant(
+  AdminProductDetailResponse patchVariant(
       UUID productId, UUID variantId, PatchVariantRequest request, String actorId);
 
   /** Lịch sử giá của một SKU trên mọi kênh bán. */
   List<AdminPriceResponse> getVariantPrices(UUID productId, UUID variantId);
 
   // ── Images ──────────────────────────────────────────────────────
-  ProductDetailResponse addImage(UUID productId, CreateProductImageRequest request, String actorId);
+  AdminProductDetailResponse addImage(
+      UUID productId, CreateProductImageRequest request, String actorId);
 
-  ProductDetailResponse updateImage(
+  AdminProductDetailResponse updateImage(
       UUID productId, UUID imageId, UpdateProductImageRequest request, String actorId);
 
-  ProductDetailResponse reviewImage(
+  AdminProductDetailResponse reviewImage(
       UUID productId, UUID imageId, ReviewProductImageRequest request, String actorId);
 
   void handleScanResult(UUID imageId, String scanStatus, java.time.Instant scannedAt);
 
-  ProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId);
+  AdminProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId);
 
-  ProductDetailResponse updateVariantPrices(
+  AdminProductDetailResponse updateVariantPrices(
       UUID productId, UUID variantId, UpdatePriceRequest request, String actorId);
 
   /** Lên lịch hoặc tạo bản ghi giá mới theo khoảng thời gian hiệu lực cho SKU. */

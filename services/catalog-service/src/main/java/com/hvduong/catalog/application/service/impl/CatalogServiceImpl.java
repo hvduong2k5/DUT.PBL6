@@ -10,9 +10,9 @@ import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogService;
-import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
 import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
@@ -114,30 +114,52 @@ public class CatalogServiceImpl implements CatalogService {
   @Override
   public PageResponse<ProductListItemResponse> searchProducts(
       String query, int page, int pageSize) {
-    log.debug("[CATALOG] searchProducts: query='{}', page={}, size={}", query, page, pageSize);
+    return searchProducts(
+        query, null, null, null, null, SortBy.NEWEST, SalesChannel.D2C_WEB, page, pageSize);
+  }
+
+  @Override
+  public PageResponse<ProductListItemResponse> searchProducts(
+      String query,
+      UUID categoryId,
+      Long minPrice,
+      Long maxPrice,
+      Integer ocopStar,
+      SortBy sortBy,
+      SalesChannel channel,
+      int page,
+      int pageSize) {
+    log.debug(
+        "[CATALOG] searchProducts: query='{}', categoryId={}, channel={}, page={}, size={}",
+        query,
+        categoryId,
+        channel,
+        page,
+        pageSize);
 
     if (!StringUtils.hasText(query)) {
       return PageResponse.of(List.of(), page, pageSize, 0);
     }
 
-    // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
+    SalesChannel targetChannel = channel != null ? channel : SalesChannel.D2C_WEB;
+    String sort = sortBy != null ? sortBy.name() : "NEWEST";
+
     List<Product> products =
         productMapper.findPublicProducts(
             query,
-            null,
-            null,
-            null,
-            null,
-            "NEWEST",
-            CatalogConstants.CHANNEL_D2C_WEB,
+            categoryId,
+            ocopStar,
+            minPrice,
+            maxPrice,
+            sort,
+            targetChannel.getValue(),
             (page - 1) * pageSize,
             pageSize);
     long total =
         productMapper.countPublicProducts(
-            query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
+            query, categoryId, ocopStar, minPrice, maxPrice, targetChannel.getValue());
 
-    List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
-
+    List<ProductListItemResponse> items = enrichListItems(products, targetChannel);
     return PageResponse.of(items, page, pageSize, total);
   }
 
