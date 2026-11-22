@@ -78,7 +78,7 @@ func (s *statementServer) add(row sepay.Transaction) {
 	defer s.mu.Unlock()
 	s.rows = append(s.rows, row)
 }
-func connectedHarness(t *testing.T) (*harness, *statementServer, sepay.Receiver) {
+func connectedHarness(t *testing.T, configure ...func(*harness)) (*harness, *statementServer, sepay.Receiver) {
 	t.Helper()
 	h := newHarness(t)
 	t.Cleanup(func() {
@@ -159,6 +159,9 @@ func connectedHarness(t *testing.T) (*harness, *statementServer, sepay.Receiver)
 	t.Cleanup(func() {
 		_, _ = client.DeleteTopics(context.Background(), &kafka.DeleteTopicsRequest{Topics: []string{h.S.C.SourceTopic}})
 	})
+	for _, apply := range configure {
+		apply(h)
+	}
 	ctx, cancel := context.WithCancel(h.ctx)
 	h.cancel = cancel
 	h.S.Start(ctx)
@@ -608,11 +611,12 @@ func TestGuestVietQRLateMoneyNeverFulfils(t *testing.T) {
 	testUnpaidTimeoutAndBankTime(t, true)
 }
 func testUnpaidTimeoutAndBankTime(t *testing.T, guest bool) {
-	h, statement, receiver := connectedHarness(t)
-	if guest {
-		enableKeycloakGuest(t, h)
-		h.S.C.GuestVietQRCheckoutEnabled = true
-	}
+	h, statement, receiver := connectedHarness(t, func(h *harness) {
+		if guest {
+			enableKeycloakGuest(t, h)
+			h.S.C.GuestVietQRCheckoutEnabled = true
+		}
+	})
 	if e := h.Sim.SetFault(h.ctx, "core_terms", "short_expiry", 1); e != nil {
 		t.Fatal(e)
 	}

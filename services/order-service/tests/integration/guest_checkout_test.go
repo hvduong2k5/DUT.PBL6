@@ -90,9 +90,10 @@ func TestGuestCODKeycloakHTTPAndPendingLimit(t *testing.T) {
 }
 
 func TestGuestVietQRGrantSettlementAndReplay(t *testing.T) {
-	h, statement, receiver := connectedHarness(t)
-	enableKeycloakGuest(t, h)
-	h.S.C.GuestVietQRCheckoutEnabled = true
+	h, statement, receiver := connectedHarness(t, func(h *harness) {
+		enableKeycloakGuest(t, h)
+		h.S.C.GuestVietQRCheckoutEnabled = true
+	})
 	_, order := httpCoreOrder(t, h, "VIETQR")
 	if code := h.request(h.API.URL, "GET", "/api/v1/orders/"+order.ID+"/payment", h.Token, nil, nil); code != 403 {
 		t.Fatal("session used as payment grant", code)

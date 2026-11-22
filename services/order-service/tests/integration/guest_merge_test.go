@@ -217,11 +217,18 @@ func TestGuestCartMergeConcurrentRetryAndQuantityCap(t *testing.T) {
 func TestMergedSQLCartCheckoutCleanupAndConcurrentEdits(t *testing.T) {
 	for _, edit := range []bool{false, true} {
 		t.Run(map[bool]string{false: "cleanup", true: "preserve-edit"}[edit], func(t *testing.T) {
-			h, _, _ := connectedHarness(t)
-			enableKeycloakGuest(t, h)
-			h.S.C.GuestCartMergeEnabled = true
-			guest, token := h.Principal, h.Token
 			customer := domain.Principal{ID: uuid.NewString(), Role: "CUSTOMER", Kind: domain.Customer, CustomerID: uuid.NewString()}
+			profile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				json.NewEncoder(w).Encode(map[string]string{"id": customer.CustomerID, "user_id": r.Header.Get("X-User-ID"), "status": "ACTIVE"})
+			}))
+			defer profile.Close()
+			h, _, _ := connectedHarness(t, func(h *harness) {
+				enableKeycloakGuest(t, h)
+				h.S.C.GuestCartMergeEnabled = true
+				h.S.C.Profile = profile.URL
+				h.S.C.ProfileToken = "profile-test-internal-token"
+			})
+			guest, token := h.Principal, h.Token
 			if _, e := h.S.MutateCart(h.ctx, guest, "MX-GION-500G", 2, 0, true); e != nil {
 				t.Fatal(e)
 			}
@@ -231,12 +238,6 @@ func TestMergedSQLCartCheckoutCleanupAndConcurrentEdits(t *testing.T) {
 			if _, e := h.S.MergeGuestCart(h.ctx, customer, token, uuid.NewString()); e != nil {
 				t.Fatal(e)
 			}
-			profile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				json.NewEncoder(w).Encode(map[string]string{"id": customer.CustomerID, "user_id": r.Header.Get("X-User-ID"), "status": "ACTIVE"})
-			}))
-			defer profile.Close()
-			h.S.C.Profile = profile.URL
-			h.S.C.ProfileToken = "profile-test-internal-token"
 			q, e := h.S.CreateQuote(h.ctx, customer, domain.QuoteInput{Revision: 2, Method: "COD", Address: &domain.Address{Name: "Customer", Phone: "0905123456", Street: "Test only", Ward: "HUE-01", Province: "75"}})
 			if e != nil {
 				t.Fatal(e)
