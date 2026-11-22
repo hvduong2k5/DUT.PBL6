@@ -43,6 +43,10 @@ func (s *Service) Authenticate(token string) (domain.Principal, error) {
 
 func (s *Service) AuthenticateContext(ctx context.Context, token string) (domain.Principal, error) {
 	if s.C.AuthMode == "keycloak" {
+		// Unverified metadata selects exactly one validator; it never grants access.
+		if isGuestSessionCandidate(token) {
+			return s.AuthenticateGuestSession(ctx, token, true)
+		}
 		if s.Identity == nil {
 			return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
 		}

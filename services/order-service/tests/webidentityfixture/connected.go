@@ -5,8 +5,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -115,6 +120,22 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 	}
 	if err = service.EnableSePayFromEnv(ctx); err != nil {
 		return nil, err
+	}
+	if cfg.GuestVietQRCheckoutEnabled {
+		key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if e != nil {
+			return nil, e
+		}
+		service.Payment.GrantKey = key
+		service.Payment.GrantKeyID = "guest-fixture-v1"
+		// Keep the generated key private to this disposable TEST fixture.
+		der, e := x509.MarshalPKCS8PrivateKey(key)
+		if e != nil {
+			return nil, e
+		}
+		if e = os.WriteFile(filepath.Join(folder, "guest-grant.pem"), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0600); e != nil {
+			return nil, e
+		}
 	}
 	if err = service.EnableCoreCheckout(); err != nil {
 		return nil, err

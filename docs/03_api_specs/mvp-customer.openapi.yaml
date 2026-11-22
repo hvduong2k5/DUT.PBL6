@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MVP Customer API - integration target
-  version: 1.0.0-integration
+  version: 1.1.0-integration
   description: Git integration target mvp-2026-10-26. Provider and consumer implementation remains gated by packages/contracts/mvp/registry.yaml.
     Async checkout uses quote/revision and CheckoutOperation. Monetary values in the Order flow are integer VND.
     Original provider specs and frontend references are preserved.
@@ -975,6 +975,7 @@ paths:
       x-contract-status: integration-target
   /api/v1/guest-sessions:
     post:
+      summary: Create a sandbox guest session
       operationId: order_createGuestSession
       description: Sandbox opaque Guest principal without account registration
       responses:
@@ -2812,6 +2813,9 @@ components:
         payment_expires_at:
           type: string
           format: date-time
+          nullable: true
+          description: Null for COD orders, which have no bank-transfer payment deadline. Required date-time for
+            VIETQR.
         updated_at:
           type: string
           format: date-time
