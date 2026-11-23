@@ -21,6 +21,7 @@ export interface RefundActionInput { expectedVersion: number; reason: string; id
 export interface IssueCertificateInput { refundId: string; attemptId: string; decision: string; definitive: boolean; sha256: string; amount: number; beneficiaryAccount: string; bank: string; holder: string; bankIdentity: string; bankReference: string; occurredAt: string }
 
 export const adminPaymentService = {
+  stepUpStatus() { return request<{ acr: string | null; stepUpFresh: boolean }>("/step-up-status"); },
   cases() { return request<PaymentCaseList>("/cases"); },
   case(caseId: string) { return request<PaymentCaseDetail>(`/cases/${encodeURIComponent(caseId)}`); },
   assign(caseId: string, input: AssignCaseInput) { return request<PaymentCaseDetail>(`/cases/${encodeURIComponent(caseId)}/assign`, { method: "POST", body: JSON.stringify(input) }); },

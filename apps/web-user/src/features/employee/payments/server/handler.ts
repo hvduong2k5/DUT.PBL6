@@ -168,6 +168,30 @@ function mapApprovalList(payload: Record<string, unknown>): { items: RefundAppro
 // exactly once, server-side, to build the verify call's bank evidence.
 function maskAccount(account: string) { return account.length >= 4 ? `****${account.slice(-4)}` : "****"; }
 
+// Step-up status mirrors order-service's rule (F-42 MFA follow-up): the
+// write tier needs a LoA 2 token (acr >= 2, or an otp/hwk factor in amr)
+// whose auth_time is at most 15 minutes old. The payload is decoded
+// without verification — order-service stays the authority; this only
+// drives the workspace's step-up prompt.
+function stepUpStatus(request: NextRequest): { acr: string | null; stepUpFresh: boolean } {
+  const token = getTrustedAccessToken(request);
+  if (!token) return { acr: null, stepUpFresh: false };
+  const parts = token.split(".");
+  if (parts.length !== 3) return { acr: null, stepUpFresh: false };
+  try {
+    const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as { acr?: unknown; amr?: unknown; auth_time?: unknown };
+    const acr = typeof claims.acr === "string" ? claims.acr : null;
+    const loa = acr === null ? Number.NaN : Number.parseInt(acr, 10);
+    const amr = Array.isArray(claims.amr) ? claims.amr.filter((m): m is string => typeof m === "string") : [];
+    const proven = (Number.isFinite(loa) && loa >= 2) || amr.includes("otp") || amr.includes("hwk");
+    const authTime = typeof claims.auth_time === "number" ? claims.auth_time : 0;
+    const ageSeconds = Date.now() / 1000 - authTime;
+    return { acr, stepUpFresh: proven && authTime > 0 && ageSeconds >= -60 && ageSeconds <= 15 * 60 };
+  } catch {
+    return { acr: null, stepUpFresh: false };
+  }
+}
+
 function mapCertificate(value: unknown): RefundCertificateItem {
   const item = record(value) ? value : {};
   const decision = string(item.decision);
@@ -240,6 +264,7 @@ export async function handleAdminPayments(request: NextRequest, path: string[]) 
     const currentSession = await session(request);
     if (!currentSession.permissions.includes("PAYMENT_VIEW")) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem Payment.", 403);
     if (request.method === "GET") {
+      if (route.kind === "step-up-status") return NextResponse.json(stepUpStatus(request), { headers: { "Cache-Control": "no-store" } });
       const canReadRefunds = currentSession.permissions.includes("PAYMENT_REFUND_VIEW") && currentSession.permissions.includes("PAYMENT_SENSITIVE_VIEW");
       if (route.kind === "refund-list" || route.kind === "refund-detail") {
         if (!canReadRefunds) return responseError("PERMISSION_FORBIDDEN", "Nhân viên không có quyền xem hoàn tiền.", 403);
