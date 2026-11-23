@@ -33,6 +33,9 @@ var FulfillmentIntegration string
 //go:embed 000009_case_decisions.up.sql
 var CaseDecisions string
 
+//go:embed 000010_refund_authority.up.sql
+var RefundAuthority string
+
 func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	tx, e := db.Begin(ctx)
 	if e != nil {
@@ -45,7 +48,7 @@ func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS order_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); e != nil {
 		return e
 	}
-	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection, FulfillmentIntegration, CaseDecisions} {
+	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection, FulfillmentIntegration, CaseDecisions, RefundAuthority} {
 		version := index + 1
 		var done bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM order_migrations WHERE version=$1)", version).Scan(&done); e != nil {
