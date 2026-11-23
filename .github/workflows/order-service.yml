@@ -1,5 +1,6 @@
 name: Order service release gates
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'services/order-service/**'

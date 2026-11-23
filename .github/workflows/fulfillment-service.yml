@@ -1,5 +1,6 @@
 name: Fulfillment service gates
 on:
+  workflow_call:
   pull_request:
     paths: ['services/fulfillment-service/**', 'packages/proto/**', 'docs/03_api_specs/fulfillment-service*', 'docs/03_api_specs/fulfillment-service/**', '.github/workflows/fulfillment-service.yml']
   push:

@@ -1,6 +1,7 @@
 name: Analytics service gates
 
 on:
+  workflow_call:
   pull_request:
     paths: &analytics-paths
       - services/analytics-service/**
