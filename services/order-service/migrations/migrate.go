@@ -39,7 +39,7 @@ var RefundAuthority string
 //go:embed 000011_evidence_vault.up.sql
 var EvidenceVault string
 
-//go:embed 000009_guest_cart_merge.up.sql
+//go:embed 000012_guest_cart_merge.up.sql
 var GuestCartMerge string
 
 func Apply(ctx context.Context, db *pgxpool.Pool) error {
