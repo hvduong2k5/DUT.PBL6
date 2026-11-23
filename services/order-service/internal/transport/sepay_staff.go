@@ -275,6 +275,39 @@ func sepayStaffRoutes(s *app.Service, r chi.Router) {
 		}
 		write(w, 200, view)
 	})
+	r.Post("/api/v1/admin/payments/reconciliation-cases/{case_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		var in struct {
+			Reason     string   `json:"reason"`
+			Resolution string   `json:"resolution"`
+			Evidence   []string `json:"evidence_ids"`
+		}
+		if e := paymentDecode(w, r, &in); e != nil {
+			failure(s, w, e)
+			return
+		}
+		view, e := s.Payment.CreateCaseDecision(r.Context(), actor, chi.URLParam(r, "case_id"), in.Resolution, in.Reason, in.Evidence)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 201, view)
+	})
+	r.Get("/api/v1/admin/payments/reconciliation-cases/{case_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		items, e := s.Payment.ListCaseDecisions(r.Context(), actor, chi.URLParam(r, "case_id"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"items": items})
+	})
 	r.Post("/api/v1/admin/payments/evidence-uploads", func(w http.ResponseWriter, r *http.Request) {
 		actor, ok := paymentStaff(s, w, r)
 		if !ok {
@@ -303,5 +336,107 @@ func sepayStaffRoutes(s *app.Service, r chi.Router) {
 			return
 		}
 		write(w, 200, view)
+	})
+	// F-42 slice 2: local refund authority endpoints. Approvals are
+	// created and withdrawn by approve-tier actors and accepted into
+	// refund obligations by a different accept-tier actor; bank-statement
+	// certificates are issued by verify-tier actors, attached by the
+	// executor and settled against by the verifier.
+	r.Post("/api/v1/admin/payments/refund-approvals", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		var in struct {
+			Receipt     string `json:"receipt_id"`
+			Amount      int64  `json:"amount"`
+			Beneficiary string `json:"beneficiary_account"`
+			Bank        string `json:"beneficiary_bank"`
+			Holder      string `json:"beneficiary_holder"`
+			Reason      string `json:"reason"`
+		}
+		if e := paymentDecode(w, r, &in); e != nil {
+			failure(s, w, e)
+			return
+		}
+		view, e := s.Payment.CreateRefundApproval(r.Context(), actor, in.Receipt, in.Amount, in.Beneficiary, in.Bank, in.Holder, in.Reason)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 201, view)
+	})
+	r.Get("/api/v1/admin/payments/refund-approvals", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		items, e := s.Payment.ListRefundApprovals(r.Context(), actor, r.URL.Query().Get("receipt_id"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"items": items})
+	})
+	r.Post("/api/v1/admin/payments/refund-approvals/{approval_id}/withdraw", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		var in struct {
+			Reference string `json:"withdrawal_reference"`
+			Reason    string `json:"reason"`
+		}
+		if e := paymentDecode(w, r, &in); e != nil {
+			failure(s, w, e)
+			return
+		}
+		view, e := s.Payment.WithdrawRefundApproval(r.Context(), actor, chi.URLParam(r, "approval_id"), in.Reference, in.Reason)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, view)
+	})
+	r.Post("/api/v1/admin/payments/refund-approvals/{approval_id}/accept", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		view, e := s.Payment.AcceptRefundFromApproval(r.Context(), actor, chi.URLParam(r, "approval_id"), r.Header.Get("X-Idempotency-Key"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 201, view)
+	})
+	r.Post("/api/v1/admin/payments/refund-evidence", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		var in persistence.RefundEvidenceInput
+		if e := paymentDecode(w, r, &in); e != nil {
+			failure(s, w, e)
+			return
+		}
+		record, e := s.Payment.CreateRefundEvidenceRecord(r.Context(), actor, in)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 201, record)
+	})
+	r.Get("/api/v1/admin/payments/refund-evidence", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		items, e := s.Payment.ListRefundEvidenceRecords(r.Context(), actor, r.URL.Query().Get("refund_id"))
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"items": items})
 	})
 }
