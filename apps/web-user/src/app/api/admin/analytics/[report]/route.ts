@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { employeeAuthorizationFailure, requireEmployeeSession } from "@/features/employee/auth/server";
-import { applyTrustedSessionCookie } from "@/lib/auth/server-credential";
+import { applyTrustedAuthorization } from "@/lib/auth/server-credential";
 
 const reportNames = new Set(["workbench", "velocity", "expiry-risk"]);
 const headers = { "Cache-Control": "private, no-store" };
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const upstreamHeaders = new Headers({ Accept: "application/json" });
-    applyTrustedSessionCookie(upstreamHeaders, request);
+    applyTrustedAuthorization(upstreamHeaders, request);
     const response = await fetch(`${base}/supply/${report}${request.nextUrl.search}`, {
       headers: upstreamHeaders,
       cache: "no-store",

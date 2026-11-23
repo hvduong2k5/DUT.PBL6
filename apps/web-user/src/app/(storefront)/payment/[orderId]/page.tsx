@@ -5,7 +5,7 @@ import { PaymentFlow } from "./payment-flow";
 
 export const metadata: Metadata = {
   title: "Thanh toán đơn hàng",
-  description: "Theo dõi hướng dẫn và trạng thái thanh toán cho đơn hàng Ô Mạ Huế."
+  description: "Theo dõi hướng dẫn và trạng thái thanh toán cho đơn hàng Gói Huế."
 };
 
 export default async function PaymentPage({ params }: { params: Promise<{ orderId: string }> }) {

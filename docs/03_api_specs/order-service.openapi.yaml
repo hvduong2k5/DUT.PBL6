@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-04 Order — asynchronous operations
-  version: 3.2.0
+  version: 3.2.1
   description: Proposed Order 3.2 target contract, pending provider agreement and implementation. Integer VND. This
     is not evidence of deployed capability; runtime 3.1 is frozen in order-service.sandbox-3.1.openapi.yaml.
 servers:
@@ -1368,6 +1368,7 @@ paths:
           type: string
   /api/v1/guest-sessions:
     post:
+      summary: Create a sandbox guest session
       operationId: createGuestSession
       description: Sandbox opaque Guest principal without account registration
       responses:
@@ -1760,6 +1761,8 @@ components:
         payment_expires_at:
           type: string
           format: date-time
+          nullable: true
+          description: Null for COD orders, which have no bank-transfer payment deadline. Required date-time for VIETQR.
         updated_at:
           type: string
           format: date-time

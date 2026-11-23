@@ -171,7 +171,11 @@ func main() {
 	go runtime.Run(ctx)
 	rpc := &transport.RPC{Service: svc, Auth: auth}
 	options := []grpc.ServerOption{grpc.UnaryInterceptor(auth.Interceptor), grpc.MaxRecvMsgSize(65536)}
-	if !local {
+	// Serve gRPC over TLS whenever a certificate is configured, even in the
+	// local profile: peers such as order-service verify packing proofs over
+	// this endpoint with a pinned CA and refuse plaintext, while the local
+	// profile's HTTP staff API and S3 test double stay plaintext by design.
+	if certificate != "" && key != "" {
 		creds, e := credentials.NewServerTLSFromFile(certificate, key)
 		if e != nil {
 			log.Fatal(e)

@@ -40,7 +40,7 @@ func sepayRoutes(s *app.Service, r chi.Router) {
 	coreRecoveryRoutes(s, r)
 	sepayStaffRoutes(s, r)
 	r.Delete("/api/v1/guest-sessions/current", func(w http.ResponseWriter, r *http.Request) {
-		if s.Payment == nil {
+		if s.GuestSessions() == nil {
 			failure(s, w, domain.E("GUEST_SESSION_UNAVAILABLE", 503))
 			return
 		}
@@ -50,10 +50,14 @@ func sepayRoutes(s *app.Service, r chi.Router) {
 			return
 		}
 		if who.Role != "GUEST" {
-			failure(s, w, domain.E("UNAUTHENTICATED", 401))
+			if s.C.AuthMode == "keycloak" {
+				failure(s, w, domain.E("PERMISSION_DENIED", 403))
+			} else {
+				failure(s, w, domain.E("UNAUTHENTICATED", 401))
+			}
 			return
 		}
-		e = s.Payment.RevokeGuestSession(r.Context(), who.ID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+		e = s.GuestSessions().RevokeGuestSession(r.Context(), who.ID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 		if e != nil {
 			sepayError(s, w, e)
 			return
@@ -74,10 +78,14 @@ func sepayRoutes(s *app.Service, r chi.Router) {
 				return
 			}
 			if who.Role != "GUEST" {
-				failure(s, w, domain.E("UNAUTHENTICATED", 401))
+				if s.C.AuthMode == "keycloak" {
+					failure(s, w, domain.E("PERMISSION_DENIED", 403))
+				} else {
+					failure(s, w, domain.E("UNAUTHENTICATED", 401))
+				}
 				return
 			}
-			grant, e := s.Payment.GuestAccess(r.Context(), who.ID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), chi.URLParam(r, "order_id"), r.Header.Get("X-Idempotency-Key"), method == "DELETE")
+			grant, e := s.Payment.GuestAccess(r.Context(), who.ID, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), chi.URLParam(r, "order_id"), commandKey(r), method == "DELETE")
 			if e != nil {
 				sepayError(s, w, e)
 				return
@@ -134,21 +142,39 @@ func sepayRoutes(s *app.Service, r chi.Router) {
 				failure(s, w, domain.E("PAYMENT_UNAVAILABLE", 503))
 				return
 			}
-			who, e := s.Authenticate(r.Header.Get("Authorization"))
 			scope := ""
-			if e == nil && who.Role == "CUSTOMER" {
+			var e error
+			bearer := r.Header.Get("Authorization")
+			if app.IsGuestPaymentGrantCandidate(bearer) {
+				scope, e = s.Payment.AuthorizeGuest(r.Context(), bearer, chi.URLParam(r, "order_id"))
+				if e == nil {
+					e = app.AuthorizeRoute(domain.Principal{Kind: domain.GuestPaymentGrant}, r.Method, r.URL.Path)
+				}
+				if e != nil {
+					failure(s, w, domain.E("UNAUTHENTICATED", 401))
+					return
+				}
+			} else {
+				var who domain.Principal
+				who, e = s.AuthenticateContext(r.Context(), bearer)
+				if e != nil {
+					failure(s, w, e)
+					return
+				}
+				if who.PrincipalKind() != domain.Customer {
+					if s.C.AuthMode == "keycloak" {
+						failure(s, w, domain.E("PERMISSION_DENIED", 403))
+					} else {
+						failure(s, w, domain.E("UNAUTHENTICATED", 401))
+					}
+					return
+				}
 				who, e = s.Resolve(r.Context(), who)
 				if e != nil {
 					failure(s, w, e)
 					return
 				}
 				scope = who.Scope()
-			} else {
-				scope, e = s.Payment.AuthorizeGuest(r.Context(), r.Header.Get("Authorization"), chi.URLParam(r, "order_id"))
-				if e != nil {
-					failure(s, w, domain.E("UNAUTHENTICATED", 401))
-					return
-				}
 			}
 			if instructions {
 				data, e := s.Payment.Instructions(r.Context(), chi.URLParam(r, "order_id"), scope)

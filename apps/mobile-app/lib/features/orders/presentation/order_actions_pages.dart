@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_app/core/network/api_exception.dart';
@@ -109,101 +110,105 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       title: 'Hành trình giao nhận',
       showBack: true,
     ),
-    body: FutureBuilder<OrderTracking>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const AppLoadingView();
-        }
-        if (!snapshot.hasData) {
-          return AppErrorView(
-            message: snapshot.error is ApiException
-                ? (snapshot.error as ApiException).failure.message
-                : 'Chưa thể tải hành trình giao nhận.',
-            onRetry: () => setState(_load),
-          );
-        }
-        final data = snapshot.data!;
-        return RefreshIndicator(
-          onRefresh: () async {
-            setState(_load);
-            try {
-              await _future;
-            } catch (_) {
-              /* FutureBuilder presents retry/error state. */
-            }
-          },
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                '#${data.orderId}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              _TrackingCard(
-                title: 'Thông tin vận chuyển',
-                children: [
-                  Text(
-                    data.carrier.isEmpty
-                        ? 'Chưa có đơn vị giao nhận'
-                        : data.carrier,
-                  ),
-                  if (data.code.isNotEmpty)
-                    SelectableText('Mã vận đơn: ${data.code}'),
-                  Text('Trạng thái vận chuyển: ${data.statusLabel}'),
-                  if (data.shipper.isNotEmpty)
-                    Text('Người giao: ${data.shipper}'),
-                  if (data.phone.isNotEmpty)
-                    SelectableText('Liên hệ giao nhận: ${data.phone}'),
-                ],
-              ),
-              if (data.seal.isNotEmpty || data.video.isNotEmpty)
+    body: HeritageSurface(
+      child: FutureBuilder<OrderTracking>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const AppLoadingView();
+          }
+          if (!snapshot.hasData) {
+            return AppErrorView(
+              message: snapshot.error is ApiException
+                  ? (snapshot.error as ApiException).failure.message
+                  : 'Chưa thể tải hành trình giao nhận.',
+              onRetry: () => setState(_load),
+            );
+          }
+          final data = snapshot.data!;
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(_load);
+              try {
+                await _future;
+              } catch (_) {
+                /* FutureBuilder presents retry/error state. */
+              }
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  '#${data.orderId}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
                 _TrackingCard(
-                  title: 'Đóng gói và niêm phong',
+                  title: 'Thông tin vận chuyển',
                   children: [
-                    if (data.seal.isNotEmpty)
-                      SelectableText('Mã niêm phong: ${data.seal}'),
-                    if (data.video.isNotEmpty)
-                      PublicHttpsButton(
-                        url: data.video,
-                        label: 'Xem video đóng gói',
+                    Text(
+                      data.carrier.isEmpty
+                          ? 'Chưa có đơn vị giao nhận'
+                          : data.carrier,
+                    ),
+                    if (data.code.isNotEmpty)
+                      SelectableText('Mã vận đơn: ${data.code}'),
+                    Text('Trạng thái vận chuyển: ${data.statusLabel}'),
+                    if (data.shipper.isNotEmpty)
+                      Text('Người giao: ${data.shipper}'),
+                    if (data.phone.isNotEmpty)
+                      SelectableText('Liên hệ giao nhận: ${data.phone}'),
+                  ],
+                ),
+                if (data.seal.isNotEmpty || data.video.isNotEmpty)
+                  _TrackingCard(
+                    title: 'Đóng gói và niêm phong',
+                    children: [
+                      if (data.seal.isNotEmpty)
+                        SelectableText('Mã niêm phong: ${data.seal}'),
+                      if (data.video.isNotEmpty)
+                        PublicHttpsButton(
+                          url: data.video,
+                          label: 'Xem video đóng gói',
+                        ),
+                    ],
+                  ),
+                _TrackingCard(
+                  title: 'Các mốc công khai',
+                  children: [
+                    if (data.checkpoints.isEmpty)
+                      const Text('Chưa có mốc vận chuyển được công bố.'),
+                    for (final point in data.checkpoints)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DateFormat(
+                                'dd/MM/yyyy HH:mm',
+                              ).format(point.time.toLocal()),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            Text(
+                              point.statusLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(point.location),
+                            Text(point.description),
+                          ],
+                        ),
                       ),
                   ],
                 ),
-              _TrackingCard(
-                title: 'Các mốc công khai',
-                children: [
-                  if (data.checkpoints.isEmpty)
-                    const Text('Chưa có mốc vận chuyển được công bố.'),
-                  for (final point in data.checkpoints)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            DateFormat(
-                              'dd/MM/yyyy HH:mm',
-                            ).format(point.time.toLocal()),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          Text(
-                            point.statusLabel,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(point.location),
-                          Text(point.description),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     ),
   );
 }

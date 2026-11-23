@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/config/app_features.dart';
+import 'package:mobile_app/core/widgets/feature_unavailable_page.dart';
+import 'package:mobile_app/features/catalog/presentation/search_page.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_mobile_header.dart';
 import 'package:mobile_app/features/checkout/domain/mvp_purchase_repository.dart';
@@ -83,11 +86,30 @@ GoRouter createAppRouter({
   required OnboardingStore onboardingStore,
   bool onboardingCompleted = true,
   String? initialLocation,
+  AppFeatures? features,
 }) => GoRouter(
   initialLocation:
       initialLocation ??
       (onboardingCompleted ? AppRoutes.home : AppRoutes.onboarding),
+  // Features without a public API are never reached, even by deep link.
+  redirect: (context, state) {
+    final feature = AppFeatures.forPath(state.uri.path);
+    if (feature == null || (features ?? AppFeatures.current).enabled(feature)) {
+      return null;
+    }
+    return '${AppRoutes.unavailable}?feature=${feature.name}';
+  },
   routes: [
+    GoRoute(
+      path: AppRoutes.unavailable,
+      builder: (context, state) => SafeBackScope(
+        child: FeatureUnavailablePage(
+          feature: AppFeature.values
+              .where((f) => f.name == state.uri.queryParameters['feature'])
+              .firstOrNull,
+        ),
+      ),
+    ),
     GoRoute(
       path: AppRoutes.b2b,
       builder: (context, state) => SafeBackScope(
@@ -313,6 +335,26 @@ GoRouter createAppRouter({
           ),
         ),
       ),
+    ),
+    GoRoute(
+      path: AppRoutes.search,
+      builder: (context, state) {
+        final query = state.uri.queryParameters['q'] ?? '';
+        return SafeBackScope(
+          child: BlocProvider(
+            key: ValueKey(state.uri.toString()),
+            create: (_) {
+              final cubit = CatalogCubit(
+                context.read<CatalogRepository>(),
+                initialQuery: query,
+              );
+              if (query.trim().isNotEmpty) cubit.load();
+              return cubit;
+            },
+            child: SearchPage(initialQuery: query),
+          ),
+        );
+      },
     ),
     GoRoute(
       path: AppRoutes.product,

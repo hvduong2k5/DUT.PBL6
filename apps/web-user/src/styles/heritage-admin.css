@@ -1,0 +1,132 @@
+/* Gói Huế skin for the employee/admin area (/admin/**). Loaded after employee.css.
+   Layout and behaviour stay in employee.css; this file re-colours and re-frames them with the same kit
+   tokens (heritage.css) as the storefront. */
+
+.admin-root {
+  --surface: var(--kem);
+  --surface-low: var(--kem-am);
+  --surface-high: var(--kem-dam);
+  --white: #fffdfa;
+  --border: var(--vien);
+  --muted: var(--phu);
+  --brick: var(--do-chu-sa);
+  --topbar: 72px;
+  background: transparent;
+  font-family: var(--chu-doc);
+  overflow-x: clip;
+}
+
+/* ---- Topbar: dark lacquer, gold rule (same as the storefront header and footer) ---- */
+.admin-topbar { border-bottom: 3px solid var(--mat); background-color: var(--nau-cung-dinh); color: var(--kem); box-shadow: 0 6px 24px rgba(30, 16, 8, 0.28); backdrop-filter: none; }
+.admin-brand { color: var(--kem); }
+.admin-brand img { padding: 4px; border: 1px solid var(--mat); border-radius: var(--r-sm); background: var(--kem); }
+.admin-brand strong { color: var(--kem); font: 700 1.55rem/1 var(--chu-de); letter-spacing: -0.02em; }
+.admin-brand small { margin-top: 3px; color: var(--mat-sang); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; text-transform: none; white-space: nowrap; }
+.admin-global-search span { top: 50%; left: 14px; display: grid; color: var(--mat-sang); transform: translateY(-50%); }
+.admin-global-search input { height: 44px; border: 1px solid rgba(212, 162, 76, 0.55); border-radius: 999px; background: rgba(252, 249, 244, 0.08); color: var(--kem); font: 400 0.95rem var(--chu-doc); }
+.admin-global-search input::placeholder { color: rgba(252, 249, 244, 0.6); }
+.admin-global-search input:focus { border-color: var(--mat-sang); background: rgba(252, 249, 244, 0.14); box-shadow: 0 0 0 3px rgba(212, 162, 76, 0.3); }
+.admin-top-actions { gap: 10px; }
+.admin-top-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid rgba(212, 162, 76, 0.55); border-radius: var(--r-sm); background: rgba(252, 249, 244, 0.06); color: var(--kem); font: 600 0.9rem var(--chu-doc); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
+.admin-top-actions > button.admin-top-link { font: 600 0.9rem var(--chu-doc); width: auto; height: 44px; margin: 0; border: 1px solid rgba(212, 162, 76, 0.55); border-radius: var(--r-sm); background: rgba(252, 249, 244, 0.06); color: var(--kem); }
+.admin-top-actions > button.admin-top-link:hover { border-color: var(--mat-sang); background: rgba(212, 162, 76, 0.18); color: var(--mat-sang); }
+.admin-top-link:hover { border-color: var(--mat-sang); background: rgba(212, 162, 76, 0.18); color: var(--mat-sang); }
+.admin-employee { gap: 12px; padding-left: 12px; border-left: 1px solid rgba(212, 162, 76, 0.35); }
+.admin-employee > span { width: 40px; height: 40px; background: var(--mat); color: var(--muc); font: 700 0.95rem var(--chu-de); }
+.admin-employee strong { color: var(--kem); font-size: 0.95rem; }
+.admin-employee small { color: rgba(252, 249, 244, 0.7); font-size: var(--t-label); }
+.admin-employee button { min-height: 44px; padding: 0 6px; color: var(--mat-sang); font: 600 0.9rem var(--chu-doc); text-decoration: underline; text-underline-offset: 3px; }
+.admin-employee button:hover { color: var(--kem); }
+.admin-menu-toggle { min-width: 44px; min-height: 44px; place-items: center; border: 1px solid rgba(212, 162, 76, 0.55) !important; border-radius: var(--r-sm); color: var(--kem); }
+
+/* ---- Sidebar: paper with an architectural rule, brown active item ---- */
+.admin-sidebar { border-right: 1px solid var(--nau); background-color: var(--kem); background-image: linear-gradient(rgba(252, 249, 244, 0.88), rgba(252, 249, 244, 0.88)), var(--bg-giay); background-size: 100% 100%, 420px 420px; }
+.admin-scope { border: 1px solid var(--vien); border-radius: var(--r-sm); background: rgba(246, 239, 226, 0.7); }
+.admin-scope strong { color: var(--nau-dam); font: 600 1rem var(--chu-de); }
+.admin-scope span { color: var(--xanh-ngoc); }
+.admin-sidebar h2 { margin: 0 12px 6px; color: var(--nau); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.12em; }
+.admin-sidebar nav a { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: var(--r-sm); color: var(--nau-dam); font-size: 0.92rem; font-weight: 600; transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out); }
+.admin-sidebar nav a:hover { background: rgba(212, 162, 76, 0.18); }
+.admin-sidebar nav a.active { background: var(--nau-dam); color: var(--kem); box-shadow: inset 4px 0 0 var(--mat); }
+.admin-sidebar footer { border-top: 1px solid var(--vien); }
+
+/* ---- Dashboard module cards ---- */
+.employee-module-grid article a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.employee-module-grid article a b { color: var(--mat); font-size: 1.1rem; transition: transform 0.2s var(--ease-out); }
+.employee-module-grid article a:hover b { color: var(--nau-dam); transform: translateX(4px); }
+
+@media (max-width: 780px) {
+  .admin-brand div { display: none; }
+  .admin-top-link { display: none; }
+}
+
+/* ---- Page header, buttons ---- */
+.admin-page-header nav { color: var(--nau); font-size: var(--t-label); font-weight: 600; }
+.admin-page-header nav span { color: var(--mat); }
+.admin-page-header h1 { color: var(--nau-dam); font: 600 clamp(1.75rem, 1.2rem + 1.4vw, 2.3rem)/1.15 var(--chu-de); letter-spacing: -0.015em; }
+.admin-page-header p { color: var(--phu); }
+.admin-primary-button, .admin-secondary-button { position: relative; min-height: 44px; border-radius: var(--r-sm); font: 600 0.92rem var(--chu-doc); transition: transform 0.2s var(--ease-out), background-color 0.2s var(--ease-out); }
+.admin-primary-button { border: 1px solid var(--nau-dam); background: var(--nau-dam); color: var(--kem); box-shadow: inset 0 0 0 3px var(--nau-dam), inset 0 0 0 4px rgba(212, 162, 76, 0.75); }
+.admin-primary-button:hover:not(:disabled) { background: #67462f; transform: translateY(-1px); }
+.admin-primary-button.danger { border-color: var(--do-chu-sa); background: var(--do-chu-sa); box-shadow: inset 0 0 0 3px var(--do-chu-sa), inset 0 0 0 4px rgba(252, 249, 244, 0.55); }
+.admin-secondary-button { border: 1px solid var(--nau); background-color: var(--kem); background-image: var(--bg-giay); background-size: 300px 300px; color: var(--nau-dam); }
+.admin-secondary-button:hover:not(:disabled) { background-color: var(--kem-am); border-color: var(--nau-dam); }
+
+/* ---- KPI cards: functional panel with the 45° fold corner ---- */
+.admin-summary-grid article { position: relative; border-color: var(--nau); }
+.admin-summary-grid article::after { content: ""; position: absolute; top: 0; right: 0; width: 18px; height: 18px; background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%); pointer-events: none; }
+.admin-summary-grid span { color: var(--nau); font-weight: 600; }
+.admin-summary-grid strong { color: var(--nau-dam); font: 600 1.7rem var(--chu-de); }
+.admin-summary-grid small { color: var(--phu); }
+
+/* ---- Status tabs, tables ---- */
+.admin-status-tabs button { color: var(--phu); font-weight: 600; }
+.admin-status-tabs button:hover { color: var(--nau-dam); }
+.admin-status-tabs button.active { border-color: var(--mat); color: var(--nau-dam); }
+.admin-status-tabs button.active b { background: var(--nau-dam); color: var(--kem); }
+.admin-table th { background: var(--kem-dam); color: var(--nau-dam); font-weight: 700; }
+/* Fixed-layout tables: a long unbroken code (PASSWORD_RESET, USER_PASSWORD_RESET) must wrap inside its cell
+   instead of spilling over the next column. */
+.admin-table th, .admin-table td { overflow-wrap: anywhere; }
+.admin-table td button { overflow-wrap: normal; white-space: nowrap; }
+/* Row options button: the "•••" text glyphs sat low in Be Vietnam Pro. Hide the text and draw three centred dots. */
+.admin-action-cell > button { position: relative; display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-color: var(--nau); border-radius: var(--r-sm); background: var(--kem); color: var(--nau-dam); font-size: 0; line-height: 0; letter-spacing: 0; }
+.admin-action-cell > button::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; box-shadow: -8px 0 0 currentColor, 8px 0 0 currentColor; }
+.admin-action-cell > button:hover { border-color: var(--nau-dam); background: var(--kem-am); }
+.admin-action-cell > button:focus-visible { outline: 3px solid var(--nau-dam); outline-offset: 2px; }
+/* Permission catalog: the Action column was 8% wide, too narrow for 14-character codes in Be Vietnam Pro. */
+.admin-permission-catalog-table { min-width: 1060px; }
+.admin-permission-catalog-table th, .admin-permission-catalog-table td { padding-inline: 6px; }
+.admin-permission-catalog-table th:nth-child(1) { width: 18%; }
+.admin-permission-catalog-table th:nth-child(2) { width: 15%; }
+.admin-permission-catalog-table th:nth-child(3) { width: 16%; }
+.admin-permission-catalog-table th:nth-child(4) { width: 7%; }
+.admin-permission-catalog-table th:nth-child(5) { width: 12%; }
+.admin-permission-catalog-table th:nth-child(6) { width: 7%; }
+.admin-permission-catalog-table th:nth-child(7) { width: 9%; }
+.admin-permission-catalog-table th:nth-child(8) { width: 9%; }
+.admin-permission-catalog-table th:last-child, .admin-permission-catalog-table td:last-child { width: 56px; padding-inline: 4px; text-align: center; }
+.admin-table tbody tr:hover td { background: rgba(212, 162, 76, 0.1); }
+.admin-list-toolbar select, .admin-table-search input, .admin-action-form input, .admin-action-form select, .admin-action-form textarea { border-color: var(--nau); border-radius: var(--r-sm); background-color: #fffdfa; }
+.admin-list-toolbar input:focus, .admin-list-toolbar select:focus, .admin-action-form input:focus, .admin-action-form select:focus, .admin-action-form textarea:focus { border-color: var(--nau-dam); box-shadow: 0 0 0 3px rgba(212, 162, 76, 0.35); }
+.admin-table-search > span { display: grid; color: var(--nau); }
+
+/* ---- Modals ---- */
+.admin-modal-backdrop { background: rgba(34, 20, 12, 0.6); }
+.admin-modal { border: 1px solid var(--nau); border-top: 4px solid var(--mat); box-shadow: 0 28px 64px rgba(30, 16, 8, 0.38); }
+.admin-modal > header h2, .admin-modal > header h3 { color: var(--nau-dam); font-family: var(--chu-de); font-weight: 600; }
+
+/* ---- Empty / state icons use the kit emblem instead of glyphs ---- */
+.admin-empty > .gh-emblem, .admin-file-row > .gh-emblem { background-color: var(--kem); border: 1px solid var(--mat); border-radius: 50%; }
+
+/* ---- Responsive topbar ---- */
+@media (max-width: 1100px) {
+  .admin-topbar { gap: 12px; }
+  .admin-employee div { display: none; }
+  .admin-top-link { padding: 0 10px; font-size: 0.85rem; }
+  .admin-employee { padding-left: 8px; gap: 8px; }
+}
+@media (max-width: 960px) {
+  .admin-global-search { max-width: 220px; }
+  .admin-brand div small { display: none; }
+}

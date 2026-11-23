@@ -42,9 +42,10 @@ void main() {
       expect(dependencies.addressRepository, isA<RestAddressRepository>());
       expect(dependencies.authRepository, isA<RestAuthRepository>());
       expect(dependencies.checkoutRepository, isA<RestCheckoutRepository>());
+      // No notification endpoint in the MVP contract: real data stays empty.
       expect(
         dependencies.notificationsRepository,
-        isA<LocalNotificationsRepository>(),
+        isA<EmptyNotificationsRepository>(),
       );
     });
   }

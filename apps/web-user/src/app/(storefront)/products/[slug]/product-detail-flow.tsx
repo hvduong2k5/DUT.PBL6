@@ -10,6 +10,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { useAuth } from "@/components/auth/auth-provider";
 import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 import { useRecommendation } from "@/components/recommendation/recommendation-provider";
@@ -35,7 +36,7 @@ function ProductDetailLoading() {
 }
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
-  const { isEmployee } = useAuth();
+  const { isEmployee, status } = useAuth();
   const recommendation = useRecommendation();
   const { record, consent } = recommendation;
   const { updateFromCart } = useCartSummary();
@@ -133,7 +134,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
     return (
       <main className="product-detail-page">
         <section className="detail-state" role="alert">
-          <span aria-hidden="true">{notFound ? "⌕" : "!"}</span>
+          <span className="gh-emblem" aria-hidden="true" />
           <p className="eyebrow">{notFound ? "Không tìm thấy" : "Kết nối gián đoạn"}</p>
           <h1>{notFound ? "Sản phẩm chưa sẵn sàng để xem" : "Chưa thể mở chi tiết sản phẩm"}</h1>
           <p>{notFound ? "Sản phẩm có thể không tồn tại hoặc chưa được phép công khai." : error.message}</p>
@@ -159,7 +160,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         <div className="product-gallery">
           <div className="gallery-main">
             {activeImage ? <ProductImage src={activeImage} alt={product.images.find((image) => image.url === activeImage)?.alt ?? product.name} fill priority loading="eager" sizes="(max-width: 860px) 100vw, 52vw" /> : <div className="gallery-empty">Chưa có ảnh sản phẩm</div>}
-            {product.ocopCertification ? <span className="gallery-certification">✺ {product.ocopCertification.label}</span> : null}
+            {product.ocopCertification ? <span className="gallery-certification">{product.ocopCertification.label}</span> : null}
           </div>
           {product.images.length > 1 ? <div className="gallery-thumbnails" aria-label="Ảnh sản phẩm">{product.images.map((image) => <button type="button" className={activeImage === image.url ? "active" : ""} aria-pressed={activeImage === image.url} onClick={() => setActiveImageUrl(image.url)} key={image.id}><ProductImage src={image.url} alt={image.alt} fill sizes="92px" /></button>)}</div> : null}
         </div>
@@ -192,7 +193,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             {selectedSku ? <dl><div><dt>Khối lượng</dt><dd>{selectedSku.weightGrams}g</dd></div><div><dt>Hương vị</dt><dd>{selectedSku.flavor || "Nguyên bản"}</dd></div><div><dt>Đóng gói</dt><dd>{selectedSku.packageType}</dd></div><div><dt>Khả dụng</dt><dd className="available">Có thể chọn</dd></div></dl> : <p>Chưa chọn SKU. Không có quy cách nào được ngầm xác nhận.</p>}
           </div>
 
-          {isEmployee ? <div className="availability-banner employee-purchase-warning" role="note"><span aria-hidden="true">!</span><div><h2>Tài khoản nhân viên công vụ</h2><p>Chỉ được xem thông tin sản phẩm và quản trị; không thể tạo giỏ hàng hoặc đặt mua. Hãy đăng xuất và dùng tài khoản Customer cá nhân nếu cần mua hàng.</p><Link href="/admin">Đến Kênh Quản Trị →</Link></div></div> : <><div className="detail-cart-actions">
+          {isEmployee ? <div className="availability-banner employee-purchase-warning" role="note"><span aria-hidden="true">!</span><div><h2>Tài khoản nhân viên công vụ</h2><p>Chỉ được xem thông tin sản phẩm và quản trị; không thể tạo giỏ hàng hoặc đặt mua. Hãy đăng xuất và dùng tài khoản Customer cá nhân nếu cần mua hàng.</p><Link href="/admin">Đến Kênh Quản Trị →</Link></div></div> : status === "guest" && !MVP_FEATURE_GATES.guestOrder ? <Link className="primary-link" href={`/login?returnUrl=${encodeURIComponent(`/products/${slug}`)}`}>Đăng nhập để mua hàng</Link> : <><div className="detail-cart-actions">
             <label htmlFor="detail-quantity">Số lượng</label>
             <div className="detail-quantity-control">
               <button type="button" aria-label="Giảm số lượng" disabled={!selectedSku || addingToCart || quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
@@ -205,7 +206,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
         </div>
       </section>
 
-      {!hasAvailableSku ? <section className="availability-banner" role="status"><span aria-hidden="true">◇</span><div><h2>{hasUnknownSku ? "Tồn kho sản phẩm đang được đồng bộ" : "Sản phẩm đang tạm hết khả dụng"}</h2><p>{hasUnknownSku ? "Hệ thống chưa có dữ liệu tồn kho đủ tin cậy nên chưa cho phép chọn SKU này." : "Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật."}</p></div></section> : null}
+      {!hasAvailableSku ? <section className="availability-banner" role="status"><span className="gh-emblem" aria-hidden="true" /><div><h2>{hasUnknownSku ? "Tồn kho sản phẩm đang được đồng bộ" : "Sản phẩm đang tạm hết khả dụng"}</h2><p>{hasUnknownSku ? "Hệ thống chưa có dữ liệu tồn kho đủ tin cậy nên chưa cho phép chọn SKU này." : "Bạn vẫn có thể xem thông tin sản phẩm. Các SKU sẽ không thể chọn cho đến khi trạng thái bán được cập nhật."}</p></div></section> : null}
 
       <section className="product-story" aria-labelledby="product-story-title">
         <div><p className="eyebrow">Thông tin đã công bố</p><h2 id="product-story-title">Câu chuyện của thức quà</h2><p>{product.longDescription}</p></div>
@@ -215,9 +216,9 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
       {foodInformation ? <section className="food-information" aria-labelledby="food-title">
         <div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Hiểu rõ trước khi lựa chọn</h2><p>Dữ liệu catalog chung; ngày cụ thể của Batch/Lot không được hiển thị tại đây.</p></div>
         <div className="food-grid">
-          <article><span aria-hidden="true">✦</span><h3>Thành phần</h3><p>{foodInformation.ingredients}</p>{foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{foodInformation.allergenStatement}</p></div> : null}</article>
-          <article><span aria-hidden="true">⌂</span><h3>Bảo quản</h3><p>{foodInformation.storageInstructions}</p></article>
-          <article><span aria-hidden="true">◷</span><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Thành phần</h3><p>{foodInformation.ingredients}</p>{foodInformation.allergenStatement ? <div className="allergen-note"><strong>Cảnh báo dị ứng</strong><p>{foodInformation.allergenStatement}</p></div> : null}</article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Bảo quản</h3><p>{foodInformation.storageInstructions}</p></article>
+          <article><span className="gh-emblem" aria-hidden="true" /><h3>Ngày sản xuất &amp; hạn dùng</h3><dl><dt>Ngày sản xuất</dt><dd>{foodInformation.manufacturingDatePolicy}</dd><dt>Hạn sử dụng catalog</dt><dd>{foodInformation.shelfLifeDescription}</dd></dl><small>Đây là chính sách shelf-life, không phải ngày của lô hàng sẽ giao.</small></article>
         </div>
       </section> : <section className="food-information" aria-labelledby="food-title"><div className="section-heading"><p className="eyebrow">Thông tin thực phẩm</p><h2 id="food-title">Thông tin đang được cập nhật</h2><p>API sản phẩm hiện chưa công bố thành phần, cảnh báo dị ứng và hướng dẫn bảo quản. Vui lòng kiểm tra nhãn trên bao bì hoặc tra cứu lô hàng trước khi sử dụng.</p><Link className="product-detail-link" href="/trace/QR-OMA-20261015-LOT08">Xem mẫu hồ sơ truy xuất <span aria-hidden="true">→</span></Link></div></section>}
 

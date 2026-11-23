@@ -5,6 +5,7 @@ import { decodeJwt, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { NextRequest } from "next/server";
 import { oidcCallback, oidcLogin } from "./oidc";
 import { resolveCustomerCredential, withCustomerAuth } from "./customer-auth";
+import { applyStorefrontAuthorization, hasCustomerCredential, withGuestCookie } from "./storefront-credential";
 
 const principal = "11111111-1111-4111-8111-111111111111";
 const original = { ...process.env };
@@ -163,6 +164,40 @@ describe("customer-auth credential boundary", () => {
     expect(finalized.status).toBe(204);
     expect(cookieValue(setCookiesOf(finalized), "oma_access_token")).toBeTruthy();
     expect(cookieValue(setCookiesOf(finalized), "oma_refresh_token")).toBe(`refresh-${runId}-2`);
+  });
+
+  for (const refreshOnly of [false, true]) it(`renews Customer auth through the guest-aware storefront boundary (${refreshOnly ? "refresh only" : "short access"})`, async () => {
+    mutation = "short-access";
+    const { header } = await login();
+    const customerHeader = refreshOnly ? header.split("; ").filter((cookie) => !cookie.startsWith("oma_access_token=")).join("; ") : header;
+    const request = requestWith(`${customerHeader}; oma_guest_session=valid-guest`);
+    expect(hasCustomerCredential(request)).toBe(true);
+    const response = await withGuestCookie(request, async () => {
+      const headers = new Headers();
+      applyStorefrontAuthorization(headers, request);
+      expect(headers.has("Cookie")).toBe(false);
+      const upstream = await fetch(`${issuer}/echo-stream`, { headers });
+      return new Response(upstream.body, { headers: { "x-seen-authorization": upstream.headers.get("x-seen-authorization") ?? "" } });
+    });
+    expect(tokenCalls).toBe(2);
+    expect(decodeJwt(response.headers.get("x-seen-authorization")!.replace(/^Bearer /u, "")).seq).toBe(2);
+    expect(await response.text()).toBe("chunk-1-chunk-2");
+    expect(cookieValue(setCookiesOf(response), "oma_refresh_token")).toBe(`refresh-${runId}-2`);
+    expect(setCookiesOf(response).some((cookie) => cookie.startsWith("oma_guest_session="))).toBe(false);
+  });
+
+  it("never falls back to a guest when Customer renewal fails", async () => {
+    mutation = "short-access";
+    const { header } = await login();
+    mutation = "refresh-denied";
+    let called = false;
+    const response = await withGuestCookie(requestWith(`${header}; oma_guest_session=valid-guest`), async () => {
+      called = true;
+      return NextResponseJson();
+    });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: "SESSION_EXPIRED" });
+    expect(called).toBe(false);
   });
 
   it("passes the identity-BFF session cookie through unchanged", async () => {

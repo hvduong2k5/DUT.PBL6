@@ -1,0 +1,481 @@
+/* ==========================================================================
+   GÓI HUẾ · HERITAGE UI KIT (ported from the Môn 02 v2.0 design kit)
+   Tokens, paper surfaces, stepped frames, buttons and form controls.
+   Every component class is prefixed `gh-` so it never collides with legacy globals.css rules.
+   Imported once by the root layout, after globals.css.
+   ========================================================================== */
+
+:root {
+  /* Brand palette: 60% ivory paper, 20% deep brown, 10% tea brown, 10% honey gold */
+  --kem: #fcf9f4;
+  --kem-am: #f6efe2;
+  --kem-dam: #ede0cc;
+  --nau-dam: #563a26;
+  --nau-cung-dinh: #352014;
+  --nau: #70513b;
+  --mat: #d4a24c;
+  --mat-sang: #e6bc6a;
+  --do-chu-sa: #8b261d;
+  --xanh-ngoc: #2d5a3c;
+  --muc: #2f241c;
+  --phu: #655241;
+  --vien: #dfd1be;
+  --loi: #8f2817;
+
+  /* Typography (next/font injects --font-playfair / --font-be-vietnam on <html>) */
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", "Noto Serif", serif;
+  --chu-de: var(--font-display);
+  --chu-doc: var(--font-be-vietnam), "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --t-h1: clamp(2.35rem, 4.6vw + 1rem, 4.25rem);
+  --t-h2: clamp(1.75rem, 2.4vw + 0.85rem, 2.65rem);
+  --t-h3: clamp(1.22rem, 1vw + 0.9rem, 1.5rem);
+  --t-lead: clamp(1.05rem, 0.4vw + 0.95rem, 1.2rem);
+  --t-small: 0.875rem;
+  --t-label: 0.8125rem;
+
+  /* Spacing and layout */
+  --gut: clamp(16px, 5vw, 72px);
+  --wrap-max: 1280px;
+
+  /* Paper and frame resources */
+  --bg-giay: url("/images/heritage/paper.jpg");
+  --khung-don: url("/images/heritage/khung-don.svg");
+  --khung-doi: url("/images/heritage/khung-doi.svg");
+  --khung-kien-truc: url("/images/heritage/khung-kien-truc.svg");
+  --khung-don-vang: url("/images/heritage/khung-don-vang.svg");
+  --phan-cach: url("/images/heritage/phan-cach.svg");
+
+  /* Radius, shadow, motion */
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-sheet: 20px;
+  --shadow-card: 0 10px 28px -8px rgba(53, 32, 20, 0.1), 0 2px 6px rgba(53, 32, 20, 0.05);
+  --shadow-hover: 0 18px 36px -10px rgba(53, 32, 20, 0.18), 0 4px 12px rgba(53, 32, 20, 0.08);
+  --shadow-popover: 0 22px 48px -8px rgba(42, 24, 14, 0.24), 0 0 0 1px rgba(112, 81, 59, 0.22);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Stepped 2-tier corner polygon that matches the 48x48 / slice 14 frame SVGs */
+  --clip-khung-hue: polygon(
+    1px 9px, 5px 9px, 5px 5px, 9px 5px, 9px 1px,
+    calc(100% - 9px) 1px, calc(100% - 9px) 5px, calc(100% - 5px) 5px, calc(100% - 5px) 9px, calc(100% - 1px) 9px,
+    calc(100% - 1px) calc(100% - 9px), calc(100% - 5px) calc(100% - 9px), calc(100% - 5px) calc(100% - 5px), calc(100% - 9px) calc(100% - 5px), calc(100% - 9px) calc(100% - 1px),
+    9px calc(100% - 1px), 9px calc(100% - 5px), 5px calc(100% - 5px), 5px calc(100% - 9px), 1px calc(100% - 9px)
+  );
+}
+
+/* Anchor jumps land below the sticky header. `clip` (not `hidden`) on html and body keeps the document the only
+   scroller, so the sticky header works and route changes scroll the window instead of an inner box. */
+html { scroll-padding-top: 96px; overflow-x: clip; }
+body { overflow-x: clip; }
+
+/* Base: handmade paper behind the whole page, kit body font */
+body {
+  font-family: var(--chu-doc);
+  background-color: #f7f0e4;
+  background-image: linear-gradient(rgba(252, 249, 244, 0.52), rgba(252, 249, 244, 0.52)), var(--bg-giay);
+  background-repeat: no-repeat, repeat;
+  background-size: 100% 100%, 600px 600px;
+}
+
+/* ---- Paper surfaces ---- */
+.gh-surface-paper {
+  background-color: var(--kem);
+  background-image: linear-gradient(rgba(252, 249, 244, 0.88), rgba(252, 249, 244, 0.88)), var(--bg-giay);
+  background-size: 100% 100%, 500px 500px;
+}
+.gh-surface-parchment {
+  background-color: var(--kem-am);
+  background-image: linear-gradient(rgba(246, 239, 226, 0.88), rgba(246, 239, 226, 0.88)), var(--bg-giay);
+  background-size: 100% 100%, 500px 500px;
+}
+.gh-surface-imperial {
+  background-color: var(--nau-cung-dinh);
+  background-image: radial-gradient(circle at 75% 35%, rgba(112, 81, 59, 0.38) 0%, rgba(53, 32, 20, 0.96) 72%);
+  color: var(--kem);
+}
+
+/* ---- Layout helpers ---- */
+.gh-wrap {
+  position: relative;
+  width: min(var(--wrap-max), calc(100% - 2 * var(--gut)));
+  margin-inline: auto;
+}
+
+/* Decorative watermark image: never intercepts clicks and sits behind content */
+.gh-motif {
+  position: absolute;
+  z-index: 0;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---- Section header and dividers ---- */
+.gh-section-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.gh-section-header--center { justify-content: center; text-align: center; }
+.gh-section-header__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(112, 81, 59, 0.15), var(--nau) 50%, rgba(112, 81, 59, 0.15));
+}
+.gh-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--nau);
+  font-size: var(--t-label);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.gh-kicker::before,
+.gh-kicker::after { content: "❖"; color: var(--mat); font-size: 0.75rem; }
+.gh-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  margin-block: 48px;
+}
+.gh-divider::before,
+.gh-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--nau) 20%, var(--nau) 80%, transparent);
+}
+.gh-divider__knot {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  margin-inline: 14px;
+  background: var(--phan-cach) center / contain no-repeat;
+}
+
+/* ---- Buttons ---- */
+.gh-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 11px 24px;
+  border: 1px solid rgba(112, 81, 59, 0.35);
+  border-radius: var(--r-sm);
+  background: var(--mat);
+  color: var(--muc);
+  font: 600 1rem/1.2 var(--chu-doc);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
+}
+.gh-btn::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 8px solid transparent;
+  border-image: var(--khung-don) 14 stretch;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.gh-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(86, 58, 38, 0.18); background: var(--mat-sang); }
+.gh-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.gh-btn__arrow { display: inline-block; transition: transform 0.2s var(--ease-out); }
+.gh-btn:hover:not(:disabled) .gh-btn__arrow { transform: translateX(4px); }
+
+.gh-btn--brown { background: var(--nau-dam); border-color: var(--nau-dam); color: var(--kem); }
+.gh-btn--brown::before { border-image-source: var(--khung-don-vang); opacity: 0.9; }
+.gh-btn--brown:hover:not(:disabled) { background: #67462f; }
+
+.gh-btn--paper {
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 300px 300px;
+  border-color: var(--nau);
+  color: var(--nau-dam);
+}
+.gh-btn--paper:hover:not(:disabled) { background-color: var(--kem-am); border-color: var(--nau-dam); }
+
+.gh-btn--fold { padding-right: 32px; }
+.gh-btn--fold::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  background: var(--mat);
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  pointer-events: none;
+}
+.gh-btn--brown.gh-btn--fold::after { background: var(--mat); }
+
+/* Outline button for dark lacquer surfaces */
+.gh-btn--ghost { background: rgba(252, 249, 244, 0.08); border-color: rgba(252, 249, 244, 0.5); color: var(--kem); }
+.gh-btn--ghost::before { border-image-source: var(--khung-don-vang); opacity: 0.55; }
+.gh-btn--ghost:hover:not(:disabled) { background: rgba(252, 249, 244, 0.18); border-color: var(--kem); }
+
+.gh-btn:disabled {
+  background: #e2d9cc;
+  border-color: #c9bfae;
+  color: #7a6b5d;
+  cursor: not-allowed;
+}
+.gh-btn:disabled::before { opacity: 0.25; }
+
+.gh-btn-icon {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--nau-dam);
+  cursor: pointer;
+  transition: background-color 0.2s var(--ease-out);
+}
+.gh-btn-icon:hover { background-color: rgba(112, 81, 59, 0.1); }
+
+/* ---- Four frame levels ---- */
+/* Level 1: dark lacquer double frame (hero, large themed blocks) */
+.gh-frame-imperial {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(24px, 4vw, 48px);
+  border-radius: var(--r-md);
+}
+.gh-frame-imperial::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  z-index: 2;
+  border: 16px solid transparent;
+  border-image: var(--khung-doi) 14 stretch;
+  pointer-events: none;
+}
+/* Level 2: paper architectural plaque (hero B, gift area) */
+.gh-frame-plaque {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(24px, 3.5vw, 42px);
+  background-color: var(--kem);
+  background-image: linear-gradient(rgba(252, 249, 244, 0.9), rgba(252, 249, 244, 0.9)), var(--bg-giay);
+  background-size: 100% 100%, 420px 420px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+}
+.gh-frame-plaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 14px solid transparent;
+  border-image: var(--khung-kien-truc) 14 stretch;
+  pointer-events: none;
+}
+/* Level 3: category and product card */
+.gh-frame-card {
+  position: relative;
+  isolation: isolate;
+  padding: 12px;
+  background-color: var(--kem);
+  background-image: linear-gradient(rgba(252, 249, 244, 0.9), rgba(252, 249, 244, 0.9)), var(--bg-giay);
+  background-size: 100% 100%, 400px 400px;
+  clip-path: var(--clip-khung-hue);
+  filter: drop-shadow(0 8px 20px rgba(53, 32, 20, 0.08));
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.28s var(--ease-out), filter 0.28s var(--ease-out);
+}
+.gh-frame-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 14px solid transparent;
+  border-image: var(--khung-don) 14 stretch;
+  pointer-events: none;
+}
+a.gh-frame-card:hover,
+.gh-frame-card--interactive:hover { transform: translateY(-4px); filter: drop-shadow(0 14px 28px rgba(53, 32, 20, 0.15)); }
+a.gh-frame-card:hover::before,
+.gh-frame-card--interactive:hover::before { border-image-source: var(--khung-kien-truc); }
+/* Level 4: functional panel with the 45° paper-fold corner (forms, cart, checkout, filters) */
+.gh-frame-functional {
+  position: relative;
+  padding: 20px 24px;
+  border: 1px solid var(--nau);
+  background-color: var(--kem);
+  background-image: var(--bg-giay);
+  background-size: 450px 450px;
+  box-shadow: 0 2px 10px rgba(53, 32, 20, 0.05);
+}
+.gh-frame-functional--fold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, var(--mat) 50%, var(--nau-dam) 50%);
+  pointer-events: none;
+}
+
+/* ---- Heritage banner: dark lacquer stage + double stepped frame (kit hero A), reused across pages ---- */
+.gh-banner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  align-items: stretch;
+  min-height: clamp(360px, 32vw, 500px);
+  overflow: hidden;
+  box-shadow: 0 20px 48px -12px rgba(42, 24, 14, 0.32);
+  container-type: inline-size;
+}
+.gh-banner::before { content: ""; position: absolute; inset: 14px; z-index: 3; border: 16px solid transparent; border-image: var(--khung-doi) 14 stretch; pointer-events: none; }
+.gh-banner__copy { position: relative; z-index: 4; display: flex; flex-direction: column; justify-content: center; padding: clamp(36px, 5cqi, 64px) clamp(28px, 4.5cqi, 60px); }
+.gh-banner__kicker { margin-bottom: 10px; color: var(--mat-sang); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.gh-banner .gh-banner__title { margin: 0 0 14px; color: var(--kem); font: 600 clamp(2rem, 4.6cqi, 3.9rem)/1.1 var(--chu-de); letter-spacing: -0.02em; text-wrap: balance; }
+.gh-banner__rule { width: 72px; height: 3px; margin-bottom: 18px; background: var(--mat); }
+.gh-banner .gh-banner__lead { max-width: 44ch; margin: 0 0 26px; color: rgba(252, 249, 244, 0.9); font-size: clamp(1rem, 1.5cqi, 1.15rem); line-height: 1.6; }
+.gh-banner__actions { display: flex; flex-wrap: wrap; gap: 14px; }
+.gh-banner__slides { display: grid; }
+.gh-banner__slide { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out), visibility 0s linear 0.6s; }
+.gh-banner__slide.is-active { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.gh-banner__cta { align-self: flex-start; margin-bottom: 26px; padding-bottom: 2px; border-bottom: 1px solid var(--mat); color: var(--mat-sang); font-weight: 600; text-decoration: none; }
+.gh-banner__cta:hover { color: var(--kem); }
+.gh-banner__visual { position: relative; z-index: 1; min-height: 300px; }
+/* The photo dissolves into the lacquer colour: no hard seam, whatever the background gradient does */
+.gh-banner__photo { position: absolute; inset: 0; opacity: 0; transition: opacity 0.9s ease; -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); mask-image: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); }
+.gh-banner__photo.is-active { opacity: 1; }
+.gh-banner__photo img { object-fit: cover; }
+.gh-banner-shell { position: relative; }
+/* Quiet arrows on the left/right margins of the banner, above the frame, and three tiny dots at bottom centre */
+.gh-banner__arrow { position: absolute; top: 50%; z-index: 6; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(252, 249, 244, 0.28); border-radius: 50%; background: rgba(53, 32, 20, 0.34); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: rgba(252, 249, 244, 0.9); font: 400 1.1rem/1 var(--chu-doc); cursor: pointer; opacity: 0; transform: translateY(-50%); transition: opacity 0.25s var(--ease-out), background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), border-color 0.2s var(--ease-out); }
+/* Sit just inside the double frame (frame ends ~30px from the edge) so the arrows never cover its lines */
+.gh-banner__arrow--prev { left: 42px; }
+.gh-banner__arrow--next { right: 42px; }
+.gh-banner:hover .gh-banner__arrow, .gh-banner:focus-within .gh-banner__arrow { opacity: 1; }
+.gh-banner__arrow:hover { background: rgba(212, 162, 76, 0.45); border-color: rgba(230, 188, 106, 0.8); color: var(--kem); }
+@media (hover: none) { .gh-banner__arrow { opacity: 0.85; } }
+.gh-banner__dots { position: absolute; bottom: 20px; left: 50%; z-index: 6; display: flex; align-items: center; transform: translateX(-50%); }
+.gh-banner__dots button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+.gh-banner__dots button span { display: block; width: 6px; height: 6px; border-radius: 50%; background: rgba(252, 249, 244, 0.45); box-shadow: 0 0 0 1px rgba(20, 10, 4, 0.2); transition: background-color 0.25s, transform 0.25s; }
+.gh-banner__dots button:hover span { background: rgba(252, 249, 244, 0.85); }
+.gh-banner__dots button.is-active span { background: var(--mat); transform: scale(1.35); }
+.gh-banner--multi .gh-banner__copy { padding-bottom: clamp(52px, 5cqi, 64px); }
+@media (min-width: 961px) { .gh-banner--multi .gh-banner__copy { padding-left: clamp(96px, 7cqi, 108px); } }
+.gh-banner__badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; padding: 0; list-style: none; }
+.gh-banner__badges .gh-badge { position: static; box-shadow: none; }
+@container (max-width: 760px) {
+  .gh-banner .gh-banner__title { font-size: clamp(2rem, 7.5cqi, 3rem); }
+}
+@media (max-width: 960px) {
+  .gh-banner { grid-template-columns: 1fr; }
+  .gh-banner__visual { order: -1; min-height: clamp(220px, 46vw, 360px); }
+  .gh-banner__arrow { top: clamp(110px, 23vw, 180px); }
+  .gh-banner__photo { -webkit-mask-image: linear-gradient(0deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); mask-image: linear-gradient(0deg, transparent 0%, rgba(0, 0, 0, 0.55) 16%, #000 46%); }
+  .gh-banner__copy { padding-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gh-banner__slide, .gh-banner__photo, .gh-banner__dots button span { transition-duration: 0.01ms !important; }
+}
+@media (max-width: 600px) {
+  .gh-banner::before { inset: 8px; border-width: 12px; }
+  .gh-banner__arrow--prev { left: 30px; }
+  .gh-banner__arrow--next { right: 30px; }
+  .gh-banner__copy { padding: 8px 24px 32px; }
+  .gh-banner__actions .gh-btn { flex: 1 1 100%; }
+}
+
+/* ---- Traceability QR form (inside a banner) ---- */
+.gh-trace-form { display: grid; gap: 8px; max-width: 560px; }
+.gh-trace-form__label { color: var(--kem); font-size: var(--t-small); font-weight: 600; }
+.gh-trace-form__row { display: flex; flex-wrap: wrap; gap: 10px; }
+.gh-trace-form__row .gh-field { flex: 1 1 220px; width: auto; border-color: var(--mat); }
+.gh-trace-form__row .gh-btn { flex: 0 0 auto; }
+.gh-trace-form__error { color: #ffd6cf; font-size: var(--t-small); }
+.gh-banner--compact { min-height: clamp(280px, 24vw, 360px); }
+.gh-banner--compact .gh-banner__copy { padding-block: clamp(28px, 3.5cqi, 44px); }
+.gh-banner--compact .gh-banner__title { font-size: clamp(1.9rem, 3.8cqi, 3.1rem); }
+.gh-trace-form__sample { justify-self: start; min-height: 32px; padding: 0; border: 0; background: none; color: var(--mat-sang); font: 600 var(--t-small) var(--chu-doc); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.gh-trace-form__sample:hover { color: var(--kem); }
+
+/* ---- Card media, ribbon badge, price ---- */
+.gh-card-media { position: relative; overflow: hidden; aspect-ratio: 4 / 3; background: #eadbc6; }
+.gh-card-media--square { aspect-ratio: 1 / 1; }
+.gh-card-media img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 0.45s var(--ease-out); }
+.gh-frame-card:hover .gh-card-media img { transform: scale(1.03); }
+.gh-card-body { position: relative; padding: 16px 10px 8px; }
+.gh-card-body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--vien), transparent);
+}
+.gh-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--mat);
+  background: var(--nau-dam);
+  color: var(--kem);
+  font-size: var(--t-label);
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(35, 20, 10, 0.25);
+}
+.gh-badge--gold { background: var(--mat); border-color: var(--nau-dam); color: var(--muc); }
+.gh-badge--crimson { background: var(--do-chu-sa); border-color: var(--mat); color: var(--kem); }
+.gh-price { color: var(--do-chu-sa); font: 700 1.125rem/1.2 var(--chu-doc); }
+
+/* ---- Form controls (48px height, persistent labels, visible errors) ---- */
+.gh-field-group { display: flex; flex-direction: column; gap: 6px; }
+.gh-field-label { color: var(--nau-dam); font-size: var(--t-small); font-weight: 600; }
+.gh-field {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--nau);
+  border-radius: var(--r-sm);
+  background-color: #fffdfa;
+  color: var(--muc);
+  font: 400 1rem/1.4 var(--chu-doc);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.gh-field:focus { border-color: var(--nau-dam); outline: none; box-shadow: inset 0 0 0 1px var(--nau-dam); }
+.gh-field[aria-invalid="true"] { border-color: var(--loi); background-color: #fff8f6; }
+.gh-field-error { display: flex; align-items: center; gap: 6px; color: var(--loi); font-size: var(--t-label); font-weight: 500; }
+
+/* ---- Accessibility ---- */
+.gh-skip-link { position: absolute; left: -9999px; top: 8px; z-index: 999; padding: 12px 20px; border: 2px solid var(--mat); background: var(--nau-dam); color: var(--kem); font-weight: 600; }
+.gh-skip-link:focus { left: var(--gut); }
+.gh-btn:focus-visible,
+.gh-field:focus-visible,
+.gh-btn-icon:focus-visible,
+a.gh-frame-card:focus-visible { outline: 3px solid var(--nau-dam); outline-offset: 3px; box-shadow: 0 0 0 3px var(--kem); }
+.gh-surface-imperial .gh-btn:focus-visible { outline-color: var(--mat-sang); box-shadow: 0 0 0 3px var(--nau-cung-dinh); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gh-btn, .gh-btn__arrow, .gh-frame-card, .gh-card-media img, .gh-field {
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}

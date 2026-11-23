@@ -14,10 +14,11 @@ afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => vi.resetModules());
 
 it("reads the new cart after a successful 204 DELETE even when a proxy keeps the JSON content type", async () => {
+  vi.resetModules();
+  const { handleCartRequest } = await import("@/app/api/cart/cart-handler");
   const fetcher = vi.fn()
     .mockResolvedValueOnce(new Response(null, { status: 204, headers: { "Content-Type": "application/json" } }))
     .mockResolvedValueOnce(Response.json({ revision: 2, items: [] }));
-  const { handleCartRequest } = await import("@/app/api/cart/cart-handler");
   vi.stubGlobal("fetch", fetcher);
   const request = new NextRequest("http://localhost/api/cart/items/PRIVATE-A", {
     method: "DELETE", headers: { "If-Match": '"1"', Origin: "http://localhost", Cookie: "oma_access_token=fixture" }

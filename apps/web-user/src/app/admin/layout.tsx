@@ -4,6 +4,7 @@ import { EmployeeAccessBoundary } from "@/components/auth/employee-access-bounda
 import { EmployeeSessionProvider } from "@/components/auth/employee-session-provider";
 import { EmployeeShell } from "@/components/layout/employee-shell";
 import "@/styles/employee.css";
+import "@/styles/heritage-admin.css";
 
 export default async function EmployeeLayout({ children }: { children: ReactNode }) {
   await connection();

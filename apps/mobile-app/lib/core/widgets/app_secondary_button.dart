@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
-import 'package:mobile_app/core/theme/app_radius.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
 
+/// Secondary action: kit "paper" button (brown outline).
 class AppSecondaryButton extends StatelessWidget {
   const AppSecondaryButton({
     super.key,
@@ -13,19 +13,10 @@ class AppSecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 48,
-    child: OutlinedButton.icon(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.brandBrown,
-        side: const BorderSide(color: AppColors.brandBrown),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.large),
-        ),
-      ),
-      icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
-      label: Text(label),
-    ),
+  Widget build(BuildContext context) => HeritageButton(
+    label: label,
+    onPressed: onPressed,
+    icon: icon,
+    variant: HeritageButtonVariant.paper,
   );
 }

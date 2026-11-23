@@ -62,8 +62,7 @@ class CartState extends Equatable {
 }
 
 class CartCubit extends Cubit<CartState> {
-  CartCubit(this._repository, {this._principal})
-    : super(const CartState());
+  CartCubit(this._repository, {this._principal}) : super(const CartState());
   final CartRepository _repository;
   final String? Function()? _principal;
   int _generation = 0;

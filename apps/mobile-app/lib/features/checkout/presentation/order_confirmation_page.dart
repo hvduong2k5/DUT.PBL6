@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_app/app/router/routes.dart';
@@ -26,117 +27,126 @@ class OrderConfirmationPage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (confirmation == null) return _ConfirmationLookup(orderId: orderId);
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(
-                  'Ô Mạ',
-                  style: TextStyle(
-                    fontFamily: GoogleFonts.notoSerif().fontFamily,
-                    fontSize: 22,
-                    color: AppColors.headingBrown,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 36),
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.success.withValues(alpha: .16),
-                    border: Border.all(color: AppColors.success),
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: AppColors.success,
-                    size: 34,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  confirmation!.status == 'PENDING_PAYMENT'
-                      ? 'Đơn đã tạo, chờ thanh toán'
-                      : confirmation!.paymentMethod == PaymentMethod.cod
-                      ? 'Đã tiếp nhận đơn COD'
-                      : 'Xác nhận đơn hàng',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                const Text(
-                  'Đơn hàng của bạn đã được ghi nhận. Ô Mạ sẽ thông báo khi có cập nhật mới.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'MÃ ĐƠN HÀNG',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.textMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          orderId,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        if (confirmation != null) ...[
-                          const SizedBox(height: 10),
-                          Text(confirmation!.total.format()),
-                        ],
-                      ],
+      body: HeritageSurface(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Text(
+                    'Gói Huế',
+                    style: TextStyle(
+                      fontFamily: GoogleFonts.playfairDisplay().fontFamily,
+                      fontSize: 22,
+                      color: AppColors.headingBrown,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                BlocBuilder<CartCubit, CartState>(
-                  builder: (_, state) => state.cleanupFailed
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text(
-                            'Đơn đã tạo nhưng giỏ chưa đồng bộ. Hãy kiểm tra đơn trước khi đặt lại.',
-                            style: TextStyle(color: AppColors.darkRed),
+                  const SizedBox(height: 36),
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.success.withValues(alpha: .16),
+                      border: Border.all(color: AppColors.success),
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: AppColors.success,
+                      size: 34,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    confirmation!.status == 'PENDING_PAYMENT'
+                        ? 'Đơn đã tạo, chờ thanh toán'
+                        : confirmation!.paymentMethod == PaymentMethod.cod
+                        ? 'Đã tiếp nhận đơn COD'
+                        : 'Xác nhận đơn hàng',
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Text(
+                    'Đơn hàng của bạn đã được ghi nhận. Gói Huế sẽ thông báo khi có cập nhật mới.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'MÃ ĐƠN HÀNG',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textMuted,
+                            ),
                           ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                if (confirmation!.paymentMethod != null) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppPrimaryButton(
-                      label: 'Xem thông tin thanh toán',
-                      onPressed: () => context.push(
-                        '/payment/$orderId',
-                        extra: confirmation,
+                          const SizedBox(height: 6),
+                          Text(
+                            orderId,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          if (confirmation != null) ...[
+                            const SizedBox(height: 10),
+                            Text(confirmation!.total.format()),
+                          ],
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.lg),
+                  BlocBuilder<CartCubit, CartState>(
+                    builder: (_, state) => state.cleanupFailed
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text(
+                              'Đơn đã tạo nhưng giỏ chưa đồng bộ. Hãy kiểm tra đơn trước khi đặt lại.',
+                              style: TextStyle(color: AppColors.darkRed),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  if (confirmation!.paymentMethod != null) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: AppPrimaryButton(
+                        label: 'Xem thông tin thanh toán',
+                        onPressed: () => context.push(
+                          '/payment/$orderId',
+                          extra: confirmation,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // One primary action: payment when it is due, otherwise
+                  // tracking the order. Continuing to shop is secondary.
+                  SizedBox(
+                    width: double.infinity,
+                    child: confirmation!.paymentMethod != null
+                        ? AppSecondaryButton(
+                            label: 'Theo dõi đơn hàng',
+                            onPressed: () => context.go('/orders/$orderId'),
+                          )
+                        : AppPrimaryButton(
+                            label: 'Theo dõi đơn hàng',
+                            onPressed: () => context.go('/orders/$orderId'),
+                          ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AppSecondaryButton(
+                      label: 'Tiếp tục mua sắm',
+                      onPressed: () => context.go(AppRoutes.home),
+                    ),
+                  ),
                 ],
-                SizedBox(
-                  width: double.infinity,
-                  child: AppSecondaryButton(
-                    label: 'Theo dõi đơn hàng',
-                    onPressed: () => context.go('/orders/$orderId'),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  child: AppPrimaryButton(
-                    label: 'Tiếp tục mua sắm',
-                    onPressed: () => context.go(AppRoutes.catalog),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -175,25 +185,27 @@ class _ConfirmationLookupState extends State<_ConfirmationLookup> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: FutureBuilder<OrderConfirmation>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const AppLoadingView();
-        }
-        if (snapshot.hasError || snapshot.data == null) {
-          return AppErrorView(
-            message: snapshot.error is ApiException
-                ? (snapshot.error as ApiException).failure.message
-                : 'Chưa thể mở xác nhận đơn hàng.',
-            onRetry: () => setState(_load),
+    body: HeritageSurface(
+      child: FutureBuilder<OrderConfirmation>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const AppLoadingView();
+          }
+          if (snapshot.hasError || snapshot.data == null) {
+            return AppErrorView(
+              message: snapshot.error is ApiException
+                  ? (snapshot.error as ApiException).failure.message
+                  : 'Chưa thể mở xác nhận đơn hàng.',
+              onRetry: () => setState(_load),
+            );
+          }
+          return OrderConfirmationPage(
+            orderId: widget.orderId,
+            confirmation: snapshot.data,
           );
-        }
-        return OrderConfirmationPage(
-          orderId: widget.orderId,
-          confirmation: snapshot.data,
-        );
-      },
+        },
+      ),
     ),
   );
 }
