@@ -9,6 +9,8 @@ import { recommendationService, recommendationsEnabled } from "@/services/recomm
 import type { RecommendationContext, Recommendations } from "@/lib/recommendation/types";
 import styles from "./recommendation.module.css";
 
+const SKELETON_CARDS = 4;
+
 export function RecommendationRail(props: RecommendationContext) {
   const auth = useAuth();
   const tracking = useRecommendation();
@@ -20,6 +22,7 @@ export function RecommendationRail(props: RecommendationContext) {
   const actor = auth.profile?.principalId;
   const requestKey = JSON.stringify([context, actor, version]);
   const [resolvedKey, setResolvedKey] = useState("");
+  const [failedKey, setFailedKey] = useState("");
 
   useEffect(() => {
     if (!recommendationsEnabled || auth.isLoading || auth.isEmployee) return;
@@ -30,7 +33,7 @@ export function RecommendationRail(props: RecommendationContext) {
       setResult(null);
       void recommendationService.list(JSON.parse(context) as RecommendationContext, controller.signal)
         .then((value) => { if (active) { setResult(value); setResolvedKey(requestKey); } })
-        .catch(() => { if (active) setResult(null); });
+        .catch(() => { if (active) { setResult(null); setFailedKey(requestKey); } });
     }, delay);
     return () => { active = false; clearTimeout(timer); controller.abort(); };
   }, [context, version, actor, auth.isLoading, auth.isEmployee, props.placement, requestKey]);
@@ -54,19 +57,40 @@ export function RecommendationRail(props: RecommendationContext) {
     return () => { observer.disconnect(); if (timer) clearTimeout(timer); };
   }, [result, tracking]);
 
-  if (!recommendationsEnabled || !result?.items.length || auth.isEmployee || resolvedKey !== requestKey
+  if (!recommendationsEnabled || auth.isEmployee || failedKey === requestKey
     || props.placement === "cart" && !props.skuCodes?.length) return null;
+
+  const ready = Boolean(result) && resolvedKey === requestKey;
+  if (ready && !result?.items.length) return null;
+
   let title = "Sản phẩm tương tự";
-  if (props.placement === "cart") title = result.strategy === "BOUGHT_TOGETHER" ? "Thường mua cùng" : "Gợi ý thêm cho bạn";
-  if (props.placement === "home") title = result.strategy === "PERSONALIZED" ? "Dành cho bạn" : "Sản phẩm nổi bật";
-  return <section className={styles.rail} ref={container} aria-label={title}>
-    <h2>{title}</h2>
-    <div className={styles.grid}>{result.items.map((item) => <Link
-      className={styles.card} key={item.productId} href={`/products/${encodeURIComponent(item.slug)}`}
-      onClick={() => tracking.click(result, item)}>
-      <div className={styles.image}>{item.thumbnailUrl ? <ProductImage src={item.thumbnailUrl} alt={item.name} fill sizes="(max-width: 760px) 45vw, 180px" /> : <span aria-hidden="true">Ô Mạ</span>}</div>
-      <strong>{item.name}</strong><span>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(item.priceVnd)}</span>
-    </Link>)}</div>
+  if (props.placement === "cart") title = result?.strategy === "BOUGHT_TOGETHER" ? "Thường mua cùng" : "Gợi ý thêm cho bạn";
+  if (props.placement === "home") title = result?.strategy === "PERSONALIZED" ? "Dành cho bạn" : "Sản phẩm nổi bật";
+
+  return <section className={styles.rail} ref={container} aria-label={title} aria-busy={!ready}>
+    <div className={styles.header}>
+      <div className={styles.line} aria-hidden="true" />
+      <h2>{title}</h2>
+      <div className={styles.line} aria-hidden="true" />
+    </div>
+    <div className={styles.grid}>
+      {ready && result ? result.items.map((item) => <Link
+        className={`gh-frame-card ${styles.card}`} key={item.productId} href={`/products/${encodeURIComponent(item.slug)}`}
+        onClick={() => tracking.click(result, item)}>
+        <div className={`gh-card-media ${styles.media}`}>
+          {item.thumbnailUrl
+            ? <ProductImage src={item.thumbnailUrl} alt="" fill sizes="(max-width: 760px) 45vw, 210px" />
+            : <span className={styles.fallback} aria-hidden="true">Gói Huế</span>}
+        </div>
+        <div className={styles.body}>
+          <strong className={styles.name}>{item.name}</strong>
+          <span className={styles.price}>{new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(item.priceVnd)}</span>
+        </div>
+      </Link>) : Array.from({ length: SKELETON_CARDS }, (_, index) => <div className={`gh-frame-card ${styles.card} ${styles.skeleton}`} key={index} aria-hidden="true">
+        <div className={`gh-card-media ${styles.media}`} />
+        <div className={styles.body}><div className={styles.bar} /><div className={`${styles.bar} ${styles.short}`} /></div>
+      </div>)}
+    </div>
   </section>;
 }
 
@@ -81,6 +105,7 @@ export function RecommendationPreferences() {
     finally { setSaving(false); }
   }
   return <section className={styles.preferences} aria-label="Lựa chọn gợi ý">
+    <h3>Tùy chọn gợi ý</h3>
     {auth.isCustomer && state.consent ? <label><input type="checkbox" checked={state.consent.enabled} disabled={saving}
       onChange={(event) => { void toggle(event.target.checked); }} /> Cá nhân hóa gợi ý bằng lịch sử xem, thêm giỏ và mua hàng của tôi.</label> : null}
     <label><input type="checkbox" checked={state.measurement} onChange={(event) => state.setMeasurement(event.target.checked)} /> Cho phép đo hiệu quả gợi ý bằng Google Analytics.</label>

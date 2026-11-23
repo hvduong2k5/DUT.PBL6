@@ -5,9 +5,11 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { CustomerPurchaseGuard } from "@/components/auth/customer-purchase-guard";
 import { CheckoutFlow } from "./checkout-flow";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Thông tin và thanh toán",
-  description: "Kiểm tra thông tin nhận hàng, phí vận chuyển và xác nhận đơn Ô Mạ Huế."
+  description: "Kiểm tra thông tin nhận hàng, phí vận chuyển và xác nhận đơn Gói Huế."
 };
 
 export default function CheckoutPage() {
@@ -15,7 +17,7 @@ export default function CheckoutPage() {
     <>
       <SiteHeader />
       <CustomerPurchaseGuard><Suspense fallback={<CheckoutPageLoading />}>
-        <CheckoutFlow />
+        <CheckoutFlow guestCOD={process.env.GUEST_COD_CHECKOUT_ENABLED === "true"} guestVietQR={process.env.GUEST_VIETQR_CHECKOUT_ENABLED === "true"} />
       </Suspense></CustomerPurchaseGuard>
       <SiteFooter />
     </>

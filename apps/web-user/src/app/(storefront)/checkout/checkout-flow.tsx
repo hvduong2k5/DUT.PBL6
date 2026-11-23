@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useAuth } from "@/components/auth/auth-provider";
+import { orderService } from "@/services/order-service";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
@@ -62,19 +64,21 @@ function detailsErrors(error: PublicApiError): Record<string, string> {
   }));
 }
 
-export function CheckoutFlow() {
+export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestCOD?: boolean; guestVietQR?: boolean }) {
+  const guest = useAuth().status === "guest";
+  const [orderCode, setOrderCode] = useState("");
   const { reload: reloadCartSummary } = useCartSummary();
   const searchParams = useSearchParams();
   const mockScenario = searchParams.get("mockScenario") ?? undefined;
   const cartScenario = searchParams.get("cartScenario") ?? undefined;
-  const requestOptions = useMemo(() => ({ mockScenario, cartScenario }), [mockScenario, cartScenario]);
+  const requestOptions = useMemo(() => ({ mockScenario, cartScenario, guest }), [mockScenario, cartScenario, guest]);
   const commandRef = useRef<{ quoteId: string; key: string } | undefined>(undefined);
 
   const [preparation, setPreparation] = useState<MvpCheckoutPreparation | null>(null);
   const [recipient, setRecipient] = useState<CheckoutRecipient>(EMPTY_RECIPIENT);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
   const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<MvpCheckoutPaymentMethod>("VIETQR");
+  const [paymentMethod, setPaymentMethod] = useState<MvpCheckoutPaymentMethod>(guest && !guestVietQR && guestCOD ? "COD" : "VIETQR");
   const [voucherCode, setVoucherCode] = useState("");
   const [quote, setQuote] = useState<MvpCheckoutQuote | null>(null);
   const [operation, setOperation] = useState<MvpCheckoutOperationView | null>(null);
@@ -146,6 +150,13 @@ export function CheckoutFlow() {
       globalThis.clearTimeout(timer);
     };
   }, [address, paymentMethod, preparation, recipient, requestOptions, selectedAddressId, voucherCode]);
+
+  useEffect(() => {
+    if (!operation?.succeeded || !operation.orderId) return;
+    let active = true;
+    orderService.detail(operation.orderId).then((order) => { if (active) setOrderCode(order.orderNumber); }).catch(() => { if (active) setOrderCode(""); });
+    return () => { active = false; };
+  }, [operation?.succeeded, operation?.orderId]);
 
   function applySavedAddress(addressId: string) {
     setSelectedAddressId(addressId);
@@ -237,17 +248,18 @@ export function CheckoutFlow() {
     }
   }
 
+  if (guest && !guestCOD && !guestVietQR) return <main className="checkout-page"><h1>Thanh toán cho khách chưa được bật</h1><p>Bạn có thể đăng nhập để tiếp tục đặt hàng.</p><Link className="primary-link" href="/login?returnUrl=%2Fcheckout">Đăng nhập</Link></main>;
   if (loading) return <main className="checkout-page"><CheckoutSteps /><CheckoutLoading /></main>;
   if (pageError || !preparation) {
     return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card error" role="alert"><span aria-hidden="true">!</span><p className="eyebrow">Checkout cần được làm mới</p><h1>Chưa thể kiểm tra giỏ hàng</h1><p>{pageError || "Giỏ hàng đã thay đổi."}</p><div><button className="primary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button><Link className="secondary-link" href="/cart">Về giỏ hàng</Link></div></section></main>;
   }
   if (!preparation.items.length) {
-    return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card"><span aria-hidden="true">◇</span><p className="eyebrow">Giỏ hàng trống</p><h1>Chưa có sản phẩm để thanh toán</h1><p>MVP Checkout báo giá toàn bộ giỏ tại một revision, không nhận danh sách dòng được chọn.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section></main>;
+    return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card"><span className="gh-emblem" aria-hidden="true" /><p className="eyebrow">Giỏ hàng trống</p><h1>Chưa có sản phẩm để thanh toán</h1><p>MVP Checkout báo giá toàn bộ giỏ tại một revision, không nhận danh sách dòng được chọn.</p><Link className="primary-link" href="/products">Khám phá sản phẩm</Link></section></main>;
   }
 
   if (operation?.succeeded && operation.orderId) {
     const paymentPath = paymentMethod === "VIETQR" ? `/payment/${encodeURIComponent(operation.orderId)}` : `/orders/${encodeURIComponent(operation.orderId)}/confirmation`;
-    return <main className="checkout-page"><CheckoutSteps complete /><section className="checkout-confirmed"><span className="checkout-confirmed-icon" aria-hidden="true">✓</span><p className="eyebrow">Checkout operation thành công</p><h1>Order đã được tạo an toàn</h1><p>Operation <code>{operation.operationId}</code> đã hoàn tất và trả về Order <code>{operation.orderId}</code>.</p><dl><div><dt>Trạng thái operation</dt><dd>{operation.status}</dd></div><div><dt>Trạng thái Order</dt><dd>{operation.orderStatus ?? "Đang đồng bộ"}</dd></div><div><dt>Cập nhật lúc</dt><dd>{new Date(operation.updatedAt).toLocaleString("vi-VN")}</dd></div></dl><div className="checkout-confirmed-actions"><Link className="primary-link" href={paymentPath}>{paymentMethod === "VIETQR" ? "Mở trang thanh toán" : "Xem đơn hàng"}</Link><Link className="secondary-link" href="/products">Tiếp tục mua sắm</Link></div></section></main>;
+    return <main className="checkout-page"><CheckoutSteps complete /><section className="checkout-confirmed"><span className="checkout-confirmed-icon" aria-hidden="true">✓</span><p className="eyebrow">Checkout operation thành công</p><h1>Đặt hàng thành công</h1><p>Mã đơn hàng: <strong>{orderCode || "Đang tải…"}</strong></p>{guest ? <p>Lưu mã đơn và dùng số điện thoại đã đặt hàng để <Link href="/track-order">tra cứu đơn hàng</Link>. Mã xác minh cho phép tối đa 5 lần thử.</p> : null}<dl><div><dt>Trạng thái operation</dt><dd>{operation.status}</dd></div><div><dt>Trạng thái Order</dt><dd>{operation.orderStatus ?? "Đang đồng bộ"}</dd></div><div><dt>Cập nhật lúc</dt><dd>{new Date(operation.updatedAt).toLocaleString("vi-VN")}</dd></div></dl><div className="checkout-confirmed-actions"><Link className="primary-link" href={paymentPath}>{paymentMethod === "VIETQR" ? "Mở trang thanh toán" : "Xem đơn hàng"}</Link><Link className="secondary-link" href="/products">Tiếp tục mua sắm</Link></div></section></main>;
   }
 
   const selectedProvince = preparation.locations.find((entry) => entry.provinceCode === address.provinceCode);
@@ -279,8 +291,8 @@ export function CheckoutFlow() {
           <section className="checkout-panel" aria-labelledby="payment-title">
             <header><span>2</span><h2 id="payment-title">Phương thức thanh toán</h2><small>Quote phụ thuộc phương thức</small></header>
             <div className="checkout-options">
-              <label className={`checkout-option payment ${paymentMethod === "VIETQR" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "VIETQR"} onChange={() => { setPaymentMethod("VIETQR"); setQuote(null); }} /><span><strong>Chuyển khoản VietQR</strong><small>Payment instructions được đọc sau khi Order tạo thành công.</small></span></label>
-              {MVP_FEATURE_GATES.cod ? <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Chỉ hiển thị khi capability COD đã được nghiệm thu.</small></span></label> : null}
+              {(!guest || guestVietQR) ? <label className={`checkout-option payment ${paymentMethod === "VIETQR" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "VIETQR"} onChange={() => { setPaymentMethod("VIETQR"); setQuote(null); }} /><span><strong>Chuyển khoản VietQR</strong><small>Thông tin chuyển khoản hiển thị sau khi đặt hàng.</small></span></label> : null}
+              {(guest ? guestCOD : MVP_FEATURE_GATES.cod) ? <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Chỉ hiển thị khi capability COD đã được nghiệm thu.</small></span></label> : null}
             </div>
           </section>
         </div>
@@ -290,7 +302,7 @@ export function CheckoutFlow() {
           <div className="checkout-summary-lines">{quote ? quote.items.map((item, index) => {
             const cartItem = preparation.items.find((candidate) => candidate.skuId === item.skuCode);
             const lineTotal = item.unitPriceVnd === undefined ? undefined : item.unitPriceVnd * item.quantity;
-            return <article key={`${item.skuCode}-${index}`}><div className="checkout-summary-image">{cartItem ? <ProductImage src={cartItem.imageUrl} alt={cartItem.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /> : <span aria-hidden="true">◇</span>}</div><div><strong>{item.productName}</strong><small>{item.skuCode} · ×{item.quantity}</small></div><b>{lineTotal === undefined ? "Theo quote" : VND.format(lineTotal)}</b></article>;
+            return <article key={`${item.skuCode}-${index}`}><div className="checkout-summary-image">{cartItem ? <ProductImage src={cartItem.imageUrl} alt={cartItem.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /> : <span className="gh-emblem" aria-hidden="true" />}</div><div><strong>{item.productName}</strong><small>{item.skuCode} · ×{item.quantity}</small></div><b>{lineTotal === undefined ? "Theo quote" : VND.format(lineTotal)}</b></article>;
           }) : preparation.items.map((item, index) => <article key={item.itemId}><div className="checkout-summary-image"><ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /></div><div><strong>{item.productName}</strong><small>{item.skuLabel} · ×{item.quantity}</small></div><b>{preparation.pricingComplete ? VND.format(item.lineSubtotalVnd) : "Chờ quote"}</b></article>)}</div>
           {MVP_FEATURE_GATES.voucher ? <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div>{fieldErrors.voucherCode ? <p className="checkout-field-error" role="alert">{fieldErrors.voucherCode}</p> : null}</section> : null}
           <dl className="checkout-totals"><div><dt>Tạm tính</dt><dd>{quote ? VND.format(quote.subtotalVnd) : preparation.pricingComplete ? VND.format(preparation.subtotalVnd) : "Chờ quote"}</dd></div><div><dt>Phí vận chuyển</dt><dd>{quote ? VND.format(quote.shippingFeeVnd) : "Chưa có quote"}</dd></div><div className="grand-total"><dt><strong>Tổng thanh toán</strong><small>{quote ? `Quote hết hạn ${new Date(quote.expiresAt).toLocaleString("vi-VN")}` : "Được server chốt"}</small></dt><dd>{quote ? VND.format(quote.totalVnd) : "—"}</dd></div></dl>

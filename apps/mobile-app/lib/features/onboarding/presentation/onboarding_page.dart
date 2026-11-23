@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_app/app/router/routes.dart';
 import 'package:mobile_app/core/storage/onboarding_store.dart';
-import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:mobile_app/core/theme/heritage_tokens.dart';
 import 'package:mobile_app/core/theme/app_spacing.dart';
-import 'package:mobile_app/core/widgets/app_primary_button.dart';
-import 'package:mobile_app/core/widgets/app_secondary_button.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_button.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key, required this.store});
@@ -23,18 +24,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   static const _slides = [
     (
-      icon: Icons.storefront_outlined,
+      image: 'assets/heritage/photos/hero-studio.jpg',
       title: 'Tinh hoa quà Huế',
       message: 'Khám phá mè xửng, trà và những món quà mang hương vị Cố Đô.',
     ),
     (
-      icon: Icons.local_shipping_outlined,
+      image: 'assets/heritage/photos/hero-tea-table.jpg',
       title: 'Mua sắm thật thuận tiện',
       message:
           'Chọn sản phẩm, theo dõi đơn hàng và nhận thông báo trong một nơi.',
     ),
     (
-      icon: Icons.person_outline,
+      image: 'assets/heritage/photos/sp-hop-qua-doan-vien.jpg',
       title: 'Bắt đầu theo cách của bạn',
       message:
           'Đăng nhập để quản lý tài khoản hoặc tiếp tục mua sắm với tư cách khách.',
@@ -61,84 +62,84 @@ class _OnboardingPageState extends State<OnboardingPage> {
       if (!didPop) _finish(AppRoutes.home);
     },
     child: Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                itemCount: _slides.length,
-                onPageChanged: (value) => setState(() => _page = value),
-                itemBuilder: (context, index) => _OnboardingSlide(
-                  icon: _slides[index].icon,
-                  title: _slides[index].title,
-                  message: _slides[index].message,
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _slides.length,
-                (index) => AnimatedContainer(
-                  key: ValueKey('onboarding-dot-$index'),
-                  duration: const Duration(milliseconds: 180),
-                  width: index == _page ? 24 : 8,
-                  height: 8,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: index == _page
-                        ? AppColors.brandBrown
-                        : AppColors.border,
-                    borderRadius: BorderRadius.circular(99),
+      backgroundColor: HeritageColors.nauCungDinh,
+      body: HeritageSurface(
+        kind: HeritageSurfaceKind.imperial,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: PageView.builder(
+                  controller: _controller,
+                  itemCount: _slides.length,
+                  onPageChanged: (value) => setState(() => _page = value),
+                  itemBuilder: (context, index) => _OnboardingSlide(
+                    image: _slides[index].image,
+                    title: _slides[index].title,
+                    message: _slides[index].message,
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: _page < _slides.length - 1
-                  ? SizedBox(
-                      width: double.infinity,
-                      child: AppPrimaryButton(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _slides.length,
+                  (index) => AnimatedContainer(
+                    key: ValueKey('onboarding-dot-$index'),
+                    duration: HeritageMotion.duration,
+                    curve: HeritageMotion.curve,
+                    width: index == _page ? 24 : 8,
+                    height: 8,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: index == _page
+                          ? HeritageColors.mat
+                          : HeritageColors.kem.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: _page < _slides.length - 1
+                    ? HeritageButton(
                         label: 'Tiếp tục',
                         icon: Icons.arrow_forward,
                         onPressed: () => _controller.nextPage(
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOut,
+                          duration: HeritageMotion.duration,
+                          curve: HeritageMotion.curve,
                         ),
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppPrimaryButton(
+                      )
+                    : Column(
+                        children: [
+                          HeritageButton(
                             label: 'Đăng nhập',
                             loading: _finishing,
                             onPressed: () => _finish(AppRoutes.login),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppSecondaryButton(
+                          const SizedBox(height: AppSpacing.sm),
+                          HeritageButton(
                             label: 'Đăng ký',
+                            variant: HeritageButtonVariant.ghost,
                             onPressed: _finishing
                                 ? null
                                 : () => _finish(AppRoutes.register),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: _finishing
-                              ? null
-                              : () => _finish(AppRoutes.home),
-                          child: const Text('Tiếp tục với tư cách khách'),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: HeritageColors.kem,
+                            ),
+                            onPressed: _finishing
+                                ? null
+                                : () => _finish(AppRoutes.home),
+                            child: const Text('Tiếp tục với tư cách khách'),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -147,40 +148,66 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
 class _OnboardingSlide extends StatelessWidget {
   const _OnboardingSlide({
-    required this.icon,
+    required this.image,
     required this.title,
     required this.message,
   });
 
-  final IconData icon;
+  final String image;
   final String title;
   final String message;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 132,
-          height: 132,
-          decoration: BoxDecoration(
-            color: AppColors.cream,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.honeyGold),
-          ),
-          child: Icon(icon, size: 54, color: AppColors.brandBrown),
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      // Photo dissolves into the imperial background (no hard seam).
+      ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (rect) => const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF000000), Color(0x99000000), Color(0x00000000)],
+          stops: [0, 0.55, 1],
+        ).createShader(rect),
+        child: Image.asset(
+          image,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
         ),
-        const SizedBox(height: AppSpacing.xl),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.headlineLarge,
-          textAlign: TextAlign.center,
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.lg,
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(message, textAlign: TextAlign.center),
-      ],
-    ),
+        child: Column(
+          children: [
+            const HeritageEmblem(size: 56),
+            const Spacer(),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                color: HeritageColors.kem,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: HeritageColors.kemDam,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
   );
 }

@@ -21,6 +21,29 @@ function isAllowed(method: string, parts: string[]) {
 }
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
+  const parts = (await context.params).path;
+  if (request.method === "GET" && parts.length === 2 && parts[0] === "trace" && SAFE_SEGMENT.test(parts[1])) {
+    const base = process.env.TRACEABILITY_UPSTREAM_URL?.replace(/\/$/u, "");
+    if (base) {
+      try {
+        const upstream = await fetch(`${base}/${encodeURIComponent(parts[1])}`, {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(5000)
+        });
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            "Content-Type": upstream.headers.get("content-type") ?? "application/json",
+            "Cache-Control": "no-store"
+          }
+        });
+      } catch {
+        return Response.json({ error_code: "ERR_UPSTREAM_UNAVAILABLE", user_message: "Dịch vụ truy xuất tạm thời gián đoạn." }, { status: 503 });
+      }
+    }
+  }
   return withCustomerAuth(request, (credential) => proxyWithCredential(request, context, credential));
 }
 

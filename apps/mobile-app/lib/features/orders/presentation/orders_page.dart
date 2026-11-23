@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -19,25 +20,27 @@ class OrdersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: const AppMobileHeader(title: 'Đơn hàng của tôi', showBack: true),
-    body: BlocBuilder<OrdersCubit, OrdersState>(
-      builder: (context, state) => Column(
-        children: [
-          _OrderSearch(query: state.query),
-          if (MediaQuery.viewInsetsOf(context).bottom == 0)
-            _OrderFilters(selected: state.filter),
-          if (state.status == OrdersStatus.success)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Đã tải ${state.orders.length}/${state.total} đơn hàng',
-                  style: Theme.of(context).textTheme.bodySmall,
+    body: HeritageSurface(
+      child: BlocBuilder<OrdersCubit, OrdersState>(
+        builder: (context, state) => Column(
+          children: [
+            _OrderSearch(query: state.query),
+            if (MediaQuery.viewInsetsOf(context).bottom == 0)
+              _OrderFilters(selected: state.filter),
+            if (state.status == OrdersStatus.success)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Đã tải ${state.orders.length}/${state.total} đơn hàng',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ),
               ),
-            ),
-          Expanded(child: _OrderResults(state: state)),
-        ],
+            Expanded(child: _OrderResults(state: state)),
+          ],
+        ),
       ),
     ),
   );
@@ -228,7 +231,7 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 13,
           color: cancelled ? AppColors.darkRed : AppColors.brandBrown,
           fontWeight: FontWeight.w600,
         ),

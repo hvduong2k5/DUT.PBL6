@@ -179,17 +179,17 @@ export function AddressBookFlow() {
       <section className="account-card center-state"><span className="state-icon">!</span><h2>Chưa thể mở sổ địa chỉ</h2><p>{notice?.text}</p><div className="state-actions"><button className="secondary-button" onClick={() => void load()}>Thử lại</button><Link className="primary-link" href="/login?returnUrl=/account/addresses">Đăng nhập lại</Link></div></section> :
       <section aria-labelledby="address-list-title">
         <div className="section-title"><div><span className="eyebrow">Địa chỉ đang áp dụng</span><h2 id="address-list-title">{addresses.length} điểm nhận hàng</h2></div><span>Mặc định được ưu tiên khi Checkout</span></div>
-        {addresses.length === 0 ? <div className="account-card empty-address"><span>⌖</span><h3>Sổ địa chỉ còn trống</h3><p>Thêm địa chỉ đầu tiên để rút ngắn bước nhập thông tin nhận hàng.</p><button className="primary-button" onClick={openCreate}>Thêm địa chỉ đầu tiên</button></div> :
+        {addresses.length === 0 ? <div className="account-card empty-address"><span className="gh-emblem" aria-hidden="true" /><h3>Sổ địa chỉ còn trống</h3><p>Thêm địa chỉ đầu tiên để rút ngắn bước nhập thông tin nhận hàng.</p><button className="primary-button" onClick={openCreate}>Thêm địa chỉ đầu tiên</button></div> :
           <div className="address-list">{addresses.map((address) => <article className={`address-card ${address.isDefault ? "default" : ""}`} key={address.id}>
             <div className="address-card-top"><div className="address-labels"><span className="address-type home">Địa chỉ nhận hàng</span>{address.isDefault && <span className="default-chip">Mặc định</span>}</div><div className="address-actions">{!address.isDefault && <button disabled={Boolean(busyAction)} onClick={() => void setDefault(address)}>{busyAction === `default-${address.id}` ? "Đang đặt…" : "Đặt mặc định"}</button>}<button onClick={() => openEdit(address)}>Chỉnh sửa</button><button className="danger-link" disabled={Boolean(busyAction)} onClick={() => void remove(address)}>{busyAction === `delete-${address.id}` ? "Đang xóa…" : "Xóa"}</button></div></div>
             <h3>{address.recipientName} <span>· {address.recipientPhone}</span></h3>
-            <p className="address-line">⌖ {address.addressLine}, {address.ward.name}, {address.province.name}</p>
+            <p className="address-line">{address.addressLine}, {address.ward.name}, {address.province.name}</p>
             {address.deliveryNote && <p className="delivery-note">Ghi chú: {address.deliveryNote}</p>}
           </article>)}</div>}
       </section>}
 
     {showForm && profile && <form id="address-editor" className="account-card address-form" onSubmit={save} noValidate>
-      <header className="card-heading"><span className="heading-icon">⌖</span><div><h2>{editingId ? "Chỉnh sửa địa chỉ" : "Thiết lập địa chỉ nhận hàng mới"}</h2><p>Thông tin này sẽ được kiểm tra lại trước khi xác nhận đơn hàng.</p></div><span className="privacy-chip">Bảo mật thông tin</span></header>
+      <header className="card-heading"><span className="heading-icon gh-emblem" aria-hidden="true" /><div><h2>{editingId ? "Chỉnh sửa địa chỉ" : "Thiết lập địa chỉ nhận hàng mới"}</h2><p>Thông tin này sẽ được kiểm tra lại trước khi xác nhận đơn hàng.</p></div><span className="privacy-chip">Bảo mật thông tin</span></header>
       <div className="address-form-grid">
         <label className="account-field"><span>Họ và tên người nhận <b>*</b></span><input value={form.recipientName} onChange={(event) => update("recipientName", event.target.value)} aria-invalid={Boolean(errors.recipientName)} />{errors.recipientName && <small>{errors.recipientName}</small>}</label>
         <label className="account-field"><span>Số điện thoại liên lạc <b>*</b></span><input inputMode="tel" value={form.recipientPhone} onChange={(event) => update("recipientPhone", event.target.value)} aria-invalid={Boolean(errors.recipientPhone)} />{errors.recipientPhone && <small>{errors.recipientPhone}</small>}</label>

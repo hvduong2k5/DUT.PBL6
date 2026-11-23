@@ -140,7 +140,7 @@ Chạy hạ tầng phụ trợ (PostgreSQL, Keycloak, Kafka) trên Docker, chạ
 ```bash
 docker compose -f deploy/docker-compose.all-in-one.yml up -d postgres keycloak kafka
 ```
-*Ghi chú:* Bạn cũng có thể khởi động Keycloak độc lập từ `services/keycloak-service/docker-compose.dev.yml` nếu muốn.
+*Ghi chú:* Bạn cũng có thể khởi động Keycloak độc lập từ `services/keycloak-service/Dockerfile` (xem chi tiết tại `services/keycloak-service/README.md`) nếu muốn.
 
 #### Bước 2: Lấy Client Secret từ Keycloak
 1. Truy cập [http://localhost:8080/admin](http://localhost:8080/admin) (tài khoản: `admin` / `admin`).

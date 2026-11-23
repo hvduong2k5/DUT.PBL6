@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_app/core/theme/app_colors.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_emblem.dart';
 
 class AppProductImage extends StatelessWidget {
   const AppProductImage({super.key, required this.url, required this.label});
@@ -12,11 +13,7 @@ class AppProductImage extends StatelessWidget {
       child: const ColoredBox(
         color: AppColors.muted,
         child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            color: AppColors.textMuted,
-            size: 32,
-          ),
+          child: Opacity(opacity: .5, child: HeritageEmblem(size: 40)),
         ),
       ),
     );

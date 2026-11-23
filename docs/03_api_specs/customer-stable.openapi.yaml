@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Customer Web API - Stable
-  version: 1.0.0
+  version: 1.2.2
   description: Implementation-ready contract for Guest, Registered Customer, and verified
     B2B Customer journeys. Marketplace and Offline are channels, not web login roles.
   license:
@@ -45,7 +45,937 @@ tags:
   description: Traceability operations for the customer web application.
 - name: Partner webhooks
   description: Partner webhooks operations for the customer web application.
+x-guest-cart-policy:
+  mutation-flag: GUEST_CART_MUTATION_ENABLED
+  mutations-per-session-minute: 60
+  cod-flag: GUEST_COD_CHECKOUT_ENABLED
+  cod-collection-policy: ORDER_COD_POLICY_REFERENCE (optional override; defaults to cod-collection-1.0 as on dev; malformed values reject COD with 422 COD_NOT_AVAILABLE)
+  pending-unpaid-order-limit: 3
+  quota-status: 429
+  quota-code: GUEST_PENDING_ORDER_LIMIT
+  admission: A locked persisted guest session serializes order admission including in-flight operations. Replays return the existing result at quota.
 paths:
+  /api/cart/merge:
+    post:
+      servers:
+      - url: https://omama.vn
+      tags:
+      - Cart
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - storefrontCustomerSession: []
+      - storefrontOidcSession: []
+      operationId: postStorefrontCartMerge
+      summary: Attempt one guest cart merge after successful Customer login or registration
+      description: Uses the guest httpOnly cookie as source and a server-derived SHA-256 merge key. Customer
+        authentication remains separate. Clears the guest cookie only after a valid successful result. No
+        guest cookie or rollout flag off returns 204 without calling Identity or Order. A merge failure
+        never invalidates or blocks the login session.
+      responses:
+        '200':
+          description: Merge result; source cookie cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMergeResult'
+        '204':
+          description: No merge requested.
+        '400':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      servers:
+      - url: https://omama.vn
+      tags:
+      - Cart
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - storefrontCustomerSession: []
+      - storefrontOidcSession: []
+      operationId: getStorefrontCartMerge
+      summary: Retrieve a persisted merge result using the Customer session after guest revocation
+      parameters:
+      - name: merge_key
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      responses:
+        '200':
+          description: Merge result; source cookie cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMergeResult'
+        '400':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe Error envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/orders/{order_id}/payment:
+    get:
+      tags:
+      - Payments
+      operationId: getOwnedOrderPayment
+      summary: Read exact-order payment state using Customer identity or a payment read grant
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestPaymentGrant: []
+      description: A guest session token cannot read payment. Guest payment grant must be ES256, order-bound,
+        active, scope payment:read, issuer order-service-guest and audience order-payment. Polling never
+        settles money. Settlement uses the authenticated SePay webhook observation and canonical API reconciliation/finalization
+        pipeline; replay is idempotent. Late money enters reconciliation and never reopens an expired order.
+        All responses are no-store.
+      responses:
+        '200':
+          description: Current persisted payment projection or immutable instructions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - order_id
+                - intent_id
+                - provider
+                - method
+                - currency
+                - expires_at
+                properties:
+                  order_id:
+                    type: string
+                    format: uuid
+                  intent_id:
+                    type: string
+                    format: uuid
+                  provider:
+                    type: string
+                    const: SEPAY
+                  method:
+                    type: string
+                    const: VIETQR
+                  currency:
+                    type: string
+                    const: VND
+                  expires_at:
+                    type: string
+                    format: date-time
+        '400': &f53shared1
+          description: Controlled failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': *f53shared1
+        '403': *f53shared1
+        '404': *f53shared1
+        '409': *f53shared1
+        '503': *f53shared1
+  /api/v1/orders/{order_id}/payment-instructions:
+    get:
+      tags:
+      - Payments
+      operationId: getOwnedOrderPaymentInstructions
+      summary: Read exact-order payment state using Customer identity or a payment read grant
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestPaymentGrant: []
+      description: A guest session token cannot read payment. Guest payment grant must be ES256, order-bound,
+        active, scope payment:read, issuer order-service-guest and audience order-payment. Polling never
+        settles money. Settlement uses the authenticated SePay webhook observation and canonical API reconciliation/finalization
+        pipeline; replay is idempotent. Late money enters reconciliation and never reopens an expired order.
+        All responses are no-store.
+      responses:
+        '200':
+          description: Current persisted payment projection or immutable instructions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - order_id
+                - intent_id
+                - provider
+                - method
+                - currency
+                - expires_at
+                properties:
+                  order_id:
+                    type: string
+                    format: uuid
+                  intent_id:
+                    type: string
+                    format: uuid
+                  provider:
+                    type: string
+                    const: SEPAY
+                  method:
+                    type: string
+                    const: VIETQR
+                  currency:
+                    type: string
+                    const: VND
+                  expires_at:
+                    type: string
+                    format: date-time
+        '400': *f53shared1
+        '401': *f53shared1
+        '403': *f53shared1
+        '404': *f53shared1
+        '409': *f53shared1
+        '503': *f53shared1
+  /api/payments/orders/{orderId}/guest-access:
+    post:
+      servers:
+      - url: https://omama.vn
+      tags:
+      - Payments
+      operationId: postStorefrontGuestPaymentAccess
+      summary: Lazily store a guest order payment grant in an httpOnly cookie
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - guestSession: []
+      - customerSession: []
+      description: Same-origin Web BFF action. Customer credential presence takes precedence and is validated;
+        it never switches to a guest cookie. Active guest session mints via the direct gateway. Requires
+        GUEST_VIETQR_CHECKOUT_ENABLED and the web guest gate. The cookie is httpOnly, host-only, SameSite=Lax
+        and scoped to /api/payments/orders/{orderId}; expires with the ten-minute grant. No token in JSON,
+        URLs or browser storage. Payment polling forwards only the order grant.
+      responses:
+        '204':
+          description: Credential ready; no token body.
+        '400': *f53shared1
+        '401': *f53shared1
+        '403': *f53shared1
+        '404': *f53shared1
+        '409': *f53shared1
+        '503': *f53shared1
+  /api/v1/checkout/quote:
+    post:
+      tags:
+      - Checkout
+      operationId: postCheckoutQuote
+      summary: Quote the credential-owned full cart; guests use an inline address
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestSession: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/vnd.omama.customer-mvp+json:
+              schema:
+                type: object
+                required:
+                - quote_id
+                - cart_revision
+                - payment_method
+                - items
+                - address
+                - final_amount
+                - expires_at
+                properties:
+                  quote_id:
+                    type: string
+                    format: uuid
+                  cart_revision:
+                    type: integer
+                  payment_method:
+                    type: string
+                    enum:
+                    - COD
+                    - VIETQR
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  address: &f53shared2
+                    type: object
+                    required:
+                    - recipient_name
+                    - phone
+                    - street
+                    - province_code
+                    - ward_code
+                    additionalProperties: false
+                    properties:
+                      recipient_name:
+                        type: string
+                      phone:
+                        type: string
+                      street:
+                        type: string
+                      province_code:
+                        type: string
+                      ward_code:
+                        type: string
+                  subtotal:
+                    type: integer
+                  shipping_fee:
+                    type: integer
+                  final_amount:
+                    type: integer
+                  expires_at:
+                    type: string
+                    format: date-time
+                  shipping_expires_at:
+                    type: string
+                    format: date-time
+        '400': &f53shared3
+          description: Controlled error; stable code, safe message and requestId.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401': *f53shared3
+        '403': *f53shared3
+        '409': *f53shared3
+        '422': *f53shared3
+        '503': *f53shared3
+      description: GUEST_COD_CHECKOUT_ENABLED and GUEST_VIETQR_CHECKOUT_ENABLED independently gate guest
+        methods in keycloak mode; all flags default false. Guest skips Identity/Profile only after the guest
+        route allowlist. Saved addresses remain customer-only. The existing simulator accepts province 75
+        and ward HUE-01; this seam is unchanged.
+        Real Catalog COD uses cod-collection-1.0 by default, with an optional server-configured ORDER_COD_POLICY_REFERENCE override. The
+        canonical snapshot records the final collect amount, with no bank receiver or payment deadline.
+        A confirmed COD order remains UNPAID; completion still requires Finance settlement evidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - cart_revision
+              - payment_method
+              additionalProperties: false
+              properties:
+                cart_revision:
+                  type: integer
+                  minimum: 0
+                payment_method:
+                  type: string
+                  enum:
+                  - COD
+                  - VIETQR
+                address: *f53shared2
+                shipping_address_id:
+                  type: string
+                  format: uuid
+                voucher_code:
+                  type: string
+              oneOf:
+              - required:
+                - address
+              - required:
+                - shipping_address_id
+            example:
+              cart_revision: 1
+              payment_method: COD
+              address:
+                recipient_name: Guest
+                phone: '0901234567'
+                street: 1 Test Street
+                province_code: '75'
+                ward_code: HUE-01
+  /api/v1/checkout-operations/{id}:
+    get:
+      tags:
+      - Checkout
+      operationId: getCheckoutOperation
+      summary: Read this credential-owned checkout operation
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      - guestSession: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - operation_id
+                - status
+                - accepted_at
+                properties:
+                  operation_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum:
+                    - ACCEPTED
+                    - PROCESSING
+                    - SUCCEEDED
+                    - FAILED
+                    - MANUAL_REVIEW
+                  order_id:
+                    type:
+                    - string
+                    - 'null'
+                    format: uuid
+                  order_status:
+                    type: string
+                  accepted_at:
+                    type: string
+                    format: date-time
+        '400': *f53shared3
+        '401': *f53shared3
+        '403': *f53shared3
+        '409': *f53shared3
+        '422': *f53shared3
+        '503': *f53shared3
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /api/v1/guest-sessions:
+    post:
+      tags:
+      - Authentication
+      operationId: postGuestSessions
+      summary: Issue a server-owned guest checkout session
+      description: GUEST_SESSION_ISSUANCE_ENABLED defaults false in keycloak mode (403 GUEST_SESSIONS_DISABLED).
+        Dedicated HS256, typ guest-session+jwt, issuer order-service-guest-session, audience order-storefront.
+        Exactly one persisted session, maximum 24 hours. No identity or Keycloak credential required. Reject
+        all input fields including role, scope, session_id, expires_in, issuer and audience. Limit 10 per
+        ingress IP/hour (configurable); 429 persists nothing. BFF creates lazily on an action and stores
+        only an httpOnly SameSite=Lax host cookie; page views never issue. Invalid existing login credentials
+        never fall back to guest.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - session_id
+                - access_token
+                - expires_at
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  access_token:
+                    type: string
+                  expires_at:
+                    type: string
+                    format: date-time
+              example:
+                session_id: 10000000-0000-4000-8000-000000000053
+                access_token: <dedicated-guest-session-jwt>
+                expires_at: '2026-11-22T00:00:00Z'
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSIONS_DISABLED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+            example: {}
+  /api/v1/guest-sessions/current:
+    delete:
+      tags:
+      - Authentication
+      operationId: deleteCurrentGuestSession
+      summary: Revoke this guest session and its grants
+      description: Guest session only; customer and payment grant credentials are forbidden. Revokes persisted
+        session; payment grants immediately become invalid.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+  /api/v1/orders/{order_id}/guest-payment-access:
+    parameters:
+    - name: order_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    post:
+      tags:
+      - Payments
+      operationId: postGuestPaymentAccess
+      summary: Mint or revoke an order-bound guest payment read grant
+      description: Only the owning active guest session. Required Idempotency-Key (16-128 characters). Grant
+        issuer order-service-guest, audience order-payment, scope payment:read; ES256 key remains separate.
+        A grant permits only GET payment and payment-instructions for this order; no staff writes, cart
+        or checkout.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '201':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - access_token
+                - order_id
+                - expires_at
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                    const: Bearer
+                  order_id:
+                    type: string
+                    format: uuid
+                  expires_at:
+                    type: string
+                    format: date-time
+                  session_expires_at:
+                    type: string
+                    format: date-time
+                  grant_version:
+                    type: integer
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+    delete:
+      tags:
+      - Payments
+      operationId: deleteGuestPaymentAccess
+      summary: Mint or revoke an order-bound guest payment read grant
+      description: Only the owning active guest session. Required Idempotency-Key (16-128 characters). Grant
+        issuer order-service-guest, audience order-payment, scope payment:read; ES256 key remains separate.
+        A grant permits only GET payment and payment-instructions for this order; no staff writes, cart
+        or checkout.
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - guestSession: []
+      responses:
+        '204':
+          description: Success
+        '400':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_REQUEST
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '401':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: UNAUTHENTICATED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '403':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PERMISSION_DENIED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '429':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+        '503':
+          description: Controlled failure. Error code, safe message and requestId; 401 invalid credential,
+            403 insufficient permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_UNAVAILABLE
+                message: The guest request could not be completed.
+                requestId: 10000000-0000-4000-8000-000000000053
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
   /api/v1/users/me:
     get:
       tags:
@@ -1345,91 +2275,94 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - cart_id
-                - items
-                - total_items
-                - subtotal_amount
-                properties:
-                  cart_id:
-                    type: string
-                  items:
-                    type: array
+                oneOf:
+                - type: object
+                  required:
+                  - cart_id
+                  - items
+                  - total_items
+                  - subtotal_amount
+                  properties:
+                    cart_id:
+                      type: string
                     items:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                        - item_id
+                        - sku_code
+                        - product_name
+                        - variant_name
+                        - thumbnail_url
+                        - unit_price
+                        - quantity
+                        - subtotal
+                        - in_stock
+                        properties:
+                          item_id:
+                            type: string
+                          sku_code:
+                            type: string
+                          product_name:
+                            type: string
+                          variant_name:
+                            type: string
+                          thumbnail_url:
+                            type: string
+                            format: uri
+                          unit_price:
+                            type: object
+                            required:
+                            - currency_code
+                            - units
+                            - nanos
+                            properties:
+                              currency_code:
+                                type: string
+                              units:
+                                type: integer
+                              nanos:
+                                type: integer
+                            additionalProperties: false
+                          quantity:
+                            type: integer
+                          subtotal:
+                            type: object
+                            required:
+                            - currency_code
+                            - units
+                            - nanos
+                            properties:
+                              currency_code:
+                                type: string
+                              units:
+                                type: integer
+                              nanos:
+                                type: integer
+                            additionalProperties: false
+                          in_stock:
+                            type: boolean
+                        additionalProperties: false
+                    total_items:
+                      type: integer
+                    subtotal_amount:
                       type: object
                       required:
-                      - item_id
-                      - sku_code
-                      - product_name
-                      - variant_name
-                      - thumbnail_url
-                      - unit_price
-                      - quantity
-                      - subtotal
-                      - in_stock
+                      - currency_code
+                      - units
+                      - nanos
                       properties:
-                        item_id:
+                        currency_code:
                           type: string
-                        sku_code:
-                          type: string
-                        product_name:
-                          type: string
-                        variant_name:
-                          type: string
-                        thumbnail_url:
-                          type: string
-                          format: uri
-                        unit_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        quantity:
+                        units:
                           type: integer
-                        subtotal:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        in_stock:
-                          type: boolean
+                        nanos:
+                          type: integer
                       additionalProperties: false
-                  total_items:
-                    type: integer
-                  subtotal_amount:
-                    type: object
-                    required:
-                    - currency_code
-                    - units
-                    - nanos
-                    properties:
-                      currency_code:
-                        type: string
-                      units:
-                        type: integer
-                      nanos:
-                        type: integer
-                    additionalProperties: false
-                additionalProperties: false
+                  additionalProperties: false
+                - $ref: '#/components/schemas/StorefrontCart'
+                - $ref: '#/components/schemas/CartMergeResult'
               examples:
                 success:
                   summary: Successful response
@@ -1487,8 +2420,7 @@ paths:
       - name: status
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: Domain status filter. Allowed values are defined by the endpoint response status vocabulary.
         schema:
           type: string
       - name: page
@@ -1506,6 +2438,18 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+      - name: merge_key
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+        description: Customer-only persisted result lookup; a different Customer receives 404.
+      description: ' Optional merge_key retrieves only this Customer''s persisted merge result without the
+        revoked source token. Absent merge_key retains the normal cart response. SQL-converted carts remain
+        authoritative when merge admission is disabled; expired rows act as empty tombstones and never resurrect
+        Redis data.'
     delete:
       tags:
       - Cart
@@ -1563,6 +2507,135 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
+    post:
+      tags:
+      - Cart
+      operationId: postCartMergeGuestSource
+      summary: Merge a guest cart into the authenticated Customer cart atomically
+      x-lifecycle: stable
+      x-backlog:
+      - F-53
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      description: Requires CUSTOMER identity and GUEST_CART_MERGE_ENABLED. POST /cart is intentionally
+        compatible with the existing Identity customer proxy allowlist; no Identity or Keycloak changes.
+        The guest_token is a separate source credential, never Customer authentication. One PostgreSQL transaction
+        converts the participating carts, writes the immutable per-item ledger and revokes the guest session.
+        Same customer/key/source returns the stored result after revocation. A different source for the
+        same key is 409; a revoked source cannot merge under another key or Customer. Quantities sum and
+        cap at 999 (existing Order per-SKU limit); max 100 SKUs, existing target lines first. Deleted/unavailable
+        SKUs are dropped with reason. All retained prices are freshly snapshotted from Catalog. Exactly
+        one Customer revision increment; no source cart prices are trusted. Failure rolls back cart, ledger
+        and revocation together.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - guest_token
+              properties:
+                guest_token:
+                  type: string
+                  minLength: 1
+                  maxLength: 8192
+                  writeOnly: true
+      responses:
+        '200':
+          description: Persisted merge result, including dropped/adjusted lines; retries return the original
+            snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartMergeResult'
+              example:
+                merge_key: merge-example-00000053
+                cart:
+                  revision: 2
+                  items:
+                  - item_id: SKU-A
+                    sku_code: SKU-A
+                    quantity: 5
+                    unit_price: 110000
+                items:
+                - sku_code: SKU-A
+                  status: merged
+                  requested_quantity: 5
+                  quantity: 5
+                - sku_code: DELETED-SKU
+                  status: dropped
+                  requested_quantity: 1
+                  quantity: 0
+                  reason: SKU_NOT_AVAILABLE
+                merged_at: '2026-11-21T12:00:00Z'
+        '400':
+          description: Controlled failure; no partial merge is committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_IDEMPOTENCY_KEY
+                message: The cart merge could not be completed.
+                requestId: f53-cart-merge
+        '401':
+          description: Controlled failure; no partial merge is committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_SESSION_INVALID
+                message: The cart merge could not be completed.
+                requestId: f53-cart-merge
+        '403':
+          description: Controlled failure; no partial merge is committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_CART_MERGE_DISABLED
+                message: The cart merge could not be completed.
+                requestId: f53-cart-merge
+        '409':
+          description: Controlled failure; no partial merge is committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: CART_MERGE_CONFLICT
+                message: The cart merge could not be completed.
+                requestId: f53-cart-merge
+        '503':
+          description: Controlled failure; no partial merge is committed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: CART_MERGE_UNAVAILABLE
+                message: The cart merge could not be completed.
+                requestId: f53-cart-merge
   /api/v1/cart/items:
     post:
       tags:
@@ -1714,6 +2787,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       requestBody:
         required: true
         content:
@@ -1887,6 +2970,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       parameters:
       - name: item_id
         in: path
@@ -2061,6 +3154,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_RATE_LIMITED
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       parameters:
       - name: item_id
         in: path
@@ -2305,7 +3408,7 @@ paths:
                       currency_code: VND
                       units: 345000
                       nanos: 0
-                    vietqr_url: https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&addInfo=ORD202610150042
+                    vietqr_url: https://img.vietqr.io/image/970422-0123456789-compact.png?amount=345000&f53shared4=ORD202610150042
                     payment_expires_at: '2026-10-15T08:45:00.000Z'
         '400':
           $ref: '#/components/responses/BadRequest'
@@ -2321,6 +3424,16 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '429':
+          description: Guest quota exhausted; no new cart mutation or checkout operation is persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: GUEST_PENDING_ORDER_LIMIT
+                message: Please retry after the quota window or pending orders have cleared.
+                requestId: f53-guest-quota
       requestBody:
         required: true
         content:
@@ -2758,6 +3871,7 @@ paths:
       - bearerAuth: []
       - customerSession: []
       - guestGrant: []
+      - guestSession: []
       responses:
         '200':
           description: Successful response.
@@ -3063,6 +4177,7 @@ paths:
       - bearerAuth: []
       - customerSession: []
       - guestGrant: []
+      - guestSession: []
       responses:
         '200':
           description: Successful response.
@@ -6402,6 +7517,19 @@ paths:
       - $ref: '#/components/parameters/IdempotencyKey'
 components:
   securitySchemes:
+    storefrontCustomerSession:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+    storefrontOidcSession:
+      type: apiKey
+      in: cookie
+      name: oma_access_token
+    guestPaymentGrant:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: ES256 order-bound payment:read grant; never a guest session or customer credential.
     bearerAuth:
       type: http
       scheme: bearer
@@ -6418,6 +7546,7 @@ components:
       type: apiKey
       in: cookie
       name: guest_session
+      description: Storefront BFF guest cookie; direct Order calls use the dedicated guest session as a Bearer token.
     guestGrant:
       type: apiKey
       in: cookie
@@ -6433,6 +7562,91 @@ components:
         type: string
         format: uuid
   schemas:
+    StorefrontCart:
+      type: object
+      required:
+      - revision
+      - items
+      properties:
+        revision:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required:
+            - item_id
+            - sku_code
+            - quantity
+            properties:
+              item_id:
+                type: string
+              sku_code:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 999
+              unit_price:
+                type: integer
+                minimum: 1
+              product_name:
+                type: string
+              weight_grams:
+                type: integer
+                minimum: 1
+              catalog_version:
+                type: integer
+    CartMergeResult:
+      type: object
+      required:
+      - merge_key
+      - cart
+      - items
+      - merged_at
+      properties:
+        merge_key:
+          type: string
+          minLength: 16
+          maxLength: 128
+        cart:
+          $ref: '#/components/schemas/StorefrontCart'
+        merged_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            required:
+            - sku_code
+            - status
+            - requested_quantity
+            - quantity
+            properties:
+              sku_code:
+                type: string
+              status:
+                type: string
+                enum:
+                - merged
+                - adjusted
+                - dropped
+              requested_quantity:
+                type: integer
+                minimum: 1
+              quantity:
+                type: integer
+                minimum: 0
+                maximum: 999
+              reason:
+                type: string
+                enum:
+                - SKU_NOT_AVAILABLE
+                - QUANTITY_LIMIT
+                - CART_ITEM_LIMIT
     Error:
       type: object
       required:

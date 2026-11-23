@@ -1,0 +1,58 @@
+/* Gói Huế home page: banners, featured rail wrapper, collections, story, account CTA. */
+
+.gh-home { position: relative; isolation: isolate; overflow-x: clip; }
+.gh-home h2 { margin: 0; color: var(--nau-dam); font: 600 var(--t-h2)/1.16 var(--chu-de); letter-spacing: -0.015em; text-wrap: balance; }
+.gh-home p { max-width: 65ch; margin: 0; }
+.gh-home-section { position: relative; padding-block: clamp(24px, 3.5vw, 44px); isolation: isolate; }
+
+/* Section that hosts a heritage banner, with library motifs anchored to the page edges */
+.gh-home-band { position: relative; padding-block: clamp(24px, 3.5vw, 48px); overflow: hidden; isolation: isolate; }
+.gh-band__blossom { top: 0; left: 0; z-index: 2; width: clamp(150px, 20vw, 300px); opacity: 0.88; }
+.gh-band__veranda { top: 0; right: 0; width: clamp(320px, 40vw, 600px); opacity: 0.25; }
+.gh-band__gate { bottom: 0; left: 0; width: clamp(300px, 34vw, 500px); opacity: 0.22; -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 100%); mask-image: linear-gradient(to right, #000 70%, transparent 100%); }
+.gh-band__blossom-right { top: 0; right: 0; z-index: 2; width: clamp(140px, 18vw, 260px); opacity: 0.85; }
+
+/* ---- Collections ---- */
+.gh-collections { overflow-x: clip; }
+.gh-collections__cloud { top: 10px; left: 0; width: clamp(160px, 16vw, 240px); opacity: 0.3; }
+.gh-collections__seeds { right: 0; bottom: 0; width: clamp(160px, 16vw, 240px); opacity: 0.35; }
+.gh-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: clamp(16px, 2.2vw, 28px); }
+.gh-categories .gh-card-media { aspect-ratio: 16 / 10; }
+.gh-categories__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 10px 6px; color: var(--nau-dam); }
+.gh-categories__foot > span:first-child { display: grid; gap: 2px; }
+.gh-categories__foot strong { font: 600 clamp(1.15rem, 1rem + 0.5vw, 1.4rem)/1.2 var(--chu-de); }
+.gh-categories__foot small { color: var(--phu); font-size: var(--t-small); }
+.gh-categories__arrow { flex-shrink: 0; color: var(--mat); font-size: 1.3rem; font-weight: 700; transition: transform 0.2s var(--ease-out), color 0.2s; }
+.gh-categories .gh-frame-card:hover .gh-categories__arrow { color: var(--nau-dam); transform: translateX(4px); }
+
+/* ---- Story ---- */
+.gh-story { position: relative; padding-block: clamp(36px, 5vw, 64px) clamp(56px, 7vw, 88px); overflow: hidden; isolation: isolate; }
+.gh-story__blossom { top: 0; left: 0; z-index: 1; width: clamp(150px, 20vw, 290px); opacity: 0.88; }
+.gh-story__veranda { top: 8px; left: clamp(80px, 10vw, 150px); width: clamp(300px, 32vw, 460px); opacity: 0.22; -webkit-mask-image: var(--motif-soft-mask, linear-gradient(90deg, transparent 0%, #000 18%, #000 88%, transparent 100%)); mask-image: linear-gradient(90deg, transparent 0%, #000 18%, #000 88%, transparent 100%); }
+.gh-story__wall { bottom: 0; left: 0; width: clamp(300px, 34vw, 480px); opacity: 0.2; -webkit-mask-image: linear-gradient(to right, #000 75%, transparent 100%); mask-image: linear-gradient(to right, #000 75%, transparent 100%); }
+.gh-story__lotus { right: 0; bottom: 6px; z-index: 1; width: clamp(150px, 20vw, 290px); opacity: 0.78; }
+.gh-story__grid { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); align-items: center; gap: clamp(24px, 4.5vw, 56px); }
+.gh-story__grid + .gh-story__grid { margin-top: clamp(40px, 5vw, 64px); }
+.gh-story__copy { padding-block: 20px; }
+.gh-story__grid:first-child .gh-story__copy { padding-top: clamp(56px, 7vw, 92px); }
+.gh-story__rule { width: 64px; height: 3px; margin: 14px 0 18px; background: var(--mat); }
+.gh-story__copy p { margin-bottom: 14px; color: var(--muc); font-size: 1.05rem; }
+.gh-story__copy .gh-story__muted { margin-bottom: 22px; color: var(--phu); font-size: 1rem; }
+.gh-story__photo { padding: 12px; }
+.gh-story__photo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 11; object-fit: cover; }
+
+/* ---- Account CTA ---- */
+.gh-account-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 28px clamp(20px, 3vw, 36px); }
+.gh-account-cta h2 { margin-block: 4px 8px; font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2rem); }
+.gh-account-cta p { color: var(--phu); }
+
+/* ---- Responsive ---- */
+@media (max-width: 960px) {
+  .gh-story__grid { grid-template-columns: 1fr; }
+  .gh-story__grid--reverse .gh-story__photo { order: 1; }
+  .gh-story__grid:first-child .gh-story__copy { padding-top: 48px; }
+}
+@media (max-width: 600px) {
+  .gh-band__veranda, .gh-story__veranda { opacity: 0.16; }
+  .gh-account-cta .gh-btn { width: 100%; }
+}
