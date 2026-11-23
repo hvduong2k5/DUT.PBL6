@@ -1,0 +1,407 @@
+name: CD - Deploy from dev (cd-candidate)
+
+# Deploys gate-verified dev commits to the team's Coolify VPS.
+#
+# Design (settled 2026-11-23 after the Muse x ChatGPT debate; full plan:
+# docs/06_operations or the CD-to-dev plan file in the goal workspace):
+#
+#   merge to dev -> "Dev Gate" workflow runs on that exact commit
+#   -> this workflow listens via workflow_run and takes
+#      github.event.workflow_run.head_sha (GITHUB_SHA in a workflow_run
+#      context points at the DEFAULT branch, never use it here)
+#   -> job "advance" moves the protected ref `cd-candidate` to exactly
+#      that SHA (fast-forward only, never backward, stale events fail the
+#      ancestor check and are skipped as errors to investigate)
+#   -> job "detect" reconciles per app: files changed between the app's
+#      last VERIFIED deployment and the candidate decide what deploys
+#   -> job "deploy" triggers Coolify (apps must be configured in Coolify
+#      to build branch `cd-candidate`), polls the deployment, then READS
+#      BACK the deployment's `commit` field and compares it to the
+#      candidate. A mismatch fails the run and the app is NOT baselined.
+#   -> only a deployment that passes readback moves the app's ledger tag
+#      `deployed/<app>` to the candidate. Coolify reporting "finished" is
+#      never, by itself, acceptance.
+#   -> Kong restart (F-08) + layered public smoke, as in the old workflow.
+#
+# Why ledger tags: Coolify's API cannot enumerate deployment history
+# (GET /api/v1/deployments returns only the live queue; verified
+# 2026-11-23), so the per-app last-verified SHA is kept as a git tag.
+# The tag is written ONLY after the Coolify readback matches, so the tag
+# always names a verified deployment.
+#
+# ROLLOUT REQUIREMENTS (do not skip):
+#   1. This file must exist on the DEFAULT branch (main) as well as on
+#      dev, or the workflow_run trigger silently never fires.
+#   2. Secret CD_CANDIDATE_TOKEN: a fine-grained PAT scoped to THIS repo
+#      with contents:write, used ONLY by the advance and tag steps. All
+#      other steps run with the default read-only permissions.
+#   3. Ruleset on branch `cd-candidate`: no direct human pushes; the
+#      automation's pushes are always fast-forwards by construction.
+#   4. Per-app bootstrap (Phase 3, one wave per app): set the app's
+#      Coolify build branch to `cd-candidate`, then create its ledger tag
+#      at the SHA it currently runs, e.g.
+#        git tag deployed/order <live-sha> && git push origin deployed/order
+#      Before an app is flipped, a CD trigger for it builds the old
+#      branch and the readback fails by design - that is the guard, not
+#      a bug.
+#   5. workflow_dispatch with an explicit app list re-deploys those apps
+#      at the current candidate (the retry path; no new merge needed).
+#
+# Required repository secret: COOLIFY_API_TOKEN (as before).
+# App UUIDs are plain identifiers (they appear in Coolify URLs).
+
+on:
+  workflow_run:
+    workflows: ["Dev Gate"]
+    types: [completed]
+    branches: [dev]
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "Apps to deploy at the current candidate: identity,catalog,profile,order,fulfillment,shipping,inventory,ai,traceability,analytics-api,analytics-builder,analytics-collector,web - or 'all'. Empty = reconcile."
+        required: false
+        default: ""
+      sha:
+        description: "Optional: advance cd-candidate to this dev commit first (must be an ancestor of dev)."
+        required: false
+        default: ""
+
+concurrency:
+  group: cd-coolify
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  COOLIFY_BASE: https://coolify.hvduong.qzz.io
+  # Cloudflare challenges GitHub-hosted runners on this hostname; resolve
+  # straight to the origin IP (diagnosed 2026-11-14, kept from cd-deploy).
+  VPS_IP: "150.230.104.168"
+  APP_UUID_IDENTITY: "gor2wstpcecmiz4rvdnlzzyi"
+  APP_UUID_CATALOG: "uqvxq9butuq56tbusobpyceu"
+  APP_UUID_PROFILE: "pxu44nnipidoqrhmobitgxq3"
+  APP_UUID_ORDER: "vvzqmfxcrdxly5ndhads7kxn"
+  APP_UUID_FULFILLMENT: "afdzvapvnwrmlaqu5gg2omtn"
+  APP_UUID_SHIPPING: "vymxdc94fzfrrerg9umizerj"
+  APP_UUID_INVENTORY: "qaficsfc5om7icdrjizorqoz"
+  APP_UUID_AI: ${{ vars.COOLIFY_APP_UUID_AI }}
+  APP_UUID_TRACEABILITY: ${{ vars.COOLIFY_APP_UUID_TRACEABILITY }}
+  APP_UUID_ANALYTICS_API: ${{ vars.COOLIFY_APP_UUID_ANALYTICS_API }}
+  APP_UUID_ANALYTICS_BUILDER: ${{ vars.COOLIFY_APP_UUID_ANALYTICS_BUILDER }}
+  APP_UUID_ANALYTICS_COLLECTOR: ${{ vars.COOLIFY_APP_UUID_ANALYTICS_COLLECTOR }}
+  APP_UUID_WEB: "plf5cnfxylu2d1cl6cginegx"
+  # Kong is a Coolify Service (docker-compose resource), not an Application.
+  KONG_UUID: "1tmlaxcmgpkgqadugbfaaddz"
+
+jobs:
+  advance:
+    name: Advance cd-candidate
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      candidate: ${{ steps.adv.outputs.candidate }}
+      previous: ${{ steps.adv.outputs.previous }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ secrets.CD_CANDIDATE_TOKEN }}
+          fetch-depth: 0
+          ref: dev
+      - id: adv
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' || true
+          previous=""
+          if git rev-parse --verify -q origin/cd-candidate >/dev/null; then
+            previous=$(git rev-parse origin/cd-candidate)
+          fi
+          target=""
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            target="${{ github.event.workflow_run.head_sha }}"
+          elif [ -n "${{ inputs.sha }}" ]; then
+            target="${{ inputs.sha }}"
+          fi
+          if [ -z "$target" ]; then
+            if [ -z "$previous" ]; then
+              echo "::error::cd-candidate does not exist yet and no target SHA was given. Let a Dev Gate run advance it first, or dispatch with an explicit sha."
+              exit 1
+            fi
+            echo "No advance requested; candidate stays at $previous"
+            echo "candidate=$previous" >> "$GITHUB_OUTPUT"
+            echo "previous=$previous" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor "$target" origin/dev; then
+            echo "::error::Target $target is not an ancestor of dev; refusing to advance cd-candidate to a commit that is not on dev."
+            exit 1
+          fi
+          if [ -n "$previous" ]; then
+            if [ "$previous" = "$target" ]; then
+              echo "cd-candidate already at $target"
+              echo "candidate=$target" >> "$GITHUB_OUTPUT"
+              echo "previous=$previous" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if ! git merge-base --is-ancestor "$previous" "$target"; then
+              echo "::error::cd-candidate ($previous) is not an ancestor of target ($target); refusing to move the candidate backward or sideways. Investigate (stale workflow_run event or a rewritten dev history)."
+              exit 1
+            fi
+          fi
+          git push origin "$target:refs/heads/cd-candidate"
+          echo "Advanced cd-candidate: ${previous:-<none>} -> $target"
+          echo "candidate=$target" >> "$GITHUB_OUTPUT"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+
+  detect:
+    name: Detect apps to deploy (reconciliation)
+    needs: advance
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.detect.outputs.apps }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.advance.outputs.candidate }}
+      - id: detect
+        shell: bash
+        env:
+          CANDIDATE: ${{ needs.advance.outputs.candidate }}
+          PREVIOUS: ${{ needs.advance.outputs.previous }}
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/tags/deployed/*:refs/tags/deployed/*' || true
+          ALL_APPS="identity catalog profile order fulfillment shipping inventory ai traceability analytics-api analytics-builder analytics-collector web"
+          apps=()
+          add() { local a="$1"; for x in "${apps[@]:-}"; do [ "$x" = "$a" ] && return; done; apps+=("$a"); }
+          add_analytics() { add analytics-api; add analytics-builder; add analytics-collector; }
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.apps }}" ]; then
+            input="${{ inputs.apps }}"
+            if [ "$input" = "all" ]; then
+              apps=($ALL_APPS)
+            else
+              IFS=',' read -ra parts <<< "$input"
+              for p in "${parts[@]}"; do add "$(echo "$p" | tr -d ' ')"; done
+            fi
+          else
+            for app in $ALL_APPS; do
+              baseline=""
+              if git rev-parse --verify -q "refs/tags/deployed/$app" >/dev/null; then
+                baseline=$(git rev-parse "refs/tags/deployed/$app")
+              elif [ -n "$PREVIOUS" ]; then
+                baseline="$PREVIOUS"
+              fi
+              if [ -z "$baseline" ]; then
+                echo "::notice::$app has no deployed/* ledger tag and no previous candidate; skipping (bootstrap it during its Phase 3 flip)."
+                continue
+              fi
+              if [ "$baseline" = "$CANDIDATE" ]; then
+                continue
+              fi
+              files=$(git diff --name-only "$baseline" "$CANDIDATE")
+              while IFS= read -r f; do
+                case "$f" in
+                  services/identity-service/*) if [ "$app" = "identity" ]; then add identity; fi ;;
+                  services/catalog-service/scripts/analytics-*) add_analytics ;;
+                  services/catalog-service/*) if [ "$app" = "catalog" ]; then add catalog; fi ;;
+                  services/profile-service/*) if [ "$app" = "profile" ]; then add profile; fi ;;
+                  services/order-service/scripts/analytics-*) add_analytics ;;
+                  services/order-service/*) if [ "$app" = "order" ]; then add order; fi ;;
+                  services/fulfillment-service/*) if [ "$app" = "fulfillment" ]; then add fulfillment; fi ;;
+                  services/shipping-service/*) if [ "$app" = "shipping" ]; then add shipping; fi ;;
+                  services/inventory-service/scripts/analytics-*) add_analytics ;;
+                  services/inventory-service/*) if [ "$app" = "inventory" ]; then add inventory; fi ;;
+                  services/ai-agent-service/*) if [ "$app" = "ai" ]; then add ai; fi ;;
+                  services/traceability-service/*) if [ "$app" = "traceability" ]; then add traceability; fi ;;
+                  services/analytics-service/*) add_analytics ;;
+                  scripts/publish-analytics-supply.py|scripts/publish-analytics-recommendation.py) add_analytics ;;
+                  apps/web-user/*) if [ "$app" = "web" ]; then add web; fi ;;
+                  packages/*)
+                    case "$app" in
+                      catalog|profile|order|fulfillment|shipping|inventory|ai) add "$app" ;;
+                    esac ;;
+                  services/api-gateway/*)
+                    echo "::notice::api-gateway (Kong) config changed; Kong is a compose service - redeploy/restart it manually, app deploys do not cover it." ;;
+                  services/keycloak-service/*)
+                    echo "::notice::keycloak-service changed; Keycloak deploys in its own window, not through this workflow." ;;
+                esac
+              done <<< "$files"
+            done
+          fi
+          json=$(printf '%s\n' "${apps[@]:-}" | jq -R 'select(length>0)' | jq -sc .)
+          echo "Apps to deploy: $json"
+          echo "apps=$json" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy ${{ matrix.app }}
+    needs: [advance, detect]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        app: ${{ fromJSON(needs.detect.outputs.apps) }}
+    steps:
+      - name: Trigger Coolify deploy
+        shell: bash
+        env:
+          APP: ${{ matrix.app }}
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "$APP" in
+            identity) uuid="$APP_UUID_IDENTITY" ;;
+            catalog) uuid="$APP_UUID_CATALOG" ;;
+            profile) uuid="$APP_UUID_PROFILE" ;;
+            order) uuid="$APP_UUID_ORDER" ;;
+            fulfillment) uuid="$APP_UUID_FULFILLMENT" ;;
+            shipping) uuid="$APP_UUID_SHIPPING" ;;
+            inventory) uuid="$APP_UUID_INVENTORY" ;;
+            ai) uuid="$APP_UUID_AI" ;;
+            traceability) uuid="$APP_UUID_TRACEABILITY" ;;
+            analytics-api) uuid="$APP_UUID_ANALYTICS_API" ;;
+            analytics-builder) uuid="$APP_UUID_ANALYTICS_BUILDER" ;;
+            analytics-collector) uuid="$APP_UUID_ANALYTICS_COLLECTOR" ;;
+            web) uuid="$APP_UUID_WEB" ;;
+            *) echo "Unknown app: $APP"; exit 1 ;;
+          esac
+          if [ -z "$TOKEN" ]; then
+            echo "::error::COOLIFY_API_TOKEN secret is not set."
+            exit 1
+          fi
+          if [ -z "$uuid" ]; then
+            echo "::error::Coolify application UUID is not configured for $APP. Set the matching repository variable before deploying."
+            exit 1
+          fi
+          echo "Deploying $APP ($uuid) at candidate ${{ needs.advance.outputs.candidate }}"
+          response_file=$(mktemp)
+          trap 'rm -f "$response_file"' EXIT
+          status=$(curl -sS -o "$response_file" -w '%{http_code}' -X POST \
+            --resolve coolify.hvduong.qzz.io:443:$VPS_IP \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            "$COOLIFY_BASE/api/v1/deploy?uuid=$uuid&force=true")
+          if [ "$status" -ge 400 ]; then
+            echo "::error::Coolify deploy request returned HTTP $status"
+            cat "$response_file"
+            exit 1
+          fi
+          response=$(cat "$response_file")
+          echo "$response" | jq . || echo "$response"
+          deployment=$(echo "$response" | jq -r '.deployments[0].deployment_uuid // .deployments[0].uuid // .deployment_uuid // .uuid // empty')
+          if [ -z "$deployment" ]; then
+            echo "::error::Coolify deploy response carried no deployment id; cannot poll or read back the built SHA."
+            exit 1
+          fi
+          echo "deployment=$deployment" >> "$GITHUB_ENV"
+      - name: Wait for the deployment and verify the built SHA
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+          CANDIDATE: ${{ needs.advance.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 45); do
+            body=$(curl -fsS --resolve coolify.hvduong.qzz.io:443:$VPS_IP -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
+              "$COOLIFY_BASE/api/v1/deployments/$deployment")
+            status=$(echo "$body" | jq -r '.status // empty')
+            echo "poll $i: status=$status"
+            case "$status" in
+              finished)
+                built=$(echo "$body" | jq -r '.commit // empty')
+                if [ "$built" != "$CANDIDATE" ]; then
+                  echo "::error::SHA readback mismatch for deployment $deployment: Coolify built '$built', candidate is '$CANDIDATE'. The app is probably not configured to build branch cd-candidate yet, or a newer commit raced the build. NOT baselining this app."
+                  exit 1
+                fi
+                echo "Readback OK: deployment $deployment built exactly $CANDIDATE"
+                exit 0 ;;
+              failed|error|cancelled)
+                echo "::error::Coolify deployment $deployment ended with status $status"
+                exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::Deployment $deployment did not settle in ~15 min; not baselining."
+          exit 1
+      - name: Record the verified deployment (ledger tag)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          token: ${{ secrets.CD_CANDIDATE_TOKEN }}
+          fetch-depth: 1
+          ref: ${{ needs.advance.outputs.candidate }}
+      - name: Move the deployed/<app> tag
+        shell: bash
+        env:
+          APP: ${{ matrix.app }}
+          CANDIDATE: ${{ needs.advance.outputs.candidate }}
+        run: |
+          set -euo pipefail
+          git tag -f "deployed/$APP" "$CANDIDATE"
+          git push --force origin "refs/tags/deployed/$APP"
+          echo "Ledger: deployed/$APP -> $CANDIDATE"
+
+  kong:
+    name: Restart Kong (F-08)
+    needs: [detect, deploy]
+    if: needs.detect.outputs.apps != '[]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart the Kong resource
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KONG_UUID" ]; then
+            echo "::warning::Kong UUID not configured - restart Kong manually (F-08) or the gateway may serve stale upstreams."
+            exit 0
+          fi
+          curl -fsS -X POST \
+            --resolve coolify.hvduong.qzz.io:443:$VPS_IP \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            "$COOLIFY_BASE/api/v1/services/$KONG_UUID/restart"
+          echo "Kong restart requested; giving it time to become healthy."
+          sleep 45
+
+  smoke:
+    name: Smoke check
+    needs: [deploy, kong]
+    if: |
+      always() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Public surface must answer
+        shell: bash
+        run: |
+          set -uo pipefail
+          check() {
+            local url="$1"
+            for i in $(seq 1 18); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 --resolve api-pbl6.hvduong.qzz.io:443:$VPS_IP --resolve pbl.npanhbao.dev:443:$VPS_IP "$url" || true)
+              echo "$url -> $code (try $i)"
+              [ "$code" = "200" ] && return 0
+              sleep 10
+            done
+            return 1
+          }
+          fail=0
+          check "https://api-pbl6.hvduong.qzz.io/api/v1/products" || fail=1
+          if echo '${{ needs.detect.outputs.apps }}' | jq -e 'index("ai")' >/dev/null; then
+            check "https://api-pbl6.hvduong.qzz.io/api/v1/ai/recommendations?placement=home" || fail=1
+          fi
+          check "https://pbl.npanhbao.dev/products" || fail=1
+          {
+            echo "## CD smoke result"
+            if [ "$fail" = "0" ]; then
+              echo "Public surface healthy after deploying: ${{ needs.detect.outputs.apps }} at ${{ needs.advance.outputs.candidate }}"
+            else
+              echo "SMOKE FAILED after deploying: ${{ needs.detect.outputs.apps }}"
+              echo ""
+              echo "Rollback (manual, proven in W4 R3): Coolify -> the app -> Deployments -> roll back to the previous deployment, then restart Kong. The deployed/<app> ledger tags were NOT moved for apps whose readback failed; re-run this workflow (workflow_dispatch) to retry."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $fail
