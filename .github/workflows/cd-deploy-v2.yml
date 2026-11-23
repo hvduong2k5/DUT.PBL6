@@ -32,9 +32,12 @@ name: CD - Deploy from dev (cd-candidate)
 # ROLLOUT REQUIREMENTS (do not skip):
 #   1. This file must exist on the DEFAULT branch (main) as well as on
 #      dev, or the workflow_run trigger silently never fires.
-#   2. Secret CD_CANDIDATE_TOKEN: a fine-grained PAT scoped to THIS repo
-#      with contents:write, used ONLY by the advance and tag steps. All
-#      other steps run with the default read-only permissions.
+#   2. No extra token is needed: the advance and deploy jobs (and only
+#      they) run with job-level `permissions: contents: write`, so the
+#      built-in GITHUB_TOKEN can push cd-candidate and the ledger tags.
+#      A fine-grained PAT cannot be scoped to this repo from a non-owner
+#      account (verified 2026-11-23), so the job-scoped GITHUB_TOKEN is
+#      the mechanism; every other job stays read-only.
 #   3. Ruleset on branch `cd-candidate`: no direct human pushes; the
 #      automation's pushes are always fast-forwards by construction.
 #   4. Per-app bootstrap (Phase 3, one wave per app): set the app's
@@ -98,6 +101,8 @@ jobs:
   advance:
     name: Advance cd-candidate
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     outputs:
       candidate: ${{ steps.adv.outputs.candidate }}
@@ -105,7 +110,6 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          token: ${{ secrets.CD_CANDIDATE_TOKEN }}
           fetch-depth: 0
           ref: dev
       - id: adv
@@ -236,6 +240,8 @@ jobs:
 
   deploy:
     name: Deploy ${{ matrix.app }}
+    permissions:
+      contents: write
     needs: [advance, detect]
     if: needs.detect.outputs.apps != '[]'
     runs-on: ubuntu-latest
@@ -329,7 +335,6 @@ jobs:
       - name: Record the verified deployment (ledger tag)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          token: ${{ secrets.CD_CANDIDATE_TOKEN }}
           fetch-depth: 1
           ref: ${{ needs.advance.outputs.candidate }}
       - name: Move the deployed/<app> tag
