@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { oidcCallback, oidcLoggedOut, oidcLogin, OidcError } from "@/lib/auth/oidc";
+import { oidcCallback, oidcLoggedOut, oidcLogin, oidcStepUp, OidcError } from "@/lib/auth/oidc";
 import { usesOidc, usesIdentityBff } from "@/lib/auth/oidc-config";
 import { ownerLogin } from "@/lib/auth/owner-bff";
 
@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ act
     if (!usesOidc()) return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });
     switch ((await context.params).action) {
       case "login": return await oidcLogin(request);
+      case "step-up": return await oidcStepUp(request);
       case "callback": return await oidcCallback(request);
       case "logged-out": return oidcLoggedOut(request);
       default: return NextResponse.json({ code: "NOT_FOUND" }, { status: 404 });

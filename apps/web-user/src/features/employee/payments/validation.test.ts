@@ -3,6 +3,7 @@ import { parseAdminPaymentPath } from "./validation";
 
 describe("admin payment route validation", () => {
   it("accepts only reconciliation case routes", () => {
+    expect(parseAdminPaymentPath(["step-up-status"])).toEqual({ kind: "step-up-status" });
     expect(parseAdminPaymentPath(["cases"])).toEqual({ kind: "case-list" });
     expect(parseAdminPaymentPath(["cases", "pay-case-001"])).toEqual({ kind: "case-detail", caseId: "pay-case-001" });
     expect(parseAdminPaymentPath(["cases", "pay-case-001", "assign"])).toEqual({ kind: "case-assign", caseId: "pay-case-001" });
@@ -25,5 +26,13 @@ describe("admin payment route validation", () => {
     expect(parseAdminPaymentPath(["refund-approvals", "ap-001", "accept"])).toEqual({ kind: "refund-approval-accept", approvalId: "ap-001" });
     expect(parseAdminPaymentPath(["refund-approvals", "ap-001"]).kind).toBe("invalid");
     expect(parseAdminPaymentPath(["refund-evidence"])).toEqual({ kind: "refund-evidence-records" });
+  });
+
+  it("accepts the evidence vault routes (F-42 slice 3)", () => {
+    expect(parseAdminPaymentPath(["evidence"])).toEqual({ kind: "evidence-create" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001"])).toEqual({ kind: "evidence-view", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "content"])).toEqual({ kind: "evidence-content", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "download"])).toEqual({ kind: "evidence-download", evidenceId: "ev-001" });
+    expect(parseAdminPaymentPath(["evidence", "ev-001", "bogus"]).kind).toBe("invalid");
   });
 });

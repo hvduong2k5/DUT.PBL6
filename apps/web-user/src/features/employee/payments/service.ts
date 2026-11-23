@@ -1,4 +1,4 @@
-import type { PaymentCaseDecision, PaymentCaseDetail, PaymentCaseList, PaymentRefundList, PaymentRefundSummary, RefundApprovalItem, RefundCertificateItem, RefundStartInstructionView } from "@/features/employee/payments/types";
+import type { EvidenceObjectView, EvidenceTicketView, PaymentCaseDecision, PaymentCaseDetail, PaymentCaseList, PaymentRefundList, PaymentRefundSummary, RefundApprovalItem, RefundCertificateItem, RefundStartInstructionView } from "@/features/employee/payments/types";
 import { AdminPaymentApiError } from "@/features/employee/payments/types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -21,6 +21,7 @@ export interface RefundActionInput { expectedVersion: number; reason: string; id
 export interface IssueCertificateInput { refundId: string; attemptId: string; decision: string; definitive: boolean; sha256: string; amount: number; beneficiaryAccount: string; bank: string; holder: string; bankIdentity: string; bankReference: string; occurredAt: string }
 
 export const adminPaymentService = {
+  stepUpStatus() { return request<{ acr: string | null; stepUpFresh: boolean }>("/step-up-status"); },
   cases() { return request<PaymentCaseList>("/cases"); },
   case(caseId: string) { return request<PaymentCaseDetail>(`/cases/${encodeURIComponent(caseId)}`); },
   assign(caseId: string, input: AssignCaseInput) { return request<PaymentCaseDetail>(`/cases/${encodeURIComponent(caseId)}/assign`, { method: "POST", body: JSON.stringify(input) }); },
@@ -37,5 +38,14 @@ export const adminPaymentService = {
   withdrawApproval(approvalId: string, input: { withdrawalReference: string; reason: string }) { return request<RefundApprovalItem>(`/refund-approvals/${encodeURIComponent(approvalId)}/withdraw`, { method: "POST", body: JSON.stringify(input) }); },
   acceptApproval(approvalId: string, idempotencyKey: string) { return request<PaymentRefundSummary>(`/refund-approvals/${encodeURIComponent(approvalId)}/accept`, { method: "POST", body: JSON.stringify({ idempotencyKey }) }); },
   certificates(refundId: string) { return request<{ items: RefundCertificateItem[] }>(`/refund-evidence?refundId=${encodeURIComponent(refundId)}`); },
-  issueCertificate(input: IssueCertificateInput) { return request<RefundCertificateItem>("/refund-evidence", { method: "POST", body: JSON.stringify(input) }); }
+  issueCertificate(input: IssueCertificateInput) { return request<RefundCertificateItem>("/refund-evidence", { method: "POST", body: JSON.stringify(input) }); },
+  createEvidenceTicket(input: { resourceType: string; resourceId: string; mediaType: string; byteSize: number; sha256: string; reason: string; idempotencyKey: string }) { return request<EvidenceTicketView>("/evidence", { method: "POST", body: JSON.stringify(input) }); },
+  evidence(evidenceId: string) { return request<EvidenceObjectView>(`/evidence/${encodeURIComponent(evidenceId)}`); },
+  evidenceDownloadHref(evidenceId: string) { return `/api/admin/payments/evidence/${encodeURIComponent(evidenceId)}/download`; },
+  async uploadEvidenceContent(evidenceId: string, uploadUrl: string, file: File): Promise<{ stored: boolean }> {
+    const response = await fetch(`/api/admin/payments/evidence/${encodeURIComponent(evidenceId)}/content`, { method: "PUT", credentials: "include", cache: "no-store", headers: { "x-upload-url": uploadUrl, "Content-Type": file.type }, body: file });
+    const payload = (response.headers.get("content-type") ?? "").includes("application/json") ? await response.json() : {};
+    if (!response.ok) throw new AdminPaymentApiError(response.status, payload);
+    return payload as { stored: boolean };
+  }
 };

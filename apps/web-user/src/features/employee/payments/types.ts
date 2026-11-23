@@ -186,3 +186,26 @@ export interface RefundStartInstructionView {
   transferContent: string;
   startedAt: string;
 }
+
+export interface EvidenceTicketView {
+  evidenceId: string;
+  uploadUrl: string;
+  expiresAt: string;
+}
+
+export interface EvidenceObjectView {
+  evidenceId: string;
+  resourceType: string;
+  resourceId: string;
+  status: string;
+  statusLabel: string;
+  sha256: string;
+  expiresAt: string | null;
+}
+
+export const EVIDENCE_STATUS_LABELS: Record<string, string> = {
+  AWAITING_UPLOAD: "Chờ tải lên",
+  SCANNING: "Đang kiểm tra",
+  CLEAN: "Đã lưu — sẵn sàng tải xuống",
+  REJECTED: "Bị từ chối (nội dung không khớp)"
+};
