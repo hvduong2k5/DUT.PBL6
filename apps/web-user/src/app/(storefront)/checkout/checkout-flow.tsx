@@ -268,7 +268,7 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
   return (
     <main className="checkout-page">
       <CheckoutSteps />
-      <div className="checkout-guest-banner"><span aria-hidden="true">♢</span><div><strong>{preparation.customerMode === "REGISTERED" ? "Checkout dùng danh tính tài khoản đã xác minh." : "Guest Checkout chưa được bật trong contract target."}</strong><p>Giá, tồn kho và phí vận chuyển chỉ được chốt bởi quote từ server.</p></div></div>
+      <div className="checkout-guest-banner"><span aria-hidden="true">♢</span><div><strong>{preparation.customerMode === "REGISTERED" ? "Checkout dùng danh tính tài khoản đã xác minh." : "Guest Checkout đang bật — bạn có thể đặt hàng không cần tài khoản."}</strong><p>Giá, tồn kho và phí vận chuyển chỉ được chốt bởi quote từ server.</p></div></div>
       {preparation.accountDataWarning ? <div className="checkout-inline-error" role="status"><strong>Thông tin tài khoản chưa tải đầy đủ</strong><p>{preparation.accountDataWarning}</p></div> : null}
 
       <div className="checkout-layout">
@@ -283,7 +283,7 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
                 <label className="checkout-field full"><span>Email nhận thông báo</span><input type="email" value={recipient.email ?? ""} onChange={(event) => updateRecipient("email", event.currentTarget.value)} />{fieldErrors.email ? <small role="alert">{fieldErrors.email}</small> : null}</label>
                 <label className="checkout-field"><span>Tỉnh/Thành phố <b>*</b></span><select value={address.provinceCode} onChange={(event) => updateProvince(event.currentTarget.value)}><option value="">Chọn Tỉnh/Thành phố</option>{preparation.locations.map((entry) => <option value={entry.provinceCode} key={entry.provinceCode}>{entry.provinceName}</option>)}</select>{fieldErrors.provinceCode ? <small role="alert">{fieldErrors.provinceCode}</small> : null}</label>
                 <label className="checkout-field"><span>Phường/Xã <b>*</b></span><select value={address.wardCode} disabled={!selectedProvince} onChange={(event) => updateWard(event.currentTarget.value)}><option value="">Chọn Phường/Xã</option>{selectedProvince?.wards.map((entry) => <option value={entry.wardCode} key={entry.wardCode}>{entry.wardName}</option>)}</select>{fieldErrors.wardCode ? <small role="alert">{fieldErrors.wardCode}</small> : null}</label>
-                <label className="checkout-field full"><span>Địa chỉ cụ thể <b>*</b></span><input value={address.addressLine} onChange={(event) => { setSelectedAddressId(""); setAddress((current) => ({ ...current, addressLine: event.currentTarget.value })); setQuote(null); }} />{fieldErrors.addressLine ? <small role="alert">{fieldErrors.addressLine}</small> : null}</label>
+                <label className="checkout-field full"><span>Địa chỉ cụ thể <b>*</b></span><input value={address.addressLine} onChange={(event) => { const value = event.currentTarget.value; setSelectedAddressId(""); setAddress((current) => ({ ...current, addressLine: value })); setQuote(null); }} />{fieldErrors.addressLine ? <small role="alert">{fieldErrors.addressLine}</small> : null}</label>
               </div>
             </div>
           </section>
