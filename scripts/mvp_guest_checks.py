@@ -46,7 +46,11 @@ def guest_purchases(request, web, control, customer_opener=None):
         status, order, _ = call("/api/orders/" + order_id)
         assert status == 200 and order["order_code"], ("guest order detail", method, status, order)
         if method == "COD":
-            assert order["status"] == "CONFIRMED_COD" and order["payment_expires_at"] is None
+            # COD admission confirms the order at placement (CONFIRMED_COD), but with the
+            # fulfillment pipeline running it may already have advanced by read-back
+            # (PROCESSING or later). What must hold: it passed COD confirmation and
+            # carries no payment window.
+            assert order["status"] in ("CONFIRMED_COD", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED") and order["payment_expires_at"] is None, ("guest COD order state", method, order)
         else:
             status, missing, _ = call(f"/api/payments/orders/{order_id}/status")
             assert status == 401 and missing["code"] == "GUEST_PAYMENT_ACCESS_REQUIRED"
