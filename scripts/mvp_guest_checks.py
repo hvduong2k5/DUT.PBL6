@@ -21,6 +21,11 @@ def guest_purchases(request, web, control, customer_opener=None):
         assert status == 200 and not cart["items"], ("expected empty purchase cart", status, cart)
         if not customer_opener:
             assert not list(jar), "page read created a guest session"
+            # The checkout page's preparation also loads the locations
+            # catalogue with no credential at all; a guest must not be
+            # told to sign in for public reference data.
+            status, locations, _ = call("/api/customer/locations")
+            assert status == 200 and locations["provinces"], ("guest locations", status, locations)
         status, cart, _ = call("/api/cart/items", {"sku_code": "PEER", "quantity": 1, "revision": cart["revision"]}, "POST")
         assert status == 200, ("guest cart", method, status, cart)
         if not customer_opener:
