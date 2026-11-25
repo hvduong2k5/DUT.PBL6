@@ -19,8 +19,12 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 	s.coreLifecycleRoutes(api)
 	api.Post("/order-core/terms", func(w http.ResponseWriter, r *http.Request) {
 		var q domain.Quote
-		if e := read(r, &q); e != nil || q.Address.Validate() != nil || q.Address.Province != "75" || q.Address.Ward != "HUE-01" {
+		if e := read(r, &q); e != nil || q.Address.Validate() != nil {
 			errResponse(w, domain.E("INVALID_QUOTE_INPUT", 422))
+			return
+		}
+		if e := s.adminValidator().Validate(q.Address.Province, q.Address.Ward); e != nil {
+			errResponse(w, e)
 			return
 		}
 		ctx := r.Context()
@@ -35,7 +39,9 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 			errResponse(w, e)
 			return
 		}
-		terms := core.SnapshotInput{WarehouseID: "HUE", Catalog: core.CatalogEvidence{SnapshotID: uuid.NewString(), Version: "1", ValidUntil: now.Add(15 * time.Minute)}, Items: []core.SnapshotItem{}, Address: core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: "Hue", WardCode: q.Address.Ward, WardName: "Hue test ward", Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}, Shipping: core.ShippingTerms{CarrierCode: "TEST_CARRIER", ServiceCode: "STANDARD", QuoteReference: uuid.NewString(), QuoteVersion: "test-shipping-1", ValidUntil: now.Add(15 * time.Minute), QuotedFee: 30000}, Policies: core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "test-shipping-1"}}
+		provinceName, _ := s.adminValidator().ProvinceName(q.Address.Province)
+		wardName, _ := s.adminValidator().WardName(q.Address.Ward)
+		terms := core.SnapshotInput{WarehouseID: "HUE", Catalog: core.CatalogEvidence{SnapshotID: uuid.NewString(), Version: "1", ValidUntil: now.Add(15 * time.Minute)}, Items: []core.SnapshotItem{}, Address: core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: provinceName, WardCode: q.Address.Ward, WardName: wardName, Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}, Shipping: core.ShippingTerms{CarrierCode: "TEST_CARRIER", ServiceCode: "STANDARD", QuoteReference: uuid.NewString(), QuoteVersion: "test-shipping-1", ValidUntil: now.Add(15 * time.Minute), QuotedFee: 30000}, Policies: core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "test-shipping-1"}}
 		if q.AddressID != "" {
 			id, version := q.AddressID, q.AddressVersion
 			terms.Address.Source.Kind = "PROFILE_ADDRESS"
@@ -137,7 +143,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 		}
 		sort.Strings(versions)
 		version := "catalog-" + domain.Hash(versions)
-		valid = valid && version == terms.Catalog.Version && terms.Shipping.QuotedFee == 30000 && terms.Address.ProvinceCode == "75" && terms.Address.WardCode == "HUE-01"
+		valid = valid && version == terms.Catalog.Version && terms.Shipping.QuotedFee == 30000 && s.adminValidator().Validate(terms.Address.ProvinceCode, terms.Address.WardCode) == nil
 		response(w, 200, map[string]bool{"valid": valid})
 	})
 }

@@ -23,7 +23,7 @@ const auth = { Authorization: 'Bearer ' + identity.token };
 const { result: cart } = await request(base + '/api/v1/cart/items', 'POST', { sku_code: 'MX-GION-500G', quantity: 2, revision: 0 }, auth);
 const { result: quote } = await request(base + '/api/v1/checkout/quote', 'POST', {
   cart_revision: cart.revision, payment_method: 'VIETQR', address: { recipient_name: 'Synthetic TEST', phone: '+84905123456',
-    street: 'TEST only', ward_code: 'HUE-01', province_code: '75' } }, auth);
+    street: 'TEST only', ward_code: 'WARD-TH-001', province_code: '75' } }, auth);
 const { result: accepted } = await request(base + '/api/v1/checkout', 'POST', {
   quote_id: quote.quote_id, cart_revision: cart.revision, payment_method: 'VIETQR' }, { ...auth, 'X-Idempotency-Key': randomUUID() });
 let operation;
