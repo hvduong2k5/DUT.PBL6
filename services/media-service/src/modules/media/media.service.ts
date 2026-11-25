@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { AccessLevel, MediaFile, MediaPurpose, MediaStatus } from '@prisma/client';
 import * as crypto from 'crypto';
 import * as path from 'path';
+import 'multer';
 import { PrismaService } from '../../prisma/prisma.service';
 import { KafkaService } from '../kafka/kafka.service';
 import { ImageOptimizerService } from '../optimizer/image-optimizer.service';

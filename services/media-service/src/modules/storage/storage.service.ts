@@ -49,7 +49,8 @@ export class StorageService implements OnModuleInit {
     try {
       await this.ensureBuckets();
     } catch (error) {
-      this.logger.warn(`MinIO bucket initialization skipped or failed: ${error?.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`MinIO bucket initialization skipped or failed: ${msg}`);
     }
   }
 

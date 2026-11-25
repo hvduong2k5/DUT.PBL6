@@ -30,7 +30,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.connect();
       this.logger.log(`Kafka producer connected (topic=${this.topic})`);
     } catch (error) {
-      this.logger.warn(`Kafka connection failed: ${error?.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Kafka connection failed: ${msg}`);
     }
   }
 

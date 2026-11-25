@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MediaStatus } from '@prisma/client';
-import * as sharp from 'sharp';
+import sharp = require('sharp');
 import { PrismaService } from '../../prisma/prisma.service';
 import { KafkaService } from '../kafka/kafka.service';
 import { StorageService } from '../storage/storage.service';
@@ -88,7 +88,8 @@ export class ImageOptimizerService {
 
       this.logger.log(`Processed sharp WebP & thumbnails for fileId=${fileId}`);
     } catch (error) {
-      this.logger.error(`Sharp optimization failed for fileId=${fileId}: ${error?.message}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Sharp optimization failed for fileId=${fileId}: ${msg}`);
       await this.prisma.mediaFile.update({
         where: { id: fileId },
         data: { status: MediaStatus.PROCESSING_FAILED },

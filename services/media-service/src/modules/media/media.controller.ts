@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MediaPurpose } from '@prisma/client';
+import 'multer';
 import { CreateUploadSessionDto } from './dto/create-session.dto';
 import { MediaService } from './media.service';
 
