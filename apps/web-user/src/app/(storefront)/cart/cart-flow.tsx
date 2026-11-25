@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PublicApiError } from "@/lib/api-contract";
+import { userErrorMessage } from "@/lib/checkout/error-messages";
 import type { Cart, CartItem } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
@@ -53,7 +54,7 @@ export function CartFlow() {
       }
     }).catch((cause: unknown) => {
       if (!active) return;
-      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể tải giỏ hàng lúc này.");
+      setPageError(userErrorMessage(cause, "Không thể tải giỏ hàng lúc này."));
       setPageErrorCode(cause instanceof PublicApiError ? cause.code : "");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -77,7 +78,7 @@ export function CartFlow() {
       setLineErrors((current) => ({
         ...current,
         [item.itemId]: cause instanceof PublicApiError
-          ? cause.status === 409 ? "Giỏ hàng đã thay đổi ở nơi khác. Hãy tải lại trước khi cập nhật." : cause.message
+          ? cause.status === 409 ? "Giỏ hàng đã thay đổi ở nơi khác. Hãy tải lại trước khi cập nhật." : userErrorMessage(cause, "Không thể cập nhật số lượng.")
           : "Không thể cập nhật số lượng."
       }));
     } finally {
@@ -97,7 +98,7 @@ export function CartFlow() {
       setDraftQuantities(Object.fromEntries(nextCart.items.map((cartItem) => [cartItem.itemId, String(cartItem.quantity)])));
       setStatusMessage(`Đã xóa ${item.productName} khỏi giỏ hàng.`);
     } catch (cause) {
-      setLineErrors((current) => ({ ...current, [item.itemId]: cause instanceof PublicApiError ? cause.message : "Không thể xóa sản phẩm." }));
+      setLineErrors((current) => ({ ...current, [item.itemId]: userErrorMessage(cause, "Không thể xóa sản phẩm.") }));
     } finally {
       setPendingItemId(undefined);
     }
@@ -114,7 +115,7 @@ export function CartFlow() {
       setDraftQuantities({});
       setStatusMessage("Đã dọn toàn bộ giỏ hàng.");
     } catch (cause) {
-      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể dọn giỏ hàng lúc này.");
+      setPageError(userErrorMessage(cause, "Không thể dọn giỏ hàng lúc này."));
     } finally {
       setPendingItemId(undefined);
     }
