@@ -43,7 +43,7 @@ describe("guest storefront credentials", () => {
     vi.stubEnv("GUEST_COD_CHECKOUT_ENABLED", "true");
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
     const { handleCheckoutRequest } = await import("@/app/api/checkout/checkout-handler");
-    const request = new NextRequest("http://localhost/api/checkout/quote", { method: "POST", headers: { Origin: "http://localhost", Cookie: "oma_guest_session=guest-token" }, body: JSON.stringify({ cart_revision: 1, payment_method: "VIETQR", address: { recipient_name: "Guest Customer", phone: "0901234567", street: "1 Test Street", province_code: "75", ward_code: "HUE-01" } }) });
+    const request = new NextRequest("http://localhost/api/checkout/quote", { method: "POST", headers: { Origin: "http://localhost", Cookie: "oma_guest_session=guest-token" }, body: JSON.stringify({ cart_revision: 1, payment_method: "VIETQR", address: { recipient_name: "Guest Customer", phone: "0901234567", street: "1 Test Street", province_code: "75", ward_code: "WARD-TH-001" } }) });
     const response = await handleCheckoutRequest(request, ["quote"]);
     expect(response.status).toBe(403);
     expect(fetcher).not.toHaveBeenCalled();

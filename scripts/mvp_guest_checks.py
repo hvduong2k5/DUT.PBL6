@@ -33,7 +33,7 @@ def guest_purchases(request, web, control, customer_opener=None):
             assert not any(c.name == "OMAMA_SESSION" for c in jar), "guest acquired identity material"
         quote_input = {"cart_revision": cart["revision"], "payment_method": method,
                        "address": {"recipient_name": "Guest TEST", "phone": "0905123456",
-                                   "street": "Test only", "province_code": "75", "ward_code": "HUE-01"}}
+                                   "street": "Test only", "province_code": "75", "ward_code": "WARD-TH-001"}}
         status, quote, _ = call("/api/checkout/quote", quote_input, "POST")
         assert status == 200, ("guest quote", method, status, quote)
         key = str(uuid.uuid4())

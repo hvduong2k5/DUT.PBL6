@@ -1,0 +1,239 @@
+{
+  "version": "1",
+  "units": [
+    {
+      "code": "75",
+      "name": "Thành phố Huế",
+      "level": "PROVINCE",
+      "parent_code": null
+    },
+    {
+      "code": "WARD-TH-001",
+      "name": "Thuận Hòa",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-VL-002",
+      "name": "Vĩnh Lộc",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-PB-003",
+      "name": "Phú Bài",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-KL-004",
+      "name": "Kim Long",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-VD-005",
+      "name": "Vỹ Dạ",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-AC-006",
+      "name": "An Cựu",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-XP-007",
+      "name": "Xuân Phú",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-DN-008",
+      "name": "Đức Nhuận",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-TX-009",
+      "name": "Thủy Xuân",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-TB-010",
+      "name": "Thủy Biều",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-TL-011",
+      "name": "Tây Lộc",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-DB-012",
+      "name": "Đông Ba",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "01",
+      "name": "Thành phố Hà Nội",
+      "level": "PROVINCE",
+      "parent_code": null
+    },
+    {
+      "code": "79",
+      "name": "Thành phố Hồ Chí Minh",
+      "level": "PROVINCE",
+      "parent_code": null
+    },
+    {
+      "code": "48",
+      "name": "Thành phố Đà Nẵng",
+      "level": "PROVINCE",
+      "parent_code": null
+    },
+    {
+      "code": "WARD-HN-001",
+      "name": "Tràng Tiền",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-002",
+      "name": "Hàng Bạc",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-003",
+      "name": "Cửa Đông",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-004",
+      "name": "Dịch Vọng",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-005",
+      "name": "Nghĩa Tân",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-006",
+      "name": "Láng Thượng",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HN-007",
+      "name": "Bách Khoa",
+      "level": "WARD",
+      "parent_code": "01"
+    },
+    {
+      "code": "WARD-HCM-001",
+      "name": "Bến Nghé",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-HCM-002",
+      "name": "Bến Thành",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-HCM-003",
+      "name": "Đa Kao",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-HCM-004",
+      "name": "Tân Định",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-HCM-005",
+      "name": "Thảo Điền",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-HCM-006",
+      "name": "Võ Thị Sáu",
+      "level": "WARD",
+      "parent_code": "79"
+    },
+    {
+      "code": "WARD-DN-001",
+      "name": "Thạch Thang",
+      "level": "WARD",
+      "parent_code": "48"
+    },
+    {
+      "code": "WARD-DN-002",
+      "name": "Hải Châu 1",
+      "level": "WARD",
+      "parent_code": "48"
+    },
+    {
+      "code": "WARD-DN-003",
+      "name": "Hải Châu 2",
+      "level": "WARD",
+      "parent_code": "48"
+    },
+    {
+      "code": "WARD-DN-004",
+      "name": "Phước Mỹ",
+      "level": "WARD",
+      "parent_code": "48"
+    },
+    {
+      "code": "WARD-DN-005",
+      "name": "Hòa Cường Bắc",
+      "level": "WARD",
+      "parent_code": "48"
+    },
+    {
+      "code": "WARD-TL-013",
+      "name": "Thuận Lộc",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-VN-014",
+      "name": "Vĩnh Ninh",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-PH-015",
+      "name": "Phú Hội",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-PN-016",
+      "name": "Phú Nhuận",
+      "level": "WARD",
+      "parent_code": "75"
+    },
+    {
+      "code": "WARD-GH-017",
+      "name": "Gia Hội",
+      "level": "WARD",
+      "parent_code": "75"
+    }
+  ]
+}

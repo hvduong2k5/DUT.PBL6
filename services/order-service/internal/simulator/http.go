@@ -93,8 +93,8 @@ func (s *Simulator) Handler() http.Handler {
 				errResponse(w, e)
 				return
 			}
-			if a.Province != "75" || a.Ward != "HUE-01" {
-				errResponse(w, domain.E("INVALID_ADMINISTRATIVE_UNIT", 422))
+			if e := s.adminValidator().Validate(a.Province, a.Ward); e != nil {
+				errResponse(w, e)
 				return
 			}
 			response(w, 200, map[string]bool{"valid": true})
@@ -128,7 +128,7 @@ func (s *Simulator) Handler() http.Handler {
 				errResponse(w, domain.E("ADDRESS_NOT_FOUND", 404))
 				return
 			}
-			response(w, 200, map[string]any{"address": domain.Address{Name: "Test customer", Phone: "+84905123456", Street: "Synthetic address", Ward: "HUE-01", Province: "75"}, "version": int64(1)})
+			response(w, 200, map[string]any{"address": domain.Address{Name: "Test customer", Phone: "+84905123456", Street: "Synthetic address", Ward: "WARD-TH-001", Province: "75"}, "version": int64(1)})
 		})
 		for _, action := range []string{"reserve", "finalize", "release", "reverse"} {
 			a := action

@@ -475,8 +475,8 @@ paths:
         '503': *f53shared3
       description: GUEST_COD_CHECKOUT_ENABLED and GUEST_VIETQR_CHECKOUT_ENABLED independently gate guest
         methods in keycloak mode; all flags default false. Guest skips Identity/Profile only after the guest
-        route allowlist. Saved addresses remain customer-only. The existing simulator accepts province 75
-        and ward HUE-01; this seam is unchanged.
+        route allowlist. Saved addresses remain customer-only. The simulator validates province/ward pairs against the canonical
+        administrative dataset shared with profile-service.
         Real Catalog COD uses cod-collection-1.0 by default, with an optional server-configured ORDER_COD_POLICY_REFERENCE override. The
         canonical snapshot records the final collect amount, with no bank receiver or payment deadline.
         A confirmed COD order remains UNPAID; completion still requires Finance settlement evidence.
@@ -518,7 +518,7 @@ paths:
                 phone: '0901234567'
                 street: 1 Test Street
                 province_code: '75'
-                ward_code: HUE-01
+                ward_code: WARD-TH-001
   /api/v1/checkout-operations/{id}:
     get:
       tags:

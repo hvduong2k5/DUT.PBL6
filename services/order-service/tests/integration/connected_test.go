@@ -186,7 +186,7 @@ func httpCoreOrder(t *testing.T, h *harness, method string) (domain.Quote, domai
 	}
 	var q domain.Quote
 	var preview map[string]json.RawMessage
-	if code := h.request(h.API.URL, "POST", "/api/v1/checkout/quote", h.Token, domain.QuoteInput{Revision: cart.Revision, Method: method, Address: &domain.Address{Name: "Synthetic customer", Phone: "+84905123456", Street: "Test only", Ward: "HUE-01", Province: "75"}}, &preview); code != 200 {
+	if code := h.request(h.API.URL, "POST", "/api/v1/checkout/quote", h.Token, domain.QuoteInput{Revision: cart.Revision, Method: method, Address: &domain.Address{Name: "Synthetic customer", Phone: "+84905123456", Street: "Test only", Ward: "WARD-TH-001", Province: "75"}}, &preview); code != 200 {
 		t.Fatal("quote", code, preview)
 	}
 	raw, _ := json.Marshal(preview)

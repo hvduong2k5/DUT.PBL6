@@ -32,7 +32,7 @@ func TestCatalogCODSnapshotsCollectionPolicyWithoutClaimingSettlement(t *testing
 	}))
 	defer catalog.Close()
 	s := &Service{C: Config{CatalogURL: catalog.URL}, Client: catalog.Client(), Shipping: &shippingprovider.Adapter{Client: codShippingPeer{}}}
-	quote := domain.Quote{ID: uuid.NewString(), Method: "COD", Items: []domain.Item{{SKU: "SKU-A", Quantity: 1}}, Address: domain.Address{Name: "TEST", Phone: "+84905123456", Province: "75", Ward: "HUE-01", Street: "TEST"}}
+	quote := domain.Quote{ID: uuid.NewString(), Method: "COD", Items: []domain.Item{{SKU: "SKU-A", Quantity: 1}}, Address: domain.Address{Name: "TEST", Phone: "+84905123456", Province: "75", Ward: "WARD-TH-001", Street: "TEST"}}
 	for _, policy := range []string{" blank ", strings.Repeat("x", 256)} {
 		s.C.CODPolicyReference = policy
 		if _, err := s.catalogTerms(context.Background(), quote); err == nil {

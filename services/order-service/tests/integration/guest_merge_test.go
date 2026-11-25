@@ -238,7 +238,7 @@ func TestMergedSQLCartCheckoutCleanupAndConcurrentEdits(t *testing.T) {
 			if _, e := h.S.MergeGuestCart(h.ctx, customer, token, uuid.NewString()); e != nil {
 				t.Fatal(e)
 			}
-			q, e := h.S.CreateQuote(h.ctx, customer, domain.QuoteInput{Revision: 2, Method: "COD", Address: &domain.Address{Name: "Customer", Phone: "0905123456", Street: "Test only", Ward: "HUE-01", Province: "75"}})
+			q, e := h.S.CreateQuote(h.ctx, customer, domain.QuoteInput{Revision: 2, Method: "COD", Address: &domain.Address{Name: "Customer", Phone: "0905123456", Street: "Test only", Ward: "WARD-TH-001", Province: "75"}})
 			if e != nil {
 				t.Fatal(e)
 			}
