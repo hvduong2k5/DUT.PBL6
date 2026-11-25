@@ -517,8 +517,8 @@ paths:
                 recipient_name: Guest
                 phone: '0901234567'
                 street: 1 Test Street
-                province_code: '75'
-                ward_code: WARD-TH-001
+                province_code: '46'
+                ward_code: '19753'
   /api/v1/checkout-operations/{id}:
     get:
       tags:

@@ -33,7 +33,7 @@ func TestProfileIntegrity(t *testing.T) {
 	require.Equal(t, id, profile.ID)
 	require.NotEqual(t, id, userID)
 	makeAddress := func(i int) *domain.ShippingAddress {
-		return &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Recipient", PhoneNumber: "0905111111", StreetAddress: fmt.Sprintf("%d Lê Lợi", i+1), WardCode: "WARD-TH-001", ProvinceCode: "75", Label: "HOME", CreatedAt: now, UpdatedAt: now}
+		return &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Recipient", PhoneNumber: "0905111111", StreetAddress: fmt.Sprintf("%d Lê Lợi", i+1), WardCode: "19753", ProvinceCode: "46", Label: "HOME", CreatedAt: now, UpdatedAt: now}
 	}
 	t.Run("concurrent first creation and switches", func(t *testing.T) {
 		const n = 20
@@ -107,7 +107,7 @@ func TestProfileIntegrity(t *testing.T) {
 		require.Equal(t, "+84905111111", a.PhoneNumber)
 	})
 	t.Run("normalizes canonical ward names on write and backfills stored names", func(t *testing.T) {
-		_, err := pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận, Thành phố Huế' WHERE code = 'WARD-TH-001'`)
+		_, err := pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận, Thành phố Huế' WHERE code = '19753'`)
 		require.NoError(t, err)
 		a := makeAddress(101)
 		require.NoError(t, addresses.CreateAddress(ctx, a))
@@ -128,7 +128,7 @@ func TestProfileIntegrity(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "Phường Phú Nhuận", saved.WardName)
 		require.Equal(t, a.Version, saved.Version)
-		_, err = pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận' WHERE code = 'WARD-TH-001'`)
+		_, err = pool.Exec(ctx, `UPDATE administrative_units SET full_name = 'Phường Phú Nhuận' WHERE code = '19753'`)
 		require.NoError(t, err)
 	})
 	t.Run("outbox failure rolls back profile address and claim", func(t *testing.T) {

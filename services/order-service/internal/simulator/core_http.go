@@ -18,6 +18,9 @@ import (
 func (s *Simulator) coreRoutes(api chi.Router) {
 	s.coreLifecycleRoutes(api)
 	api.Post("/order-core/terms", func(w http.ResponseWriter, r *http.Request) {
+		if s.catalogueBlocked(w, r) {
+			return
+		}
 		var q domain.Quote
 		if e := read(r, &q); e != nil || q.Address.Validate() != nil {
 			errResponse(w, domain.E("INVALID_QUOTE_INPUT", 422))
@@ -99,6 +102,9 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 		response(w, 200, terms)
 	})
 	api.Post("/order-core/revalidate", func(w http.ResponseWriter, r *http.Request) {
+		if s.catalogueBlocked(w, r) {
+			return
+		}
 		if s.Fault(r.Context(), "core_revalidate") == "unavailable" {
 			errResponse(w, domain.E("DEPENDENCY_UNKNOWN", 503))
 			return

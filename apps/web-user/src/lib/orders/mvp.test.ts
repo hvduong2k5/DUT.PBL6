@@ -52,9 +52,9 @@ function ownedOrder(overrides: Partial<OwnedOrder> = {}): OwnedOrder {
         recipient_name: "Golden Audit",
         phone: "0900000333",
         street: "2 Le Loi",
-        ward_code: "WARD-PN-016",
-        ward_name: "Phường Phú Nhuận",
-        province_code: "75",
+        ward_code: "19753",
+        ward_name: "Phường Phú Xuân",
+        province_code: "46",
         province_name: "Thành phố Huế"
       },
       subtotal: 255000,
@@ -80,7 +80,7 @@ describe("MVP order mappers (F-36)", () => {
 
   it("detail renders the recipient address with ward/province names when present", () => {
     const detail = mapMvpOrderDetail(ownedOrder());
-    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Nhuận, Thành phố Huế");
+    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Xuân, Thành phố Huế");
   });
 
   it("renders a province once when a historical snapshot has the same suffix on the ward", () => {
@@ -103,7 +103,7 @@ describe("MVP order mappers (F-36)", () => {
       }
     };
     const detail = mapMvpOrderDetail(order);
-    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, WARD-PN-016, 75");
+    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, 19753, 46");
   });
 
   it("cancellation block exposes customer labels instead of raw codes", () => {

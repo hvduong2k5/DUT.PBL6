@@ -9,15 +9,17 @@ import (
 )
 
 // The canonical dataset embedded in this package must stay identical to the
-// administrative_units seed that profile-service (the data owner) loads from
-// its migrations. This is the candidate-consistency check from the
-// address-seam design: divergence fails the build in the Dev Gate instead of
-// surfacing as a production checkout failure.
+// administrative_units catalogue that profile-service (the data owner)
+// serves. Since migration 000005 the catalogue is defined by a single
+// full-replace migration (DELETE + INSERT of the whole set), so the
+// expected content is exactly that file's rows; the 000001/000002 seeds
+// are superseded history. This is the candidate-consistency check from
+// the address-seam design: divergence fails the build in the Dev Gate
+// instead of surfacing as a production checkout failure.
 func TestAdministrativeDatasetMatchesProfileSeed(t *testing.T) {
 	root := repoRoot(t)
 	files := []string{
-		filepath.Join(root, "services", "profile-service", "migrations", "000001_init_schema.up.sql"),
-		filepath.Join(root, "services", "profile-service", "migrations", "000002_street_mappings_and_national_seed.up.sql"),
+		filepath.Join(root, "services", "profile-service", "migrations", "000005_full_administrative_catalogue.up.sql"),
 	}
 	row := regexp.MustCompile(`\('([^']+)',\s*'([^']*)',\s*'[^']*',\s*'[^']*',\s*(NULL|'[^']*'),\s*'(PROVINCE|WARD)'\)`)
 	want := map[string]string{}

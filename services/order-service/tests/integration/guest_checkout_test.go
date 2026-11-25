@@ -51,7 +51,7 @@ func TestGuestCODKeycloakHTTPAndPendingLimit(t *testing.T) {
 	var firstKey string
 	for i := 0; i < 3; i++ {
 		var q domain.Quote
-		input := domain.QuoteInput{Revision: cart.Revision, Method: "COD", Address: &domain.Address{Name: "Guest COD", Phone: "0905123456", Street: "Test only", Ward: "WARD-TH-001", Province: "75"}}
+		input := domain.QuoteInput{Revision: cart.Revision, Method: "COD", Address: &domain.Address{Name: "Guest COD", Phone: "0905123456", Street: "Test only", Ward: "19753", Province: "46"}}
 		if code := h.request(h.API.URL, "POST", "/api/v1/checkout/quote", h.Token, input, &q, "Accept", "application/vnd.omama.customer-mvp+json"); code != 200 {
 			t.Fatal("guest inline quote", code)
 		}

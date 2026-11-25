@@ -15,18 +15,18 @@ import (
 var rawFuzzyCasesCSV string
 
 var testAdministrativeCandidates = []usecase.AdministrativeCandidate{
-	{Code: "WARD-TH-001", Name: "Thuận Hòa", Level: "WARD"},
-	{Code: "WARD-VL-002", Name: "Vĩnh Lộc", Level: "WARD"},
-	{Code: "WARD-PB-003", Name: "Phú Bài", Level: "WARD"},
-	{Code: "WARD-KL-004", Name: "Kim Long", Level: "WARD"},
-	{Code: "WARD-VD-005", Name: "Vỹ Dạ", Level: "WARD"},
-	{Code: "WARD-AC-006", Name: "An Cựu", Level: "WARD"},
-	{Code: "WARD-XP-007", Name: "Xuân Phú", Level: "WARD"},
-	{Code: "WARD-DN-008", Name: "Đức Nhuận", Level: "WARD"},
-	{Code: "WARD-TX-009", Name: "Thủy Xuân", Level: "WARD"},
-	{Code: "WARD-TB-010", Name: "Thủy Biều", Level: "WARD"},
-	{Code: "WARD-TL-011", Name: "Tây Lộc", Level: "WARD"},
-	{Code: "WARD-DB-012", Name: "Đông Ba", Level: "WARD"},
+	{Code: "W001", Name: "Thuận Hòa", Level: "WARD"},
+	{Code: "W002", Name: "Vĩnh Lộc", Level: "WARD"},
+	{Code: "W003", Name: "Phú Bài", Level: "WARD"},
+	{Code: "W004", Name: "Kim Long", Level: "WARD"},
+	{Code: "W005", Name: "Vỹ Dạ", Level: "WARD"},
+	{Code: "W006", Name: "An Cựu", Level: "WARD"},
+	{Code: "W007", Name: "Xuân Phú", Level: "WARD"},
+	{Code: "W008", Name: "Đức Nhuận", Level: "WARD"},
+	{Code: "W009", Name: "Thủy Xuân", Level: "WARD"},
+	{Code: "W010", Name: "Thủy Biều", Level: "WARD"},
+	{Code: "W011", Name: "Tây Lộc", Level: "WARD"},
+	{Code: "W012", Name: "Đông Ba", Level: "WARD"},
 }
 
 func TestAddressFuzzyMatcher_GoldenDatasetValidation(t *testing.T) {

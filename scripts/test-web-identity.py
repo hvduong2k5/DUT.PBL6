@@ -720,6 +720,13 @@ def main():
                 / "services/profile-service/migrations/000004_normalize_shipping_ward_names.up.sql"
             ).read_text(encoding="utf-8")
         )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
+                / "services/profile-service/migrations/000005_full_administrative_catalogue.up.sql"
+            ).read_text(encoding="utf-8")
+        )
         for index, account in enumerate(accounts.values()):
             sql(
                 f"INSERT INTO profile.customer_profiles(id,user_id,full_name,phone_number,email,status) VALUES('{account['customer']}','{account['principal']}','Synthetic Customer {index}','090000000{index}','{account['email']}','ACTIVE');"
