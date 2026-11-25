@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omamx/shipping-service/internal/application"
 	"github.com/omamx/shipping-service/internal/domain"
@@ -59,7 +60,7 @@ func (r *Repository) SaveQuote(ctx context.Context, quote *domain.ShippingQuote)
 	return persisted, false, err
 }
 
-func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
+func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey, requestHash string, shipment *domain.Shipment) (*domain.Shipment, bool, error) {
 	recipient, err := json.Marshal(shipment.Recipient)
 	if err != nil {
 		return nil, false, err
@@ -70,14 +71,14 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 	}
 	commandTag, err := r.pool.Exec(ctx, `
 		INSERT INTO shipments (
-			id, shipment_number, idempotency_key, order_id, package_id, seal_code,
+			id, shipment_number, idempotency_key, request_hash, order_id, package_id, seal_code,
 			carrier_code, service_code, status, recipient, parcel, cod_amount_vnd,
 			checkout_fee_vnd, quote_id, ready_generation, items_digest,
 			order_snapshot_version, packing_task_id, packing_task_version, packed_at,
 			event_version, created_at, updated_at, revision
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
 		ON CONFLICT (idempotency_key) DO NOTHING`,
-		shipment.ID, shipment.ShipmentNumber, idempotencyKey, shipment.OrderID, shipment.PackageID,
+		shipment.ID, shipment.ShipmentNumber, idempotencyKey, requestHash, shipment.OrderID, shipment.PackageID,
 		shipment.SealCode, shipment.CarrierCode, shipment.ServiceCode, shipment.Status, recipient, parcel,
 		shipment.CODAmountVND, shipment.CheckoutFeeVND, shipment.QuoteID, shipment.ReadyGeneration,
 		shipment.ItemsDigest, shipment.OrderSnapshotVersion, shipment.PackingTaskID,
@@ -92,8 +93,133 @@ func (r *Repository) BeginCreation(ctx context.Context, idempotencyKey string, s
 	if commandTag.RowsAffected() == 1 {
 		return shipment, true, nil
 	}
+	var existingHash pgtype.Text
+	if err := r.pool.QueryRow(ctx, `SELECT request_hash FROM shipments WHERE idempotency_key=$1`, idempotencyKey).Scan(&existingHash); err != nil {
+		return nil, false, err
+	}
+	if !existingHash.Valid || existingHash.String != requestHash {
+		return nil, false, domain.ErrIdempotencyConflict
+	}
 	existing, err := r.getByIdempotencyKey(ctx, idempotencyKey)
 	return existing, false, err
+}
+
+func (r *Repository) BeginReturnCreation(ctx context.Context, idempotencyKey, requestHash string, shipment *domain.ReturnShipment) (*domain.ReturnShipment, bool, error) {
+	pickup, err := json.Marshal(shipment.PickupAddress)
+	if err != nil {
+		return nil, false, err
+	}
+	destination, err := json.Marshal(shipment.Destination)
+	if err != nil {
+		return nil, false, err
+	}
+	parcel, err := json.Marshal(shipment.Parcel)
+	if err != nil {
+		return nil, false, err
+	}
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO return_shipments (
+			id, shipment_number, return_case_id, order_id, package_id, idempotency_key,
+			request_hash, carrier_code, service_code, pickup_address, destination, parcel,
+			reason_code, shipping_notes, status, cod_amount_vnd, fee_payer,
+			provider_estimated_fee_vnd, failure_code, failure_reason, created_at, updated_at, revision
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,0,'SHOP',0,'','',$16,$17,$18)
+		ON CONFLICT DO NOTHING`,
+		shipment.ID, shipment.ShipmentNumber, shipment.ReturnCaseID, shipment.OrderID, shipment.PackageID,
+		idempotencyKey, requestHash, shipment.CarrierCode, shipment.ServiceCode, pickup, destination, parcel,
+		shipment.ReasonCode, shipment.ShippingNotes, shipment.Status, shipment.CreatedAt, shipment.UpdatedAt, shipment.Revision)
+	if err != nil {
+		return nil, false, err
+	}
+	if tag.RowsAffected() == 1 {
+		return shipment, true, nil
+	}
+	var existingKey, existingHash string
+	err = r.pool.QueryRow(ctx, `
+		SELECT idempotency_key, request_hash FROM return_shipments
+		WHERE idempotency_key=$1 OR (return_case_id=$2 AND package_id=$3)
+		ORDER BY CASE WHEN idempotency_key=$1 THEN 0 ELSE 1 END LIMIT 1`,
+		idempotencyKey, shipment.ReturnCaseID, shipment.PackageID).Scan(&existingKey, &existingHash)
+	if err != nil {
+		return nil, false, err
+	}
+	if existingKey != idempotencyKey || existingHash != requestHash {
+		return nil, false, domain.ErrIdempotencyConflict
+	}
+	existing, err := scanReturnShipment(r.pool.QueryRow(ctx, selectReturnShipment+` WHERE idempotency_key=$1`, idempotencyKey))
+	return existing, false, err
+}
+
+func (r *Repository) SaveReturnShipment(ctx context.Context, shipment *domain.ReturnShipment, expectedRevision int64, event *domain.ReturnShipmentEvent) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `
+		UPDATE return_shipments SET carrier_order_id=$2, tracking_code=$3, status=$4,
+			provider_estimated_fee_vnd=$5, failure_code=$6, failure_reason=$7,
+			updated_at=$8, revision=$9
+		WHERE id=$1 AND revision=$10`,
+		shipment.ID, shipment.CarrierOrderID, shipment.TrackingCode, shipment.Status,
+		shipment.ProviderEstimatedFeeVND, shipment.FailureCode, shipment.FailureReason,
+		shipment.UpdatedAt, shipment.Revision, expectedRevision)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return domain.ErrConcurrentUpdate
+	}
+	if event != nil {
+		payload, marshalErr := json.Marshal(event)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO outbox_events (id, aggregate_id, aggregate_type, event_type, topic, partition_key, payload, occurred_at)
+			VALUES ($1,$2,'return_shipment',$3,$4,$5,$6,$7)`,
+			event.ID, event.AggregateID, event.Type, event.Topic, event.AggregateID.String(), payload, event.OccurredAt)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (r *Repository) GetReturnShipment(ctx context.Context, id uuid.UUID) (*domain.ReturnShipment, error) {
+	return scanReturnShipment(r.pool.QueryRow(ctx, selectReturnShipment+` WHERE id=$1`, id))
+}
+
+func (r *Repository) BindAction(ctx context.Context, shipmentID uuid.UUID, action, idempotencyKey, requestHash string) error {
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO shipment_action_idempotency (idempotency_key, shipment_id, action_type, request_hash)
+		VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, idempotencyKey, shipmentID, action, requestHash)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		return nil
+	}
+	var existingShipmentID uuid.UUID
+	var existingAction, existingHash string
+	err = r.pool.QueryRow(ctx, `
+		SELECT shipment_id, action_type, request_hash FROM shipment_action_idempotency
+		WHERE idempotency_key=$1 OR (shipment_id=$2 AND action_type=$3)
+		LIMIT 1`, idempotencyKey, shipmentID, action).Scan(&existingShipmentID, &existingAction, &existingHash)
+	if err != nil {
+		return err
+	}
+	if existingShipmentID != shipmentID || existingAction != action || existingHash != requestHash {
+		return domain.ErrIdempotencyConflict
+	}
+	var existingKey string
+	if err := r.pool.QueryRow(ctx, `SELECT idempotency_key FROM shipment_action_idempotency WHERE shipment_id=$1 AND action_type=$2`, shipmentID, action).Scan(&existingKey); err != nil {
+		return err
+	}
+	if existingKey != idempotencyKey {
+		return domain.ErrIdempotencyConflict
+	}
+	return nil
 }
 
 func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, event *domain.DomainEvent) error {
@@ -103,6 +229,13 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := saveShipmentTx(ctx, tx, shipment, expectedRevision, tracking, event); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func saveShipmentTx(ctx context.Context, tx pgx.Tx, shipment *domain.Shipment, expectedRevision int64, tracking *domain.TrackingEvent, event *domain.DomainEvent) error {
 	if tracking != nil {
 		tag, insertErr := tx.Exec(ctx, `
 			INSERT INTO tracking_events (
@@ -170,7 +303,7 @@ func (r *Repository) Save(ctx context.Context, shipment *domain.Shipment, expect
 			return insertErr
 		}
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Shipment, error) {
@@ -239,7 +372,7 @@ func (r *Repository) TrackingTimeline(ctx context.Context, shipmentID uuid.UUID)
 		return nil, err
 	}
 	defer rows.Close()
-	var result []domain.TrackingEvent
+	result := make([]domain.TrackingEvent, 0)
 	for rows.Next() {
 		var event domain.TrackingEvent
 		if err := rows.Scan(&event.ID, &event.ShipmentID, &event.ExternalEventID, &event.CarrierCode,
@@ -269,6 +402,13 @@ const selectQuote = `SELECT
 	service_code, service_name, fee_vnd, estimated_delivery_at, expires_at,
 	created_at, quote_version
 FROM shipping_quotes`
+
+const selectReturnShipment = `SELECT
+	id, shipment_number, return_case_id, order_id, package_id, carrier_code, service_code,
+	carrier_order_id, tracking_code, status, pickup_address, destination, parcel,
+	cod_amount_vnd, fee_payer, provider_estimated_fee_vnd, reason_code, shipping_notes,
+	failure_code, failure_reason, created_at, updated_at, revision
+FROM return_shipments`
 
 type rowScanner interface{ Scan(...any) error }
 
@@ -324,9 +464,36 @@ func scanShipment(row rowScanner) (*domain.Shipment, error) {
 	return &shipment, nil
 }
 
+func scanReturnShipment(row rowScanner) (*domain.ReturnShipment, error) {
+	var shipment domain.ReturnShipment
+	var pickup, destination, parcel []byte
+	err := row.Scan(&shipment.ID, &shipment.ShipmentNumber, &shipment.ReturnCaseID,
+		&shipment.OrderID, &shipment.PackageID, &shipment.CarrierCode, &shipment.ServiceCode,
+		&shipment.CarrierOrderID, &shipment.TrackingCode, &shipment.Status, &pickup,
+		&destination, &parcel, &shipment.CODAmountVND, &shipment.FeePayer,
+		&shipment.ProviderEstimatedFeeVND, &shipment.ReasonCode, &shipment.ShippingNotes, &shipment.FailureCode,
+		&shipment.FailureReason, &shipment.CreatedAt, &shipment.UpdatedAt, &shipment.Revision)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrReturnShipmentNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(pickup, &shipment.PickupAddress); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(destination, &shipment.Destination); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(parcel, &shipment.Parcel); err != nil {
+		return nil, err
+	}
+	return &shipment, nil
+}
+
 func scanShipments(rows pgx.Rows) ([]domain.Shipment, error) {
 	defer rows.Close()
-	var result []domain.Shipment
+	result := make([]domain.Shipment, 0)
 	for rows.Next() {
 		shipment, err := scanShipment(rows)
 		if err != nil {

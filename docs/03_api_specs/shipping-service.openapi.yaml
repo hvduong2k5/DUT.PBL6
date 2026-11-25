@@ -1,0 +1,782 @@
+openapi: 3.0.3
+info:
+  title: MS-12 Shipping Service Internal HTTP API
+  version: 2.13.0
+  description: >-
+    Contract for the implemented Shipping HTTP endpoints. These are employee-admin,
+    service-to-service, operational, and provider-webhook endpoints; they are not a customer-facing API and
+    are private except for admin reads (via the explicit Kong v2 provider prefix) and the GHN callback. Order integrations should use the versioned
+    Shipping gRPC contract unless an owning-service decision explicitly selects HTTP.
+    Version 2.0.0 requires Idempotency-Key on shipment creation, cancellation, and handover.
+    Version 2.1.0 rejects reuse of a shipment-creation key with a different request payload.
+    Version 2.2.0 rejects shipment-list pagination values that overflow the supported offset range.
+    Version 2.3.0 rejects shipment-list status filters outside the declared enum.
+    Version 2.4.0 maps carrier quote failures to 502 instead of internal errors.
+    Version 2.5.0 rejects JSON-body requests without the application/json media type.
+    Version 2.6.0 applies the same media-type requirement to authenticated carrier webhooks.
+    Version 2.7.0 returns 413 when an HTTP request body exceeds the 1 MiB limit.
+    Version 2.8.0 rejects explicitly empty shipment-list pagination parameters.
+    Version 2.9.0 rejects repeated shipment-list pagination parameters.
+    Version 2.10.0 rejects repeated shipment-list filter parameters.
+    Version 2.11.0 binds cancellation and handover idempotency keys to their canonical action payload.
+    Version 2.12.0 protects employee admin reads with an Identity-issued JWT and SHIPMENT_VIEW#GLOBAL; service-to-service routes retain the internal token.
+    Version 2.13.0 adds a separate internal return-shipment resource and event stream. Care may request creation only after an employee approves the return case; Shipping does not approve cases, refund money, or mutate Order.
+servers:
+  - url: http://localhost:8012
+    description: Local development only
+tags:
+  - name: Health
+  - name: Internal shipping
+  - name: Internal query
+  - name: Employee admin
+  - name: Carrier webhooks
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      operationId: shippingLiveness
+      summary: Check that the process is running
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+  /health/ready:
+    get:
+      tags: [Health]
+      operationId: shippingReadiness
+      summary: Check database readiness
+      responses:
+        '200':
+          description: Database is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ready] }
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/internal/shipping/quotes:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingGetQuote
+      summary: Calculate a provider-neutral delivery quote
+      security:
+        - internalBearer: []
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuoteRequest' }
+      responses:
+        '200':
+          description: Quote calculated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/v1/internal/shipments:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCreateShipment
+      summary: Create a carrier shipment idempotently
+      description: >-
+        Required retry key. If the legacy body idempotency_key is also supplied, it must
+        match this header. Reusing the same key with the same request returns the original
+        shipment; reusing it with a different request returns 409 IDEMPOTENCY_KEY_REUSED.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateShipmentRequest' }
+      responses:
+        '201':
+          description: Shipment created or idempotent prior result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected or failed shipment creation; shipment state may be included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+  /api/v1/internal/return-shipments:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCreateReturnShipment
+      summary: Create a customer-to-warehouse return pickup
+      description: >-
+        Care may call this endpoint only after its employee has approved the return case.
+        The return pickup is a separate resource from the outbound shipment. The customer
+        address is the pickup address, the warehouse is the destination, COD is always zero,
+        and the shop pays the carrier fee. Shipping does not approve the case, execute refunds,
+        or change Order. The MVP supports the deterministic FAKE carrier only.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateReturnShipmentRequest' }
+      responses:
+        '201':
+          description: Return shipment created or matching idempotent result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnShipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected creation; the persisted failed return shipment is included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, return_shipment]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  return_shipment: { $ref: '#/components/schemas/ReturnShipment' }
+  /api/v1/internal/return-shipments/{returnShipmentID}:
+    get:
+      tags: [Internal shipping]
+      operationId: shippingGetReturnShipment
+      summary: Get a return shipment
+      description: Internal read for Care and other trusted backend callers; not customer-facing.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - name: returnShipmentID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Return shipment resource
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnShipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/internal/shipments/{shipmentID}/cancel:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingCancelShipment
+      summary: Cancel a shipment before handover
+      description: >-
+        The idempotency key is bound to this shipment cancellation and its normalized reason
+        payload. Reusing it with a different request, or using a different key for the same
+        shipment cancellation, returns 409 IDEMPOTENCY_KEY_REUSED. A matching retry returns the
+        current shipment state without repeating the state transition.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason_code:
+                  type: string
+                  enum: [PICKUP_DELAY, OUT_OF_STOCK, RECIPIENT_CHANGED_MIND, OTHER]
+                  default: OTHER
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Shipment cancellation completed or idempotent prior result returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502':
+          description: Carrier rejected cancellation; shipment state is included
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, shipment]
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+  /api/v1/internal/shipments/{shipmentID}/label-url:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingGenerateLabelUrl
+      summary: Generate a short-lived carrier label URL
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string, enum: [A5, 80X80, 52X70], default: A5 }
+      responses:
+        '200':
+          description: Short-lived label access
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LabelAccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '502': { $ref: '#/components/responses/BadGateway' }
+  /api/v1/internal/shipments/{shipmentID}/handover:
+    post:
+      tags: [Internal shipping]
+      operationId: shippingConfirmHandover
+      summary: Record carrier handover
+      description: >-
+        The idempotency key is bound to this shipment handover. Reusing it for a different
+        action or using a different key for the same shipment handover returns 409
+        IDEMPOTENCY_KEY_REUSED. A matching retry returns the current shipment state without
+        repeating the state transition.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Handover recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Shipment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/admin/shipping/shipments:
+    get:
+      tags: [Employee admin]
+      operationId: shippingListShipments
+      summary: List shipments for authorized employee operations
+      description: >-
+        Requires a valid Identity-issued RS256 JWT with the configured issuer and audience, principal_type EMPLOYEE,
+        user_id, and SHIPMENT_VIEW#GLOBAL. The current Shipping read model has no warehouse or department ownership
+        field, so scoped grants do not authorize this aggregate list. Other internal operations continue to use the
+        shared internal token. Empty, non-positive, or non-numeric page values,
+        repeated, empty, non-positive, or non-numeric page values, repeated pageSize values,
+        pageSize values outside 1-100, or a computed offset beyond the supported integer range
+        return 400 INVALID_PAGINATION. Omitted page and pageSize use their documented defaults.
+        Repeated status values and status outside the declared enum return 400 INVALID_STATUS_FILTER.
+        Repeated carrier or orderId values return 400 INVALID_FILTER.
+      security:
+        - employeeBearer: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ShipmentStatus' }
+        - name: carrier
+          in: query
+          schema: { type: string }
+        - name: orderId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Page of shipments; empty results return an empty items array
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, page_size]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Shipment' }
+                  page: { type: integer }
+                  page_size: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/admin/shipping/shipments/{shipmentID}:
+    get:
+      tags: [Employee admin]
+      operationId: shippingGetShipment
+      summary: Get a shipment and its tracking timeline for an authorized employee
+      description: Requires a valid Identity-issued RS256 JWT with configured issuer and audience, principal_type EMPLOYEE, user_id, and SHIPMENT_VIEW#GLOBAL. Warehouse/department scopes are not supported by the current Shipping read model.
+      security:
+        - employeeBearer: []
+      parameters:
+        - $ref: '#/components/parameters/ShipmentID'
+      responses:
+        '200':
+          description: Shipment and tracking events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipment, tracking_events]
+                properties:
+                  shipment: { $ref: '#/components/schemas/Shipment' }
+                  tracking_events:
+                    type: array
+                    items: { $ref: '#/components/schemas/TrackingEvent' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/orders/{orderID}/tracking:
+    get:
+      tags: [Internal query]
+      operationId: shippingTrackOrder
+      summary: Get customer-safe tracking data for an order
+      description: Internal-token protected; not a public customer endpoint or currently exposed by Kong.
+      security:
+        - internalBearer: []
+        - internalToken: []
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Order shipment tracking; no shipments returns an empty array
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [order_id, shipments]
+                properties:
+                  order_id: { type: string }
+                  shipments:
+                    type: array
+                    items: { $ref: '#/components/schemas/PublicTracking' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/webhooks/logistics/fake:
+    post:
+      tags: [Carrier webhooks]
+      operationId: shippingReceiveFakeCarrierWebhook
+      summary: Accept a signed fake-carrier tracking callback
+      security:
+        - fakeWebhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Callback accepted or recognized as duplicate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/webhooks/logistics/ghn:
+    post:
+      tags: [Carrier webhooks]
+      operationId: shippingReceiveGhnWebhook
+      summary: Accept an authenticated GHN tracking callback
+      description: Returns 404 when GHN webhook configuration is disabled. The secret is compared in constant time.
+      security:
+        - ghnWebhookSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Callback accepted or recognized as duplicate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookAccepted' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: Shipment is not committed yet; provider should retry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    employeeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Identity-issued RS256 employee access token; Shipping validates issuer, audience omama-api, employee principal, and SHIPMENT_VIEW#GLOBAL.
+    internalBearer:
+      type: http
+      scheme: bearer
+      description: Shared trusted-service token from SHIPPING_INTERNAL_TOKEN
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Compatibility form of the shared trusted-service token
+    fakeWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Shipping-Signature
+      description: sha256=<hex HMAC-SHA256 of the exact request body>
+    ghnWebhookSecret:
+      type: apiKey
+      in: header
+      name: X-GHN-Webhook-Secret
+  parameters:
+    ShipmentID:
+      name: shipmentID
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Required for retryable create and action operations. Replays of the same desired-state action return the current outcome.
+      schema: { type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$' }
+  responses:
+    BadRequest:
+      description: Malformed JSON, invalid path identifier, or invalid input encoding
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    UnsupportedMediaType:
+      description: Request body must use the application/json media type
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    PayloadTooLarge:
+      description: Request body exceeds the 1 MiB limit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid employee JWT, service token, or webhook secret
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Employee identity is valid but the required permission or supported scope is missing
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Shipment or tracking resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Invalid state transition or idempotency conflict
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationFailed:
+      description: Business validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    InternalError:
+      description: Unexpected internal failure
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: Dependency unavailable or callback must be retried
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadGateway:
+      description: Carrier operation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, requestId]
+      properties:
+        code: { type: string, minLength: 1 }
+        message: { type: string, minLength: 1 }
+        requestId: { type: string, minLength: 1 }
+    Recipient:
+      type: object
+      required: [name, phone, street, ward, province]
+      properties:
+        name: { type: string, minLength: 1 }
+        phone: { type: string, minLength: 1 }
+        street: { type: string, minLength: 1 }
+        ward: { type: string, minLength: 1 }
+        district: { type: string, description: Optional for supported two-tier address formats }
+        province: { type: string, minLength: 1 }
+        country_code: { type: string, default: VN }
+        postal_code: { type: string }
+    Parcel:
+      type: object
+      required: [weight_grams, length_cm, width_cm, height_cm]
+      properties:
+        weight_grams: { type: integer, format: int64, minimum: 1 }
+        length_cm: { type: integer, format: int32, minimum: 1 }
+        width_cm: { type: integer, format: int32, minimum: 1 }
+        height_cm: { type: integer, format: int32, minimum: 1 }
+        fragile: { type: boolean }
+    QuoteRequest:
+      type: object
+      required: [carrier_code, destination, parcel]
+      properties:
+        carrier_code: { type: string, minLength: 1 }
+        destination: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        service_code: { type: string }
+    Quote:
+      type: object
+      required: [carrier_code, service_code, service_name, fee_vnd, estimated_delivery_at, expires_at]
+      properties:
+        carrier_code: { type: string }
+        service_code: { type: string }
+        service_name: { type: string }
+        fee_vnd: { type: integer, format: int64, minimum: 0 }
+        estimated_delivery_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+    CreateShipmentRequest:
+      type: object
+      required: [order_id, package_id, carrier_code, service_code, recipient, parcel]
+      properties:
+        idempotency_key: { type: string, deprecated: true, description: 'Legacy body field. If present, it must match the required Idempotency-Key header.' }
+        order_id: { type: string, minLength: 1 }
+        package_id: { type: string, minLength: 1 }
+        seal_code: { type: string }
+        carrier_code: { type: string, minLength: 1 }
+        service_code: { type: string, minLength: 1 }
+        recipient: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        cod_amount_vnd: { type: integer, format: int64, minimum: 0 }
+        checkout_fee_vnd: { type: integer, format: int64, minimum: 0 }
+        quote_id: { type: string }
+        ready_generation: { type: integer, format: int64, minimum: 0 }
+        items_digest: { type: string }
+        order_snapshot_version: { type: integer, format: int64, minimum: 0 }
+        packing_task_id: { type: string, format: uuid }
+        packing_task_version: { type: integer, format: int64, minimum: 0 }
+        packed_at: { type: string, format: date-time }
+        event_version: { type: integer, enum: [0, 1, 2], default: 1 }
+        shipping_notes: { type: string }
+    CreateReturnShipmentRequest:
+      type: object
+      required: [return_case_id, order_id, package_id, carrier_code, service_code, pickup_address, destination, parcel, reason_code]
+      properties:
+        return_case_id: { type: string, minLength: 1, maxLength: 128, description: Approved Care return-case identifier }
+        order_id: { type: string, minLength: 1, maxLength: 128 }
+        package_id: { type: string, minLength: 1, maxLength: 128 }
+        carrier_code: { type: string, enum: [FAKE] }
+        service_code: { type: string, minLength: 1 }
+        pickup_address:
+          allOf: [{ $ref: '#/components/schemas/Recipient' }]
+          description: Customer address
+        destination:
+          allOf: [{ $ref: '#/components/schemas/Recipient' }]
+          description: Return warehouse address
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        reason_code: { type: string, minLength: 1, maxLength: 80 }
+        shipping_notes: { type: string }
+    ReturnShipmentStatus:
+      type: string
+      enum: [CREATING, CREATED, CREATION_FAILED]
+    ReturnShipment:
+      type: object
+      required: [return_shipment_id, shipment_number, return_case_id, order_id, package_id, carrier_code, service_code, status, pickup_address, destination, parcel, cod_amount_vnd, fee_payer, provider_estimated_fee_vnd, reason_code, created_at, updated_at, revision]
+      properties:
+        return_shipment_id: { type: string, format: uuid }
+        shipment_number: { type: string }
+        return_case_id: { type: string }
+        order_id: { type: string }
+        package_id: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        carrier_order_id: { type: string }
+        tracking_code: { type: string }
+        status: { $ref: '#/components/schemas/ReturnShipmentStatus' }
+        pickup_address: { $ref: '#/components/schemas/Recipient' }
+        destination: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        shipping_notes: { type: string }
+        cod_amount_vnd: { type: integer, format: int64, enum: [0] }
+        fee_payer: { type: string, enum: [SHOP] }
+        provider_estimated_fee_vnd: { type: integer, format: int64, minimum: 0 }
+        reason_code: { type: string }
+        failure_code: { type: string }
+        failure_reason: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        revision: { type: integer, format: int64, minimum: 1 }
+    ShipmentStatus:
+      type: string
+      enum: [CREATING, CREATION_FAILED, CREATED, READY_FOR_HANDOVER, HANDED_OVER, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, DELIVERY_FAILED, RETURNING, RETURNED, CANCELLED]
+    Shipment:
+      type: object
+      required: [shipment_id, shipment_number, order_id, package_id, carrier_code, service_code, status, recipient, parcel, cod_amount_vnd, checkout_fee_vnd, event_version, provider_estimated_fee_vnd, created_at, updated_at, revision]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        shipment_number: { type: string }
+        order_id: { type: string }
+        package_id: { type: string }
+        seal_code: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        carrier_order_id: { type: string }
+        tracking_code: { type: string }
+        label_reference: { type: string }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }
+        recipient: { $ref: '#/components/schemas/Recipient' }
+        parcel: { $ref: '#/components/schemas/Parcel' }
+        cod_amount_vnd: { type: integer, format: int64 }
+        checkout_fee_vnd: { type: integer, format: int64 }
+        quote_id: { type: string }
+        ready_generation: { type: integer, format: int64 }
+        items_digest: { type: string }
+        order_snapshot_version: { type: integer, format: int64 }
+        packing_task_id: { type: string, format: uuid }
+        packing_task_version: { type: integer, format: int64 }
+        packed_at: { type: string, format: date-time }
+        event_version: { type: integer }
+        provider_estimated_fee_vnd: { type: integer, format: int64 }
+        actual_fee_vnd: { type: integer, format: int64, nullable: true }
+        failure_code: { type: string }
+        failure_reason: { type: string }
+        estimated_pickup_at: { type: string, format: date-time, nullable: true }
+        estimated_delivery_at: { type: string, format: date-time, nullable: true }
+        handed_over_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        last_event_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        revision: { type: integer, format: int64 }
+    LabelAccess:
+      type: object
+      required: [shipment_id, label_reference, format, label_url, expires_at]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        label_reference: { type: string }
+        format: { type: string, enum: [A5, 80X80, 52X70] }
+        label_url: { type: string, format: uri }
+        expires_at: { type: string, format: date-time }
+    TrackingEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        shipment_id: { type: string, format: uuid }
+        external_event_id: { type: string }
+        carrier_code: { type: string }
+        provider_status_code: { type: string }
+        provider_status_label: { type: string }
+        mapped_status: { $ref: '#/components/schemas/ShipmentStatus' }
+        mapping_result: { type: string }
+        location: { type: string }
+        public_description: { type: string }
+        internal_note: { type: string }
+        event_at: { type: string, format: date-time }
+        received_at: { type: string, format: date-time }
+    PublicTracking:
+      type: object
+      required: [shipment_id, package_id, carrier_code, service_code, status, tracking_events]
+      properties:
+        shipment_id: { type: string, format: uuid }
+        package_id: { type: string }
+        carrier_code: { type: string }
+        service_code: { type: string }
+        tracking_code: { type: string }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }
+        estimated_delivery_at: { type: string, format: date-time, nullable: true }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        tracking_events:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/TrackingEvent'
+            description: Internal note is omitted; only applied events are returned.
+    WebhookAccepted:
+      type: object
+      required: [accepted, result, shipment_id, status]
+      properties:
+        accepted: { type: boolean, enum: [true] }
+        result: { type: string }
+        shipment_id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ShipmentStatus' }

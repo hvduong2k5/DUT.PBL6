@@ -26,6 +26,17 @@ def contract(name, payload):
     ).validate(payload)
 
 
+def confirm_shipping_handover(request, shipping, shipment_id, internal_token):
+    # One stable key per shipment/action, including retries of the same handover.
+    return request(
+        shipping + "/api/v1/internal/shipments/" + shipment_id + "/handover",
+        {},
+        token=internal_token,
+        method="POST",
+        headers={"Idempotency-Key": "web-e2e-handover-" + shipment_id},
+    )
+
+
 def profile_addresses(request, web, opener, profile, foreign_id=None):
     def call(path, body=None, method=None, version=None):
         headers = {"Origin": web}
@@ -251,16 +262,10 @@ def checkout_shipping(request, web, opener, control, shipping, token, webhook, p
         status, shipment, _ = request(control + "/pack?order=" + paid, {}, method="POST")
         assert status == 200, ("shipping create", status, shipment)
     order_until(paid, lambda o: o.get("shipment_id") == shipment["shipment_id"])
-    status, _, _ = request(
-        shipping
-        + "/api/v1/internal/shipments/"
-        + shipment["shipment_id"]
-        + "/handover",
-        {},
-        token,
-        "POST",
+    status, handover, _ = confirm_shipping_handover(
+        request, shipping, shipment["shipment_id"], token,
     )
-    assert status == 200, ("handover", status)
+    assert status == 200, ("handover", status, handover)
     order_until(paid, lambda o: o["status"] == "SHIPPED")
     payload = {
         "event_id": uuid.uuid4().hex,

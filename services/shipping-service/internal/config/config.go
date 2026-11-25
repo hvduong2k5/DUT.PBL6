@@ -9,10 +9,16 @@ import (
 )
 
 type Config struct {
+	Environment        string
 	HTTPAddress        string
 	GRPCAddress        string
+	GRPCTLSCertFile    string
+	GRPCTLSKeyFile     string
 	DatabaseURL        string
 	InternalToken      string
+	OIDCIssuer         string
+	OIDCAudience       string
+	OIDCJWKSURL        string
 	FakeWebhookSecret  string
 	KafkaBrokers       []string
 	FulfillmentTopic   string
@@ -40,14 +46,26 @@ type Config struct {
 	GHNRequestTimeout  time.Duration
 	GHNRecoveryTimeout time.Duration
 	GHNQuoteTTL        time.Duration
+
+	InternalDeliveryEnabled    bool
+	InternalDeliveryFeeVND     int64
+	InternalDeliveryETA        time.Duration
+	InternalAssignmentsEnabled bool
+	IdentityBaseURL            string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
+		Environment:        env("SHIPPING_ENV", "production"),
 		HTTPAddress:        env("SHIPPING_HTTP_ADDRESS", ":8012"),
 		GRPCAddress:        env("SHIPPING_GRPC_ADDRESS", ":9012"),
+		GRPCTLSCertFile:    strings.TrimSpace(os.Getenv("SHIPPING_GRPC_TLS_CERT_FILE")),
+		GRPCTLSKeyFile:     strings.TrimSpace(os.Getenv("SHIPPING_GRPC_TLS_KEY_FILE")),
 		DatabaseURL:        env("SHIPPING_DATABASE_URL", "postgres://shipping:shipping@localhost:5432/shipping_db?sslmode=disable"),
 		InternalToken:      strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_TOKEN")),
+		OIDCIssuer:         env("SHIPPING_OIDC_ISSUER", "https://keycloak.omama.vn/realms/omama"),
+		OIDCAudience:       env("SHIPPING_OIDC_AUDIENCE", "omama-api"),
+		OIDCJWKSURL:        strings.TrimSpace(os.Getenv("SHIPPING_OIDC_JWKS_URL")),
 		FakeWebhookSecret:  strings.TrimSpace(os.Getenv("SHIPPING_FAKE_WEBHOOK_SECRET")),
 		KafkaBrokers:       csvEnv("SHIPPING_KAFKA_BROKERS", "localhost:9092"),
 		FulfillmentTopic:   env("SHIPPING_FULFILLMENT_TOPIC", "fulfillment.events.v1"),
@@ -63,7 +81,7 @@ func Load() (Config, error) {
 		OutboxPollInterval: durationEnv("SHIPPING_OUTBOX_POLL_INTERVAL", time.Second),
 		ShutdownTimeout:    durationEnv("SHIPPING_SHUTDOWN_TIMEOUT", 10*time.Second),
 		DatabaseTimeout:    durationEnv("SHIPPING_DATABASE_TIMEOUT", 5*time.Second),
-		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", false),
+		V2Enabled:          boolEnv("SHIPPING_V2_ENABLED", true),
 		PackingV2Enabled:   boolEnv("SHIPPING_PACKING_V2_ENABLED", false),
 		GHNEnabled:         boolEnv("SHIPPING_GHN_ENABLED", false),
 		GHNBaseURL:         env("SHIPPING_GHN_BASE_URL", "https://dev-online-gateway.ghn.vn"),
@@ -75,9 +93,22 @@ func Load() (Config, error) {
 		GHNRequestTimeout:  durationEnv("SHIPPING_GHN_REQUEST_TIMEOUT", 10*time.Second),
 		GHNRecoveryTimeout: durationEnv("SHIPPING_GHN_RECONCILE_TIMEOUT", 5*time.Second),
 		GHNQuoteTTL:        durationEnv("SHIPPING_GHN_QUOTE_TTL", 15*time.Minute),
+
+		InternalDeliveryEnabled:    boolEnv("SHIPPING_INTERNAL_DELIVERY_ENABLED", false),
+		InternalAssignmentsEnabled: boolEnv("SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED", false),
+		IdentityBaseURL:            strings.TrimSpace(os.Getenv("SHIPPING_IDENTITY_BASE_URL")),
 	}
-	if cfg.InternalToken == "" {
-		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN is required")
+	if cfg.Environment != "local" && cfg.Environment != "production" {
+		return Config{}, fmt.Errorf("SHIPPING_ENV must be local or production")
+	}
+	if len(cfg.InternalToken) < 32 {
+		return Config{}, fmt.Errorf("SHIPPING_INTERNAL_TOKEN must contain at least 32 characters")
+	}
+	if (cfg.GRPCTLSCertFile == "") != (cfg.GRPCTLSKeyFile == "") {
+		return Config{}, fmt.Errorf("SHIPPING_GRPC_TLS_CERT_FILE and SHIPPING_GRPC_TLS_KEY_FILE must be configured together")
+	}
+	if cfg.Environment == "production" && cfg.GRPCTLSCertFile == "" {
+		return Config{}, fmt.Errorf("production requires SHIPPING_GRPC_TLS_CERT_FILE and SHIPPING_GRPC_TLS_KEY_FILE")
 	}
 	if cfg.FakeWebhookSecret == "" {
 		return Config{}, fmt.Errorf("SHIPPING_FAKE_WEBHOOK_SECRET is required")
@@ -95,6 +126,20 @@ func Load() (Config, error) {
 		if cfg.GHNWebhookSecret == "" {
 			return Config{}, fmt.Errorf("SHIPPING_GHN_WEBHOOK_SECRET is required when GHN is enabled")
 		}
+	}
+	if cfg.InternalDeliveryEnabled {
+		fee, err := strconv.ParseInt(strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_DELIVERY_FEE_VND")), 10, 64)
+		if err != nil || fee < 0 || fee > 1_000_000_000 {
+			return Config{}, fmt.Errorf("enabled internal delivery requires explicit SHIPPING_INTERNAL_DELIVERY_FEE_VND between 0 and 1000000000")
+		}
+		eta, err := time.ParseDuration(strings.TrimSpace(os.Getenv("SHIPPING_INTERNAL_DELIVERY_ETA")))
+		if err != nil || eta <= 0 || eta > 30*24*time.Hour {
+			return Config{}, fmt.Errorf("enabled internal delivery requires explicit SHIPPING_INTERNAL_DELIVERY_ETA within 30 days")
+		}
+		cfg.InternalDeliveryFeeVND, cfg.InternalDeliveryETA = fee, eta
+	}
+	if cfg.InternalAssignmentsEnabled && (!cfg.InternalDeliveryEnabled || cfg.IdentityBaseURL == "") {
+		return Config{}, fmt.Errorf("internal assignment API requires internal delivery and SHIPPING_IDENTITY_BASE_URL")
 	}
 	return cfg, nil
 }

@@ -174,6 +174,9 @@ func moneyUnits(money *commonv1.Money) int64 {
 
 func carrierCodeFromTracking(code string) string {
 	upper := strings.ToUpper(code)
+	if strings.HasPrefix(upper, "INT-") {
+		return carrier.InternalCode
+	}
 	for _, prefix := range []string{"VIETTEL_POST", "VIETTELPOST", "GHN", "FAKE"} {
 		if strings.HasPrefix(upper, prefix) {
 			return prefix

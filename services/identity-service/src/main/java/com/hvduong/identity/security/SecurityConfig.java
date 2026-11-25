@@ -2,6 +2,7 @@ package com.hvduong.identity.security;
 
 import com.hvduong.identity.api.account.impl.EmployeeInvitationAcceptanceController;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -15,11 +16,16 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.io.IOException;
 
 @Configuration
 @EnableWebSecurity
@@ -32,9 +38,17 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        var bearerEntry = new BearerTokenAuthenticationEntryPoint();
+        var bearerDenied = new BearerTokenAccessDeniedHandler();
+        AuthenticationEntryPoint entry = (request, response, cause) -> {
+            if (request.getRequestURI().startsWith("/api/v1/admin/shipping-api/")) shippingSecurityError(response, 401);
+            else bearerEntry.commence(request, response, cause);
+        };
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(errors -> errors.defaultAuthenticationEntryPointFor(entry,
+                    request -> request.getRequestURI().startsWith("/api/v1/admin/shipping-api/")))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.POST, EmployeeInvitationAcceptanceController.ACCEPT_PATH).authenticated()
                 .requestMatchers("/api/v1/public/**").permitAll()
@@ -52,12 +66,24 @@ public class SecurityConfig {
                             && !isRolesReader(actor));
                 })
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> 
+            .oauth2ResourceServer(oauth2 -> oauth2.authenticationEntryPoint(entry).accessDeniedHandler((request, response, cause) -> {
+                if (request.getRequestURI().startsWith("/api/v1/admin/shipping-api/")) shippingSecurityError(response, 403);
+                else bearerDenied.handle(request, response, cause);
+            }).jwt(jwt ->
                 jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())
             ))
             .addFilterBefore(bffSessionAuthFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private static void shippingSecurityError(HttpServletResponse response, int status) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setHeader("Cache-Control", "private, no-store");
+        if (status == 401) response.setHeader("WWW-Authenticate", "Bearer");
+        response.getWriter().write("{\"code\":\"" + (status == 401 ? "UNAUTHORIZED" : "FORBIDDEN")
+                + "\",\"message\":\"Employee Shipping authorization required.\",\"requestId\":\"" + UUID.randomUUID() + "\"}");
     }
 
     private static boolean isRolesReader(org.springframework.security.core.Authentication authentication) {

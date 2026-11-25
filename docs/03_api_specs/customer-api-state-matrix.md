@@ -1,5 +1,7 @@
 # Customer API State Matrix
 
+Shipping integration: checkout quotes and customer tracking continue through Order's authenticated ownership boundary; no direct Shipping order-tracking or internal commands are exposed at Kong. Transient Shipping failures must remain unavailable/retryable, not empty tracking data or a successful zero-fee quote. GHN callbacks use provider authentication, not a customer JWT.
+
 Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.

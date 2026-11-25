@@ -63,6 +63,28 @@ type CreateResult struct {
 	EstimatedDeliveryAt *time.Time
 }
 
+// ReturnCreateRequest is deliberately separate from CreateRequest: the customer
+// is the pickup sender and the warehouse is the receiver. It never carries COD.
+type ReturnCreateRequest struct {
+	IdempotencyKey   string
+	ReturnShipmentID string
+	ReturnCaseID     string
+	OrderID          string
+	PackageID        string
+	ServiceCode      string
+	PickupAddress    domain.Recipient
+	Destination      domain.Recipient
+	Parcel           domain.Parcel
+	ReasonCode       string
+	ShippingNotes    string
+}
+
+type ReturnCarrier interface {
+	// Implementations must make retries safe for the supplied IdempotencyKey,
+	// either through provider-side idempotency or lookup/reconciliation before create.
+	CreateReturnShipment(context.Context, ReturnCreateRequest) (CreateResult, error)
+}
+
 type CancelRequest struct {
 	CarrierOrderID string
 	ReasonCode     string
