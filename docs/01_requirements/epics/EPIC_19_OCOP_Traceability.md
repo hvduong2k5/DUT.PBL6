@@ -453,6 +453,12 @@ Product
 
 ### 6.5. Quyết định nghiệp vụ QR theo lô — đã chốt ngày 21/11/2026
 
+**Chỉ đạo triển khai 25/11/2026:** owner nhận [handoff0.2.2](../../03_api_specs/traceability-workflow-peer-handoff.md) và thực hiện trực tiếp, không cần gửi ACCEPT hoặc chờ phản hồi trước khi sửa code. Tái sử dụng logic đã có, tự map ra contract đích, test và nộp kết quả cuối/PR; chỉ báo blocker không thể tự giải quyết trong scope. Review PR và nghiệm thu runtime trước stable/deploy vẫn giữ nguyên.
+
+**Bộ bàn giao 25/11/2026:** [Index đặc tả](../../03_api_specs/traceability-workflow-README.md) tập hợp đặc tả service, REST v2 scoped draft, proto candidates, task từng owner và tiêu chí nghiệm thu. Quyết định nghiệp vụ không đồng nghĩa contract đã được peer ACCEPT hoặc đã triển khai. Client v1 không bị đổi ngầm error/header; phần scope mới có v2 riêng trong thiết kế đích.
+
+**Bổ sung cùng ngày:** [Thiết kế tích hợp toàn luồng](../../03_api_specs/traceability-workflow-design-2026-11-21.md) chốt nhân viên chỉ thao tác trong kho được giao; UI nối “Lập/Xem hồ sơ nguồn gốc” ngay sau nhập kho thành công, dùng sẵn binding lô. Nhập kho và lập hồ sơ vẫn độc lập, lỗi hồ sơ không rollback tồn. Thiết kế gồm cả truy xuất từ đơn hàng; API/gRPC mới còn ở mức đề xuất chờ owner và contract tests, không phải khả năng đã deploy.
+
 Quyết định này chốt phạm vi triển khai tiếp theo theo xác nhận của chủ yêu cầu; không phải tuyên bố các chức năng dưới đây đã được implement hoặc kiểm thử. Các khả năng cấp Product/SKU trong Epic vẫn là khả năng mở rộng, không thay thế định danh lô trong luồng này.
 
 **Định danh và nội dung QR**
@@ -469,7 +475,7 @@ Quyết định này chốt phạm vi triển khai tiếp theo theo xác nhận 
 4. Khi đóng gói, nhân viên đối chiếu lô thực tế của sản phẩm với lô trên tem rồi dán lên bao bì sản phẩm tương ứng. Không chọn tem chỉ dựa vào tên sản phẩm hoặc SKU.
 5. In lại cùng tem giữ nguyên mã và link. Hồ sơ chưa công bố, bị đình chỉ, lưu trữ hoặc không còn đủ điều kiện công khai không được cung cấp như tem nguồn gốc hợp lệ để dán mới. QR đã in vẫn dẫn tới trạng thái an toàn theo quy tắc công khai hiện hành.
 
-Quyền tải/in phải được xác định theo permission và scope trong bước thiết kế contract; quyết định này không tạo role mới hoặc mặc nhiên cho phép mọi nhân viên in tem. Quy trình xử lý tem sai, thất lạc và giả mạo vẫn là điểm mở ở Mục 8.
+Quyền tải/in dùng quyền đọc nội bộ đúng scope kho, không thêm permission in riêng trong phạm vi hiện tại; không mặc nhiên cho phép mọi nhân viên in tem. Quy trình xử lý tem sai, thất lạc và giả mạo vẫn là điểm mở ở Mục 8.
 
 **Luồng khách hàng và đơn hàng**
 
@@ -506,7 +512,7 @@ Quyền tải/in phải được xác định theo permission và scope trong b�
 ## 8. Điểm cần chốt trước khi thiết kế kỹ thuật
 
 - Ánh xạ actor “Manager” cho `US-OCOP-04~06`: `ACT-12`, `ACT-15` hay vai trò mới; ai tạo, ai duyệt và có bắt buộc phân tách nhiệm vụ không.
-- Đã chốt QR theo Batch, luồng công bố → tải/in → đối chiếu và dán tem ở Mục 6.5. Còn cần chốt permission/scope cụ thể cho tải/in và quy trình xử lý mã in sai/thất lạc/giả mạo; QR tổng hợp kiện hàng nằm ngoài phạm vi hiện tại.
+- Đã chốt QR theo Batch, luồng công bố → tải/in → đối chiếu và dán tem, quyền đọc nội bộ theo kho cho tải/in ở Mục 6.5. Còn cần chốt quy trình xử lý mã in sai/thất lạc/giả mạo; QR tổng hợp kiện hàng nằm ngoài phạm vi hiện tại.
 - Bộ trường traceability bắt buộc cho từng cấp; dữ liệu nào kế thừa và dữ liệu nào phải có riêng theo Batch.
 - Mô hình nguyên liệu nhiều cấp, vùng địa lý, nhà sản xuất/cơ sở, công đoạn và quan hệ với Supplier/PO của EPIC 27.
 - Danh mục chứng nhận, trường bắt buộc, phạm vi, ngày hiệu lực/hết hạn và quy trình gia hạn/thu hồi.

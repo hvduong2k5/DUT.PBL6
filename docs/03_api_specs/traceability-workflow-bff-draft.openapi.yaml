@@ -1,0 +1,2316 @@
+openapi: 3.1.0
+info:
+  title: Traceability workflow Identity BFF adapters
+  version: 0.2.2-draft
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: Direct implementation target, not implemented or stable. Identity maps a trusted OMAMA_SESSION to
+    the signed access token and forwards only allowlisted routes to Kong. Known ACTIVE EMPLOYEE checks apply to
+    v2 as well as v1. Next BFF validates and forwards Origin on cookie mutations; CSRF Origin checks must not be
+    disabled. Backends enforce business permission and scope. The proxy may also authenticate a verified staff bearer
+    without a cookie; Direct OIDC mode uses the trusted bearer path and does not require these cookie adapters.
+servers:
+- url: http://127.0.0.1:8016
+security:
+- employeeSessionCookie: []
+- identityStaffBearer: []
+tags:
+- name: Identity transport
+  description: Cookie-to-bearer transport, no business state mutation in the proxy itself
+paths:
+  /api/v2/admin/trace-api/records:
+    get:
+      operationId: listTraceabilityProfilesScopedV2IdentityBff
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 256
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Instance-scoped list; internal evidence requires its own permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+                  next_cursor:
+                    type:
+                    - string
+                    - 'null'
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Rows returned in this page, not a count of all matching database rows.
+              examples:
+                empty:
+                  value:
+                    items: []
+                    next_cursor: null
+                    total: 0
+                success:
+                  value:
+                    items:
+                    - id: 11111111-1111-4111-8111-111111111111
+                      mode: integration
+                      product_id: 22222222-2222-4222-8222-222222222222
+                      sku_code: MX-001
+                      source_namespace: inventory
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      warehouse_id: 44444444-4444-4444-8444-444444444444
+                      qr_code: abcdefghijklmnopqrstuv
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      version: 1
+                      status: ACTIVE
+                      public_revision: null
+                      revisions:
+                      - number: 1
+                        status: DRAFT
+                        content:
+                          product_name: Me xung LOT-A
+                          producer: Co so O Ma
+                          workshop_location: Hue
+                          artisan_name: null
+                          process: Che bien va dong goi theo ho so lo
+                          ingredients:
+                          - name: Me
+                            origin: Quang Dien
+                          evidence:
+                          - id: 55555555-5555-4555-8555-555555555555
+                            reference: document:66666666-6666-4666-8666-666666666666
+                            kind: CERTIFICATE
+                            description: Ho so OCOP da kiem tra thu cong
+                          certificates:
+                          - id: 77777777-7777-4777-8777-777777777777
+                            type: OCOP
+                            number: OCOP-TEST-01
+                            issuer: Don vi cap chung nhan
+                            scope: BATCH
+                            scope_id: 33333333-3333-4333-8333-333333333333
+                            issued_on: '2026-01-01'
+                            valid_until: '2027-12-31'
+                            no_expiry_stated: false
+                            review_due_at: null
+                            stars: 4
+                            verification_method: MANUAL
+                            verified_at: '2026-11-20T00:00:00Z'
+                            revoked: false
+                            evidence_ids:
+                            - 55555555-5555-4555-8555-555555555555
+                          crafting_video_url: null
+                    next_cursor: null
+                    total: 1
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: listTraceabilityProfilesScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+    post:
+      operationId: createTraceabilityProfileScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - product_id
+              - sku_code
+              - source_namespace
+              - batch_id
+              - content
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                sku_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                source_namespace:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                batch_id:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                content:
+                  $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Content
+            example:
+              product_id: 22222222-2222-4222-8222-222222222222
+              sku_code: MX-001
+              source_namespace: inventory
+              batch_id: 33333333-3333-4333-8333-333333333333
+              content:
+                product_name: Me xung LOT-A
+                producer: Co so O Ma
+                workshop_location: Hue
+                artisan_name: null
+                process: Che bien va dong goi theo ho so lo
+                ingredients:
+                - name: Me
+                  origin: Quang Dien
+                evidence:
+                - id: 55555555-5555-4555-8555-555555555555
+                  reference: document:66666666-6666-4666-8666-666666666666
+                  kind: CERTIFICATE
+                  description: Ho so OCOP da kiem tra thu cong
+                certificates:
+                - id: 77777777-7777-4777-8777-777777777777
+                  type: OCOP
+                  number: OCOP-TEST-01
+                  issuer: Don vi cap chung nhan
+                  scope: BATCH
+                  scope_id: 33333333-3333-4333-8333-333333333333
+                  issued_on: '2026-01-01'
+                  valid_until: '2027-12-31'
+                  no_expiry_stated: false
+                  review_due_at: null
+                  stars: 4
+                  verification_method: MANUAL
+                  verified_at: '2026-11-20T00:00:00Z'
+                  revoked: false
+                  evidence_ids:
+                  - 55555555-5555-4555-8555-555555555555
+                crafting_video_url: null
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: createTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.create
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    get:
+      operationId: getTraceabilityProfileScopedV2IdentityBff
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: getTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    post:
+      operationId: createTraceabilityRevisionScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - from_revision
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                from_revision:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Required when withdrawing an existing working revision
+            example:
+              expected_version: 5
+              from_revision: 1
+              reason: Prepare a corrected revision
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+                    - number: 2
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: createTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.edit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions/{revision}:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+    patch:
+      operationId: replaceDraftContentScopedV2IdentityBff
+      description: Replaces the whole Draft content snapshot; not a JSON merge patch. Does not change binding or
+        accept contributor identities from the caller. All operations require read_internal plus their command permission
+        for the same authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill
+        and contributor policy. Identity transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id
+        and Traceparent; no automatic mutation retry, no redirects. Preserve backend status/body and no-store. Next
+        BFF must pass validated Origin to Identity for cookie mutations.
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - content
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                content:
+                  $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Content
+            example:
+              expected_version: 1
+              content:
+                product_name: Me xung LOT-A
+                producer: Co so O Ma
+                workshop_location: Hue
+                artisan_name: null
+                process: Che bien va dong goi theo ho so lo
+                ingredients:
+                - name: Me
+                  origin: Quang Dien
+                evidence:
+                - id: 55555555-5555-4555-8555-555555555555
+                  reference: document:66666666-6666-4666-8666-666666666666
+                  kind: CERTIFICATE
+                  description: Ho so OCOP da kiem tra thu cong
+                certificates:
+                - id: 77777777-7777-4777-8777-777777777777
+                  type: OCOP
+                  number: OCOP-TEST-01
+                  issuer: Don vi cap chung nhan
+                  scope: BATCH
+                  scope_id: 33333333-3333-4333-8333-333333333333
+                  issued_on: '2026-01-01'
+                  valid_until: '2027-12-31'
+                  no_expiry_stated: false
+                  review_due_at: null
+                  stars: 4
+                  verification_method: MANUAL
+                  verified_at: '2026-11-20T00:00:00Z'
+                  revoked: false
+                  evidence_ids:
+                  - 55555555-5555-4555-8555-555555555555
+                crafting_video_url: null
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 2
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: replaceDraftContentScopedV2
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.edit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/submit:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+    post:
+      operationId: submitTraceabilityRevisionScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+            example:
+              expected_version: 2
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 3
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: IN_REVIEW
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: submitTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.submit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/submit
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/approve:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+    post:
+      operationId: approveTraceabilityRevisionScopedV2IdentityBff
+      description: Reviewer must not be a contributor to this revision, including inherited contributors. Never
+        publishes automatically. All operations require read_internal plus their command permission for the same
+        authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor
+        policy. Identity transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent;
+        no automatic mutation retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass
+        validated Origin to Identity for cookie mutations.
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: APPROVED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: approveTraceabilityRevisionScopedV2
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.approve
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-contributor-policy: actor must not be a contributor of the revision
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/approve
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/reject:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+    post:
+      operationId: rejectTraceabilityRevisionScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: REJECTED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: rejectTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.approve
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-contributor-policy: actor must not be a contributor of the revision
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/reject
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/publish:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+    post:
+      operationId: publishTraceabilityRevisionScopedV2IdentityBff
+      description: Rechecks dependency snapshot and certificate validity; no published result if source changed
+        or contract is unavailable. All operations require read_internal plus their command permission for the same
+        authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor
+        policy. Identity transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent;
+        no automatic mutation retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass
+        validated Origin to Identity for cookie mutations.
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+            example:
+              expected_version: 4
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 5
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: publishTraceabilityRevisionScopedV2
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.publish
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/publish
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/suspend:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    post:
+      operationId: suspendTraceabilityProfileScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: SUSPENDED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: suspendTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.suspend
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/suspend
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/{id}/archive:
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    post:
+      operationId: archiveTraceabilityProfileScopedV2IdentityBff
+      parameters:
+      - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/IdempotencyKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Command
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/schemas/Profile
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ARCHIVED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      tags:
+      - Identity transport
+      summary: archiveTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy. Identity
+        transport forwards Idempotency-Key, Content-Type, Accept, X-Request-Id and Traceparent; no automatic mutation
+        retry, no redirects. Preserve backend status/body and no-store. Next BFF must pass validated Origin to Identity
+        for cookie mutations.'
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.archive
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/{id}/archive
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/records/by-batch:
+    get:
+      tags:
+      - Identity transport
+      operationId: findScopedTraceabilityByBatchDraftIdentityBff
+      summary: Find the existing profile before creating a draft
+      description: Requires traceability.read_internal for the authoritative warehouse from Inventory. Validate
+        scope even when no profile exists. Warehouse is never trusted from browser input. Existing profile responses
+        follow evidence redaction rules. Return at most one exact-binding match; no fuzzy SKU lookup. This literal
+        route must take precedence over /records/{id}. Identity transport forwards Idempotency-Key, Content-Type,
+        Accept, X-Request-Id and Traceparent; no automatic mutation retry, no redirects. Preserve backend status/body
+        and no-store. Next BFF must pass validated Origin to Identity for cookie mutations.
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      parameters:
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/ProductId
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/SkuCode
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/BatchId
+      - name: source_namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - inventory
+      responses:
+        '200':
+          description: Exact match or empty collection; never 404 for an empty lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - total
+                properties:
+                  items:
+                    type: array
+                    maxItems: 1
+                    items:
+                      type: object
+                      required:
+                      - profile_id
+                      - version
+                      properties:
+                        profile_id:
+                          type: string
+                          format: uuid
+                        version:
+                          type: integer
+                          format: int64
+                          minimum: 1
+                  total:
+                    type: integer
+                    minimum: 0
+                    maximum: 1
+              examples:
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                found:
+                  value:
+                    items:
+                    - profile_id: 11111111-1111-4111-8111-111111111111
+                      version: 1
+                    total: 1
+        '401':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Forbidden
+        '503':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unavailable
+        '409':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Conflict
+        '400':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/BadRequest
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-forward-to: /api/v2/admin/trace/records/by-batch
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v2/admin/trace-api/batches/{batch_id}/context:
+    get:
+      tags:
+      - Identity transport
+      operationId: getScopedBatchTraceabilityContextIdentityBff
+      summary: Bootstrap a traceability form from an authoritative receipt batch
+      description: Traceability-owned. Requires read_internal for the resource warehouse. Read Inventory first,
+        check scope, then resolve Product by exact SKU from Catalog within a shared 2-second budget. No client-supplied
+        product/warehouse identity. Does not create a draft or change stock. Restricted/expired source may be displayed
+        for draft preparation, but existing submit/publish guards still apply. No dependency on unimplemented Inventory
+        SKU detail endpoints or Catalog prices. Identity transport forwards Idempotency-Key, Content-Type, Accept,
+        X-Request-Id and Traceparent; no automatic mutation retry, no redirects. Preserve backend status/body and
+        no-store. Next BFF must pass validated Origin to Identity for cookie mutations.
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      parameters:
+      - name: batch_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/SkuCode
+      responses:
+        '200':
+          description: Verified binding for prefilled form; not a public eligibility approval
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - product_id
+                - sku_code
+                - source_namespace
+                - batch_id
+                - warehouse_id
+                - batch_code
+                - production_date
+                - expiry_date
+                - restricted
+                - depleted
+                - catalog_version
+                - batch_version
+                properties:
+                  product_id:
+                    type: string
+                    format: uuid
+                  sku_code:
+                    type: string
+                  source_namespace:
+                    type: string
+                    enum:
+                    - inventory
+                  batch_id:
+                    type: string
+                    format: uuid
+                  warehouse_id:
+                    type: string
+                    format: uuid
+                  batch_code:
+                    type: string
+                  production_date:
+                    type: string
+                    format: date
+                  expiry_date:
+                    type: string
+                    format: date
+                  restricted:
+                    type: boolean
+                  depleted:
+                    type: boolean
+                  catalog_version:
+                    type: string
+                  batch_version:
+                    type: string
+              examples:
+                success:
+                  value:
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    batch_code: LOT-A
+                    production_date: '2026-11-01'
+                    expiry_date: '2027-11-01'
+                    restricted: false
+                    depleted: false
+                    catalog_version: variant:1:1
+                    batch_version: '1'
+        '400':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Forbidden
+        '404':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/NotFound
+        '409':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Conflict
+        '503':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      x-forward-to: /api/v2/admin/trace/batches/{batch_id}/context
+      x-body-limit-bytes: 262144
+      x-response-limit-bytes: 2097152
+  /api/v1/admin/inventory-api/workbench:
+    get:
+      tags:
+      - Identity transport
+      operationId: getAdminInventoryWorkbenchTraceabilityIdentityBff
+      summary: Warehouse Operations Workbench context for Epic 09 MVP. Balance values and approval counts are upstream
+        projections; the UI does not recalculate them.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_09
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - skus
+                - recentMovements
+                - pendingApprovalCount
+                - calculatedAt
+                - policyNotice
+                properties:
+                  skus:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - skuId
+                      - skuCode
+                      - skuLabel
+                      - productName
+                      - balance
+                      - revision
+                      - batches
+                      properties:
+                        skuId:
+                          type: string
+                        skuCode:
+                          type: string
+                        skuLabel:
+                          type: string
+                        productName:
+                          type: string
+                        balance:
+                          type: object
+                          required:
+                          - onHand
+                          - reserved
+                          - nonSellable
+                          - available
+                          properties:
+                            onHand:
+                              type: integer
+                            reserved:
+                              type: integer
+                            nonSellable:
+                              type: integer
+                            available:
+                              type: integer
+                          additionalProperties: false
+                        revision:
+                          type: integer
+                        batches:
+                          type: array
+                          items:
+                            type: object
+                            required:
+                            - batchId
+                            - batchCode
+                            - manufacturingDate
+                            - expiresAt
+                            - expiryState
+                            - expiryLabel
+                            - balance
+                            properties:
+                              batchId:
+                                type: string
+                              batchCode:
+                                type: string
+                              manufacturingDate:
+                                type: string
+                                format: date-time
+                              expiresAt:
+                                type: string
+                                format: date-time
+                              expiryState:
+                                type: string
+                              expiryLabel:
+                                type: string
+                              balance:
+                                type: object
+                                required:
+                                - onHand
+                                - reserved
+                                - nonSellable
+                                - available
+                                properties:
+                                  onHand:
+                                    type: integer
+                                  reserved:
+                                    type: integer
+                                  nonSellable:
+                                    type: integer
+                                  available:
+                                    type: integer
+                                additionalProperties: false
+                            additionalProperties: false
+                      additionalProperties: false
+                  recentMovements:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                      - movementId
+                      - type
+                      - typeLabel
+                      - quantity
+                      - occurredAt
+                      - actorLabel
+                      - reference
+                      - skuCode
+                      - batchCode
+                      properties:
+                        movementId:
+                          type: string
+                        type:
+                          type: string
+                        typeLabel:
+                          type: string
+                        quantity:
+                          type: integer
+                        occurredAt:
+                          type: string
+                          format: date-time
+                        actorLabel:
+                          type: string
+                        reference:
+                          type: string
+                        skuCode:
+                          type: string
+                        batchCode:
+                          type: string
+                      additionalProperties: false
+                  pendingApprovalCount:
+                    type: integer
+                  calculatedAt:
+                    type: string
+                    format: date-time
+                  policyNotice:
+                    type: string
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    skus:
+                    - skuId: prod-me-xung-truyen-thong-sku-500
+                      skuCode: OMA-MXT-500
+                      skuLabel: Hộp 500 g
+                      productName: Mè Xửng Truyền Thống
+                      balance:
+                        onHand: 80
+                        reserved: 10
+                        nonSellable: 8
+                        available: 62
+                      revision: 9
+                      batches:
+                      - batchId: batch-mxt-safe
+                        batchCode: LOT-2026-08-A
+                        manufacturingDate: '2026-08-01T00:00:00.000Z'
+                        expiresAt: '2027-02-01T00:00:00.000Z'
+                        expiryState: SAFE
+                        expiryLabel: Còn hạn
+                        balance:
+                          onHand: 40
+                          reserved: 10
+                          nonSellable: 0
+                          available: 30
+                      - batchId: batch-mxt-expiring
+                        batchCode: LOT-2026-04-B
+                        manufacturingDate: '2026-04-20T00:00:00.000Z'
+                        expiresAt: '2026-10-20T00:00:00.000Z'
+                        expiryState: EXPIRING
+                        expiryLabel: Cận hạn sử dụng
+                        balance:
+                          onHand: 32
+                          reserved: 0
+                          nonSellable: 0
+                          available: 32
+                      - batchId: batch-mxt-expired
+                        batchCode: LOT-2026-03-C
+                        manufacturingDate: '2026-03-15T00:00:00.000Z'
+                        expiresAt: '2026-09-30T00:00:00.000Z'
+                        expiryState: EXPIRED
+                        expiryLabel: Đã hết hạn
+                        balance:
+                          onHand: 8
+                          reserved: 0
+                          nonSellable: 8
+                          available: 0
+                    - skuId: prod-tra-sen-tinh-tam-sku-200
+                      skuCode: OMA-TSTT-200
+                      skuLabel: Hộp trà 200 g
+                      productName: Trà Sen Tịnh Tâm
+                      balance:
+                        onHand: 45
+                        reserved: 5
+                        nonSellable: 10
+                        available: 30
+                      revision: 7
+                      batches:
+                      - batchId: batch-tstt-safe
+                        batchCode: LOT-2026-09-T
+                        manufacturingDate: '2026-09-01T00:00:00.000Z'
+                        expiresAt: '2027-03-15T00:00:00.000Z'
+                        expiryState: SAFE
+                        expiryLabel: Còn hạn
+                        balance:
+                          onHand: 35
+                          reserved: 5
+                          nonSellable: 0
+                          available: 30
+                      - batchId: batch-tstt-expired
+                        batchCode: LOT-2026-02-T
+                        manufacturingDate: '2026-02-01T00:00:00.000Z'
+                        expiresAt: '2026-09-15T00:00:00.000Z'
+                        expiryState: EXPIRED
+                        expiryLabel: Đã hết hạn
+                        balance:
+                          onHand: 10
+                          reserved: 0
+                          nonSellable: 10
+                          available: 0
+                    recentMovements:
+                    - movementId: mov-wh-001
+                      type: RECEIPT
+                      typeLabel: Nhập kho
+                      quantity: 24
+                      occurredAt: '2026-10-03T01:40:00.000Z'
+                      actorLabel: Nguyễn Văn Bình · Warehouse Staff
+                      reference: SR-2026-0103
+                      skuCode: OMA-MXT-500
+                      batchCode: LOT-2026-08-A
+                    - movementId: mov-wh-002
+                      type: ISSUE
+                      typeLabel: Xuất kho
+                      quantity: -6
+                      occurredAt: '2026-10-03T02:10:00.000Z'
+                      actorLabel: Nguyễn Văn Bình · Warehouse Staff
+                      reference: ORD-2026-1038
+                      skuCode: OMA-TSTT-200
+                      batchCode: LOT-2026-09-T
+                    - movementId: mov-wh-003
+                      type: DAMAGE
+                      typeLabel: Ghi nhận hàng hỏng
+                      quantity: -2
+                      occurredAt: '2026-10-03T02:25:00.000Z'
+                      actorLabel: Nguyễn Văn Bình · Warehouse Staff
+                      reference: DMG-2026-004
+                      skuCode: OMA-MXT-500
+                      batchCode: LOT-2026-04-B
+                    pendingApprovalCount: 1
+                    calculatedAt: '2026-10-03T02:30:00.000Z'
+                    policyNotice: Mọi thay đổi được ghi bằng biến động, không sửa trực tiếp số dư. Inventory API
+                      kiểm tra tồn âm, revision, tham chiếu trùng và quyết định áp dụng ngay hay chuyển chờ phê
+                      duyệt.
+        '400':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/Forbidden
+        '500':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/InternalError
+        '503':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/ServiceUnavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      x-forward-to: /api/v1/admin/inventory/workbench
+      x-body-limit-bytes: 0
+      x-response-limit-bytes: 2097152
+  /api/v1/admin/inventory-api/workbench/receipts:
+    post:
+      tags:
+      - Identity transport
+      operationId: postAdminInventoryWorkbenchReceiptsTraceabilityIdentityBff
+      summary: Idempotent stock receipt command for US-INV-02. The real Inventory service validates SKU, Batch identity
+        and source reference before updating balances.
+      description: Requires INVENTORY_RECEIPT_CREATE with GLOBAL scope or WAREHOUSE scope matching the SKU. Fresh
+        APPLIED receipts include batchId/batchCode/skuCode/warehouseId. Legacy replay may omit these fields; preserve
+        its result and let UI bootstrap from a verified batch, never repeat stock receipt.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_09
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - employeeSessionCookie: []
+      - identityStaffBearer: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - operationId
+                - status
+                - statusLabel
+                - movementId
+                - approvalRequestId
+                - occurredAt
+                - revision
+                - message
+                properties:
+                  operationId:
+                    type: string
+                  status:
+                    type: string
+                  statusLabel:
+                    type: string
+                  movementId:
+                    type: string
+                  approvalRequestId:
+                    type:
+                    - string
+                    - 'null'
+                    description: approvalRequestId may be null.
+                  occurredAt:
+                    type: string
+                    format: date-time
+                  revision:
+                    type: integer
+                  message:
+                    type: string
+                  batchId:
+                    type: string
+                    format: uuid
+                  batchCode:
+                    type: string
+                  skuCode:
+                    type: string
+                  warehouseId:
+                    type: string
+                    format: uuid
+                additionalProperties: false
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    operationId: INV-OP-REC-0104
+                    status: APPLIED
+                    statusLabel: Đã áp dụng
+                    movementId: mov-receipt-0104
+                    approvalRequestId: null
+                    occurredAt: '2026-10-03T03:10:00.000Z'
+                    revision: 10
+                    message: Đã ghi nhận nhập kho bằng một biến động có tham chiếu và chống gửi trùng.
+        '400':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/BadRequest
+        '401':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/Forbidden
+        '409':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/Conflict
+        '422':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/UnprocessableEntity
+        '500':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/InternalError
+        '503':
+          $ref: ./admin-stable.openapi.yaml#/components/responses/ServiceUnavailable
+        '502':
+          description: Malformed or oversized upstream response; no successful body is fabricated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: UPSTREAM_INVALID_RESPONSE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+        '413':
+          description: Request exceeds this proxy route body limit; no upstream mutation was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyError'
+              example:
+                code: REQUEST_TOO_LARGE
+                message: Unable to forward this request safely.
+                requestId: req-proxy-example
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - skuId
+              - quantity
+              - expectedRevision
+              properties:
+                skuId:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                batchMode:
+                  type: string
+                  enum:
+                  - NEW
+                  - EXISTING
+                batchId:
+                  type: string
+                  format: uuid
+                batchCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                supplierId:
+                  type: string
+                  format: uuid
+                manufacturingDate:
+                  type: string
+                  format: date
+                expiresAt:
+                  type: string
+                  format: date
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+                sourceReference:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                reasonCode:
+                  type: string
+                  maxLength: 80
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+                idempotencyKey:
+                  type: string
+                  description: Must match the header if supplied.
+              additionalProperties: false
+              oneOf:
+              - required:
+                - batchMode
+                - batchId
+                - sourceReference
+                properties:
+                  batchMode:
+                    const: EXISTING
+              - required:
+                - batchMode
+                - batchCode
+                - supplierId
+                - manufacturingDate
+                - expiresAt
+                - sourceReference
+                properties:
+                  batchMode:
+                    const: NEW
+              - required:
+                - batchCode
+                - reasonCode
+                - idempotencyKey
+                properties:
+                  batchMode: false
+            example:
+              skuId: MX-GION-500G
+              batchMode: NEW
+              batchCode: LOT-20261005-01
+              supplierId: b2222222-2222-2222-2222-222222222222
+              manufacturingDate: '2026-10-05'
+              expiresAt: '2027-03-05'
+              quantity: 100
+              sourceReference: PRODUCTION-20261005-01
+              expectedRevision: 8
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+      x-forward-to: /api/v1/admin/inventory/workbench/receipts
+      x-body-limit-bytes: 8192
+      x-response-limit-bytes: 2097152
+components:
+  securitySchemes:
+    employeeSessionCookie:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+      description: Existing HttpOnly session resolved server-side; no browser access-token exposure.
+    identityStaffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified Identity/Keycloak employee token; same active principal checks apply. Not a forged user/role
+        header.
+  schemas:
+    ProxyError:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string

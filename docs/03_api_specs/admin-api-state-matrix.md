@@ -1,5 +1,20 @@
 # Internal Employee API State Matrix
 
+## Traceability workflow target — 2026-11-21 (draft, not implemented)
+
+Review target0.2.2 (2026-11-25): [BFF adapters](traceability-workflow-bff-draft.openapi.yaml) add explicit cookie transports; cookie mutations require validated Origin, and v2 requires ACTIVE EMPLOYEE. [Batch context](traceability-workflow-draft.openapi.yaml) resolves warehouse-authorized Product/SKU before draft creation; it does not depend on an unimplemented Inventory SKU detail read. Scoped permissions keep exact grant scopeId instead of role-derived ALL. Missing provider context returns an error in the traceability panel without undoing a successful receipt.
+
+Updated 2026-11-25: scoped staff operations use [full admin v2 target](traceability-scoped-admin-draft.openapi.yaml) and [service spec](traceability-workflow-service-spec.md). Legacy admin v1 retains its GLOBAL-only capability and wire errors; scoped staff must not fallback to v1. Mutation header v2 is Idempotency-Key; errors are code/message/requestId. New evidence-reference omission on edit preserves stored references by ID before validation.
+
+See [design](traceability-workflow-design-2026-11-21.md) and [draft OpenAPI](traceability-workflow-draft.openapi.yaml). This supplement does not promote generated stable rows or GLOBAL-only baseline to WAREHOUSE support.
+
+| Flow | Success / empty | Loading | Error | Auth / scope |
+| --- | --- | --- | --- | --- |
+| Receipt → profile lookup | Receipt stays APPLIED; lookup 200 items/total=1 opens existing profile, 0 allows create | Disable duplicate lookup/create while pending | Lookup 503 retries independently; never repeat receipt to recover profile | 401 reauthenticate; 403 keep receipt success and hand off to authorized staff; warehouse verified server-side |
+| Create/edit/submit | Existing workflow; exact binding, stable idempotency key | Pending command disables repeat submission | 409 binding race reads existing profile; version/source conflict requires reread; dependency failure preserves receipt | Separate permissions; GLOBAL or matching WAREHOUSE; scoped replay and list never disclose another warehouse |
+| Download / print | Current eligible public profile and scoped read_internal; same qr_url on reprint | No export until latest eligibility check completes | Never published/410 blocks new valid-label export; 503 blocks export and allows retry | 401/403 blocks staff export; public QR itself remains anonymous |
+
+
 Updated: 2026-11-07
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.

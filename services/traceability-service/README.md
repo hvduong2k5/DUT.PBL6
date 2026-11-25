@@ -1,5 +1,17 @@
 # Traceability Service MS-03
 
+## Documentation entry points
+
+The project [Traceability workflow index](../../docs/03_api_specs/traceability-workflow-README.md)
+owns the new batch-profile, warehouse-scoped staff, label printing and order-source
+integration target (`0.2.2-draft`). Read the [architecture index](../../docs/02_architecture/services/traceability-service/README.md)
+and [testing index](../../docs/04_testing/traceability-service/README.md) to distinguish
+this target from the v1/P8 baseline described below. The target is authorized for
+direct implementation; it is not a claim of implemented or verified capability.
+Do not treat the historical sandbox/P8 results as acceptance of the new flow.
+
+## Existing baseline
+
 Implementation in progress on `feat/traceability-service`. See the
 [development plan](../../docs/02_architecture/services/traceability-service/02_development_plan.md).
 

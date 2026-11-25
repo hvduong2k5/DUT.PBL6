@@ -1,5 +1,20 @@
 # Customer API State Matrix
 
+## Order batch traceability target — 2026-11-21 (draft, not implemented)
+
+Review target0.2.2: every line-batch row includes authoritative sku_code. Current Order manifests allow one line per SKU; the UI bridges exact typed SKU and verifies quantities when detail lacks canonical IDs. Duplicate/mismatched mapping becomes UNAVAILABLE, never a guessed link. More than1000rows/512KiB is root UNAVAILABLE with empty items/total0; unresolved chunks within the5second outer budget stay UNAVAILABLE. This does not erase or invalidate the order detail itself.
+
+Updated 2026-11-25: see [Order handoff](traceability-workflow-peer-handoff.md#4-order-ord-trc-01) for canonical line IDs and guest session capability. NOT_APPLICABLE applies to cancellation before packing; sealed proof remains historical evidence after return/cancellation. Missing legacy proof is UNAVAILABLE, never reconstructed from current Inventory allocations.
+
+See [design](traceability-workflow-design-2026-11-21.md) and [draft subresource](traceability-workflow-draft.openapi.yaml). Existing order detail and generated stable examples remain unchanged.
+
+| Flow | Success / empty | Loading | Error | Auth |
+| --- | --- | --- | --- | --- |
+| Order traceability | READY: one row per sealed line/batch with quantity; PACKING_PENDING/NOT_APPLICABLE: 200 empty items and total=0 | Separate skeleton; order detail stays usable | Whole proof unavailable: 200 UNAVAILABLE empty; resolver item failure: UNAVAILABLE row; order DB unavailable: 503; retry only traceability read | Same detail ownership and existing guest capability; 401 absent/invalid, 403 known insufficient capability/ownership, 404 nonexistent order |
+| Batch links | AVAILABLE opens public URL; NOT_AVAILABLE has no fabricated link; NO_LONGER_PUBLIC links only to safe public 410 | Disable link until data available | Never substitute sample/latest SKU record; no stale eligibility badge | Draft/internal evidence and customer/order PII never appear in public record |
+| Public QR / footer lookup | Anonymous 200 public profile; manual entry uses /trace and /trace/{code} | Public-record loading state | 404 unknown; 410 withdrawn/expired; 503 temporary failure; no old valid profile fallback | No login required; customer history still requires its own order authorization |
+
+
 Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.

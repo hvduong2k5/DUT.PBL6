@@ -1,5 +1,7 @@
 # Nối Fulfillment thật vào MVP
 
+> **Proposed extension 2026-11-21:** [Truy xuất theo dòng đơn](../../../docs/03_api_specs/traceability-workflow-design-2026-11-21.md#6-luồng-đóng-gói--xem-từ-đơn) cần thêm `packed_lines` vào `PackageRevision` từ exact sealed snapshot. Baseline đã có allocation trong snapshot nhưng gRPC chưa trả chúng. Chưa sửa proto/codegen. Target0.2.2-draft được giao triển khai trực tiếp theo handoff, không cần gửi ACCEPT trước code; nghiệm thu vẫn cần test thật. Event packing v2 và lifecycle hiện có giữ nguyên; không kích hoạt QR khi seal và không lấy current Inventory allocation thay proof lịch sử.
+
 Màn Web quản lý/workbench và cookie-to-bearer proxy được mô tả tại
 [Fulfillment UI integration](../../../docs/ui_web/FULFILLMENT_UI_INTEGRATION.md).
 Trong profile Identity BFF, bài kiểm tra packing đi qua BFF Web (kể cả upload

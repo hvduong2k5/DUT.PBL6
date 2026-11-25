@@ -13,6 +13,65 @@ rules:
   runtime_claim: contract validation does not establish provider or end-to-end acceptance
   unknown_dependency: fail closed; never downgrade to simulator or legacy financial side effects
 contracts:
+  - id: traceability-workflow-2026-11
+    owner: traceability-service
+    consumers: [web-user, order-service]
+    artifact: docs/03_api_specs/traceability-workflow-draft.openapi.yaml
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-design-2026-11-21.md
+    tasks:
+      - Implement warehouse-scoped authorization using authoritative Inventory warehouse binding, not client input.
+      - Implement the target batch lookup and internal resolver directly; keep the resolver internal and verify before stable promotion.
+      - Coordinate Inventory warehouse_id and Fulfillment sealed packed_lines extensions before Order integration.
+      - Keep receipt, profile workflow, printing and Order lifecycle independent; packing never activates QR.
+  - id: traceability-scoped-admin-v2
+    owner: traceability-service
+    consumers: [web-user, gateway-bff]
+    artifact: docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-service-spec.md
+    tasks:
+      - Preserve legacy v1 wire behavior; introduce scoped v2 with common error envelope and Idempotency-Key.
+      - Enforce warehouse grants, contributor separation, redacted-reference preservation and scoped replay.
+      - Run the linked Traceability acceptance matrix before stable promotion.
+  - id: traceability-catalog-sku-binding
+    owner: catalog-service
+    consumers: [traceability-service]
+    artifact: docs/03_api_specs/traceability-workflow-draft.openapi.yaml
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-peer-handoff.md
+    tasks:
+      - Resolve exact SKU to Product and Catalog version under the dedicated Traceability credential.
+      - Keep hidden or stopped retained variants resolvable without price or public saleability dependencies.
+      - Preserve the existing Product-SKU verifier and keep all internal binding routes off the public gateway.
+  - id: traceability-identity-bff-transports
+    owner: identity-service
+    consumers: [web-user, gateway-bff]
+    artifact: docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-peer-handoff.md
+    tasks:
+      - Add allowlisted cookie-to-bearer Traceability v2 and Inventory workbench/receipt adapters in cookie mode.
+      - Enforce active employee status for v2 and preserve Origin/CSRF, body bounds, status and no-store semantics.
+      - Never require browser token exposure or replace backend warehouse authorization with role-derived scopes.
+  - id: traceability-batch-source-warehouse-candidate
+    owner: inventory-service
+    consumers: [traceability-service]
+    artifact: docs/03_api_specs/traceability-workflow-candidates/batch_source.proto
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-peer-handoff.md
+    tasks:
+      - Implement authoritative warehouse_id field 9 using existing capability or an adapter; update canonical proto and code generation without waiting for an approval reply.
+      - Add batch binding to receipt results without changing stock transaction or idempotency semantics.
+  - id: traceability-packed-lines-candidate
+    owner: fulfillment-service
+    consumers: [order-service]
+    artifact: docs/03_api_specs/traceability-workflow-candidates/packing.proto
+    state: implementation-target-draft
+    contract_guide: docs/03_api_specs/traceability-workflow-peer-handoff.md
+    tasks:
+      - Implement packed_lines field 14 from exact sealed snapshots; preserve existing wire fields and RPCs without a pre-implementation approval gate.
+      - Roll out compatible Order consumers first; never activate batch QR from packing notifications.
   - id: order-fulfillment-permit
     owner: order-service
     consumers: [fulfillment-service]

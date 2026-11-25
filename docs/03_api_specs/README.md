@@ -130,3 +130,25 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (32 endpoints, 9 nhóm thẻ nghiệp vụ, 40 schemas).
 4. [schema.graphql](./schema.graphql): Đặc tả GraphQL Schema cho Mobile BFF (Backend-For-Frontend) tối ưu mạng 4G cho Native Mobile App (NFR-02).
 
+## 5. Traceability theo lô — bộ tài liệu dự án
+
+Cập nhật25/11/2026 · Target0.2.2-draft. Bắt đầu tại [mục lục workflow](traceability-workflow-README.md). Đây là bộ đặc tả nằm trong cấu trúc dự án và được đăng ký ở [MVP registry](../../packages/contracts/mvp/registry.yaml), không phải file handoff ngoài repository hoặc bằng chứng đã deploy.
+
+| Loại | Nguồn nội dung có thẩm quyền |
+| --- | --- |
+| Nghiệp vụ, actor và quyết định | [EPIC 19, mục6.5](../01_requirements/epics/EPIC_19_OCOP_Traceability.md), đã phản ánh vào backlog, release-plan supplement và FR-20 |
+| Thiết kế Traceability target | [Service spec](traceability-workflow-service-spec.md), [thiết kế liên service](traceability-workflow-design-2026-11-21.md); [mục lục kiến trúc](../02_architecture/services/traceability-service/README.md) phân biệt với baseline v1/P8 |
+| REST baseline đang có | [Traceability v1](traceability-service.openapi.yaml); không bị thay ngầm bởi target mới |
+| REST target admin scoped | [Admin v2](traceability-scoped-admin-draft.openapi.yaml), có tham chiếu operation từ [admin draft-planned](admin-draft-planned.openapi.yaml) |
+| REST target liên service/customer | [Workflow integration](traceability-workflow-draft.openapi.yaml), customer operation được tham chiếu từ [customer draft-planned](customer-draft-planned.openapi.yaml) |
+| Identity cookie transports | [BFF draft](traceability-workflow-bff-draft.openapi.yaml), route/header/auth/CSRF rõ ràng; không expose internal resolver |
+| gRPC candidate | [BatchSource](traceability-workflow-candidates/batch_source.proto), [packing proof](traceability-workflow-candidates/packing.proto); compile riêng, chưa thay canonical `packages/proto/` hoặc generated code |
+| Kafka | [Event catalog](02_kafka_event_catalog.md) và [Events README](../../packages/events/README.md); packing không kích hoạt/publish QR |
+| Bàn giao owner | [Task/OUT và quy trình làm trực tiếp](traceability-workflow-peer-handoff.md); tái sử dụng phần đã có, không chờ phản hồi ACCEPT trước code |
+| Kiểm thử/trạng thái UI | [Acceptance](traceability-workflow-acceptance.md), [admin matrix](admin-api-state-matrix.md), [customer matrix](customer-api-state-matrix.md); [testing index](../04_testing/traceability-service/README.md) tách evidence baseline/target |
+| Review code/rủi ro | [Review25/11](traceability-workflow-review-2026-11-25.md); các thay đổi thiết kế đã ghi và hạn chế còn lại |
+
+Quy tắc bảo trì theo `AGENTS.md`: contract và các tài liệu handoff có nội dung Catalog trong bộ này giữ ở `docs/03_api_specs/`; không tạo bản sao Catalog ngoài thư mục. Không cho stable import draft, không promote stable chỉ vì lint xanh. Thay REST/permission/UI state cập nhật đúng OpenAPI+state matrix; không sửa generated rows hoặc snapshot để che khác biệt. Contract canonical tương ứng được cập nhật trước hoặc song song với code, generated artifact làm theo generator/quy trình; chỉ promote stable khi đủ quyết định, quyền, examples và contract tests cùng bằng chứng áp dụng.
+
+Chỉ cập nhật nội dung ở nguồn tương ứng trong bảng; README/kiến trúc/kiểm thử khác chỉ trỏ về nguồn đó để tránh nhiều bản đặc tả mâu thuẫn. Tên file có ngày21/11 là ngày tạo quyết định gốc; version/changelog trong bộ workflow mới là mốc target hiện hành.
+

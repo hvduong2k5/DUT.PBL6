@@ -1,4 +1,6 @@
 # TÀI LIỆU ĐẶC TẢ & PHÂN RÃ SƠ ĐỒ USE CASE TOÀN DIỆN (MASTER USE CASE SPECIFICATION)
+
+> **OCOP supplement25/11/2026:** UC-OCOP-01 quét QR được cụ thể hóa thành link public theo Batch; nhân viên đúng kho lập hồ sơ sau nhập kho, duyệt/công bố rồi in tem; khách đăng nhập xem lô thực giao từ chi tiết đơn. Xem [EPIC19 mục6.5](epics/EPIC_19_OCOP_Traceability.md) và [bộ đặc tả](../03_api_specs/traceability-workflow-README.md). Không gộp transaction nhập kho/hồ sơ, không kích hoạt QR từ packing, không thay xác minh thủ công bằng tuyên bố EXT-10 đã tích hợp. Các sơ đồ tổng bên dưới không là bằng chứng chức năng target đã được triển khai.
 ## ĐỀ TÀI: HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ ĐA KÊNH & HỆ THỐNG PHÂN TÍCH HỖ TRỢ QUYẾT ĐỊNH CHIẾN LƯỢC CHO NÔNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
 
 **Phiên bản:** 3.0  

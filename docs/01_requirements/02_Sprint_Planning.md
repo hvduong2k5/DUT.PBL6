@@ -41,6 +41,8 @@ Việc phân kỳ tuân theo thứ tự ưu tiên trong Product Backlog: `Must H
 ### MVP v1.2 — Niềm tin & Tuân thủ (Must Have — 3rd)
 *Mục tiêu: Xây dựng niềm tin thương hiệu OCOP, xử lý hậu mãi và kiểm toán.*
 
+**Bổ sung triển khai EPIC19 ngày25/11/2026:** [bộ đặc tả theo lô](../03_api_specs/traceability-workflow-README.md) chia việc theo dependency: A — scoped hồ sơ/nguồn xác minh/BFF và tải-in tem; B — sealed batch proof → Order → xem nguồn gốc từ đơn. Có thể phát triển độc lập bằng fixture đúng contract, không cần chờ phản hồi ACCEPT; chỉ nghiệm thu integration khi có provider thật. Đây là cách chia deliverable của nghiệp vụ đã chốt, không tự đổi lịch12tuần, priority hoặc tuyên bố MVP v1.2 hoàn thành. Guard duyệt/công bố tối thiểu bảo vệ public QR; tự động Procurement/genealogy và các phần nâng cao US-OCOP-05~06 vẫn theo phạm vi riêng.
+
 | Nhóm | Tính năng (User Stories) |
 | :--- | :--- |
 | **OCOP** | QR truy xuất, Nguồn gốc, Chứng nhận OCOP, Quản lý nguồn gốc (US-OCOP-01~04) |
