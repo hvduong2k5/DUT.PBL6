@@ -15,6 +15,8 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
 
+The Order principal-kind gate retains Employee access to direct admin detail and cancellation-request routes; permission and warehouse checks remain mandatory. Guest, payment-grant and Customer principals cannot access the admin detail projection.
+
 Analytics MVP scoped mode: Dashboard and metric series require `ANALYTICS_DASHBOARD_VIEW#GLOBAL`; all Supply reads require `ANALYTICS_SUPPLY_VIEW#GLOBAL`. Bearer JWT takes the grant from `permission_grants`; Identity session takes structured `permissionGrants`. Flat `permissions`, role `ADMIN`, and WAREHOUSE/DEPARTMENT grants do not authorize these routes. Missing token/session → 401; authenticated actor without matching grant or ACTIVE EMPLOYEE state → 403. Pilot UUID allowlist mode remains dev-only.
 
 ## Provisional JWT consumer rollout (parts 3–4)
@@ -27,7 +29,7 @@ Issuer tasks 1–2 are pending; see [handoff](../06_operations/profile-order-jwt
 
 Promotion's service-backend coupon routes (`/api/v1/admin/coupons`) now verify the signed
 employee JWT (`principal_type=EMPLOYEE`, `omama-api` audience) and require `PROMOTION_VIEW#GLOBAL`
-for listing or `PROMOTION_MANAGE#GLOBAL` for mutations. Identity migration V22 now seeds both
+for listing or `PROMOTION_MANAGE#GLOBAL` for mutations. Identity migration V27 now seeds both
 permissions and grants them to the enabled, unarchived ADMIN role, without creating employee
 assignments or widening scope. Deploy the migration, sync each affected employee through the IAM
 sync-permissions endpoint (forceRelogin=false for additive grants), then refresh tokens before

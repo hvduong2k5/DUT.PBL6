@@ -1,6 +1,12 @@
 package transport
 
-import "testing"
+import (
+	"net/http/httptest"
+	"testing"
+
+	"github.com/omamx/order-service/internal/app"
+	"github.com/omamx/order-service/internal/domain"
+)
 
 func TestEmployeeRouteAllowlist(t *testing.T) {
 	for _, test := range []struct {
@@ -23,6 +29,11 @@ func TestEmployeeRouteAllowlist(t *testing.T) {
 		{"POST", "/api/v1/orders/id/cancel", false},
 		{"GET", "/api/v1/admin/orders-export", false},
 	} {
+		s := &app.Service{C: app.Config{AuthMode: "keycloak"}}
+		req := httptest.NewRequest(test.method, test.path, nil)
+		if got := authorizeGuestRequest(s, domain.Principal{Kind: domain.Employee, IAM: true}, req) == nil; got != test.allow {
+			t.Errorf("principal gate: %s %s = %v", test.method, test.path, got)
+		}
 		if got := staffOrderRoute(test.method, test.path); got != test.allow {
 			t.Errorf("%s %s = %v", test.method, test.path, got)
 		}

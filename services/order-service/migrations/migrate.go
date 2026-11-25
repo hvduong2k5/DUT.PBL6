@@ -35,10 +35,22 @@ var CustomerProjection string
 //go:embed 000008_fulfillment_integration.up.sql
 var FulfillmentIntegration string
 
-//go:embed 000012_promotion_checkout.up.sql
+//go:embed 000009_case_decisions.up.sql
+var CaseDecisions string
+
+//go:embed 000010_refund_authority.up.sql
+var RefundAuthority string
+
+//go:embed 000011_evidence_vault.up.sql
+var EvidenceVault string
+
+//go:embed 000012_guest_cart_merge.up.sql
+var GuestCartMerge string
+
+//go:embed 000013_promotion_checkout.up.sql
 var PromotionCheckout string
 
-// Discover by filename so merging F-42 migrations 9-11 cannot renumber Promotion.
+// Discover by filename so merges cannot silently renumber or skip Promotion.
 // Never infer persistent migration versions from a slice index.
 //
 //go:embed *.up.sql

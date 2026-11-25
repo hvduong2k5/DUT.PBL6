@@ -16,6 +16,7 @@ import (
 	"github.com/omamx/order-service/internal/sepay"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -152,6 +153,21 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 		s.PaymentApproval = authority
 		s.PaymentCases = authority
 	}
+	if s.PaymentCases == nil {
+		// F-55: no external care authority exists in this deployment, so
+		// reconciliation-case decisions are recorded locally under the
+		// PAYMENT_CASE_DECIDE grant, with maker-checker enforced by the
+		// persistence layer.
+		s.PaymentCases = p.LocalCaseAuthority()
+	}
+	if s.PaymentApproval == nil {
+		// F-42 slice 2: no external care authority exists either, so
+		// refund approvals are recorded locally under the
+		// PAYMENT_REFUND_APPROVE grant. Approval alone moves no money:
+		// acceptance, execution and verification stay separated per
+		// person in the persistence layer.
+		s.PaymentApproval = p.LocalRefundApproval()
+	}
 	if base := os.Getenv("SEPAY_FINANCE_URL"); base != "" {
 		authority, e := paymentauthority.New(base, s.C.InternalToken)
 		if e != nil {
@@ -163,6 +179,25 @@ func (s *Service) EnableSePayFromEnv(ctx context.Context) error {
 			if strings.TrimSpace(host) != "" {
 				s.PaymentEvidenceHosts = append(s.PaymentEvidenceHosts, strings.TrimSpace(host))
 			}
+		}
+	}
+	if s.PaymentEvidence == nil {
+		// F-42 slice 2: bank-statement evidence certificates are issued
+		// locally under the PAYMENT_REFUND_VERIFY grant.
+		s.PaymentEvidence = p.LocalRefundEvidence()
+	}
+	if s.PaymentVault == nil {
+		// F-42 slice 3: no external finance service exists in this
+		// deployment, so evidence files are vaulted locally: ticketed
+		// uploads behind capability-signed URLs served by this service,
+		// bytes verified against the declared SHA-256 on arrival.
+		base := strings.TrimSpace(os.Getenv("EVIDENCE_VAULT_PUBLIC_BASE"))
+		if base == "" {
+			base = "https://api-pbl6.hvduong.qzz.io"
+		}
+		s.PaymentVault = p.LocalEvidenceVault(base)
+		if u, e := url.Parse(base); e == nil && u.Host != "" {
+			s.PaymentEvidenceHosts = append(s.PaymentEvidenceHosts, u.Host)
 		}
 	}
 	return s.enableInventoryFromEnv(ctx)

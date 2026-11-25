@@ -9,6 +9,7 @@ import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { ProductImage } from "@/components/product/product-image";
+import { CartMergeNotice } from "@/components/cart/cart-merge-notice";
 import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -31,6 +32,12 @@ export function CartFlow() {
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const refresh=()=>setRetryKey((value)=>value+1);
+    window.addEventListener("guest-cart-merged",refresh);
+    return ()=>window.removeEventListener("guest-cart-merged",refresh);
+  },[]);
 
   useEffect(() => {
     let active = true;
@@ -113,11 +120,11 @@ export function CartFlow() {
     }
   }
 
-  if (loading) return <main className="cart-page"><CartLoading /></main>;
+  if (loading) return <main className="cart-page"><CartMergeNotice /><CartLoading /></main>;
 
   if (pageError) {
     return (
-      <main className="cart-page">
+      <main className="cart-page"><CartMergeNotice />
         <section className="cart-error-state" role="alert">
           <span aria-hidden="true">!</span>
           <p className="eyebrow">{pageErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? "Tài khoản chưa kích hoạt" : "Kết nối gián đoạn"}</p>
@@ -139,7 +146,7 @@ export function CartFlow() {
   }
 
   return (
-    <main className="cart-page">
+    <main className="cart-page"><CartMergeNotice />
       <nav className="cart-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Trang chủ</Link><span aria-hidden="true">/</span><strong>Giỏ hàng</strong></nav>
 
       <ol className="cart-steps" aria-label="Tiến trình mua hàng">
@@ -188,7 +195,7 @@ export function CartFlow() {
                     <span>Số lượng</span>
                     <div>
                       <button type="button" aria-label={`Giảm số lượng ${item.productName}`} disabled={pending || !item.isAvailable || item.quantity <= 1} onClick={() => updateQuantity(item, item.quantity - 1)}>−</button>
-                      <input aria-label={`Số lượng ${item.productName}`} type="number" min="1" max={MAX_CART_ITEM_QUANTITY} value={draftQuantities[item.itemId] ?? String(item.quantity)} disabled={pending || !item.isAvailable} onChange={(event) => setDraftQuantities((current) => ({ ...current, [item.itemId]: event.currentTarget.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateQuantity(item, Number(event.currentTarget.value)); } }} />
+                      <input aria-label={`Số lượng ${item.productName}`} type="number" min="1" max={MAX_CART_ITEM_QUANTITY} value={draftQuantities[item.itemId] ?? String(item.quantity)} disabled={pending || !item.isAvailable} onChange={(event) => { const value = event.currentTarget.value; setDraftQuantities((current) => ({ ...current, [item.itemId]: value })); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateQuantity(item, Number(event.currentTarget.value)); } }} />
                       <button type="button" aria-label={`Tăng số lượng ${item.productName}`} disabled={pending || !item.isAvailable || item.quantity >= MAX_CART_ITEM_QUANTITY} onClick={() => updateQuantity(item, item.quantity + 1)}>+</button>
                       <button className="cart-quantity-apply" type="button" aria-label={`Áp dụng số lượng cho ${item.productName}`} disabled={pending || !item.isAvailable || draftQuantities[item.itemId] === String(item.quantity)} onClick={() => updateQuantity(item, Number(draftQuantities[item.itemId]))}>✓</button>
                     </div>

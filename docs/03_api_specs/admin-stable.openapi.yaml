@@ -46,7 +46,7 @@ x-promotion-backend-authorization:
   principal-type: EMPLOYEE
   read-grant: PROMOTION_VIEW#GLOBAL
   mutation-grant: PROMOTION_MANAGE#GLOBAL
-  identity-seed: services/identity-service/src/main/resources/db/migration/V22__seed_promotion_permissions.sql
+  identity-seed: services/identity-service/src/main/resources/db/migration/V27__seed_promotion_permissions.sql
   role-bypass: false
   rollout: Deploy seed, sync affected employees through IAM and refresh signed grants; a database seed cannot rewrite existing JWTs.
   ui-facade: Separate from the historical UI-format operations in this contract.
@@ -5586,6 +5586,12 @@ paths:
       tags:
       - Orders
       operationId: getAdminOrdersOrderId
+      description: >-
+        The direct Order backend principal gate admits Employee requests to this
+        projection; the application still requires ORDER_VIEW and enforces its
+        GLOBAL or WAREHOUSE scope. Guest, payment-grant and Customer principals
+        cannot use this employee endpoint. Same-warehouse ORDER_SENSITIVE_VIEW
+        controls recipient visibility.
       summary: Read-only Order detail snapshot with separate payment, reservation,
         packing and shipping projections. Recipient fields are filtered again by the
         Web Admin BFF.

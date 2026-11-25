@@ -1,5 +1,6 @@
 -- Promotion coupon administration is explicitly granted through IAM, not a
--- realm-role bypass. V19-V21 are already allocated; never backfill V18.
+-- realm-role bypass. V22 is FINANCE, V23/V24 are reserved for Shipping and
+-- V25/V26 are payment seeds on dev; never backfill a lower version.
 INSERT INTO iam_permissions (permission_code, resource_code, action_code, risk_level, scope_required, description)
 VALUES
     ('PROMOTION_VIEW', 'PROMOTION', 'VIEW', 'LOW', TRUE, 'Read coupon administration with GLOBAL scope'),

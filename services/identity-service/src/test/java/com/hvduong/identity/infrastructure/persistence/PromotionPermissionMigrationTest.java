@@ -16,7 +16,7 @@ import org.springframework.jdbc.datasource.init.ScriptUtils;
 
 class PromotionPermissionMigrationTest {
 
-    private static final String MIGRATION = "db/migration/V22__seed_promotion_permissions.sql";
+    private static final String MIGRATION = "db/migration/V27__seed_promotion_permissions.sql";
 
     @Test
     void promotionSeedIsPackagedAsANewMigration() throws Exception {

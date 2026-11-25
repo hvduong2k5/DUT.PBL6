@@ -29,7 +29,8 @@
 | `PROMOTION_VIEW` | PROMOTION | VIEW | LOW | TRUE | Đọc quản trị coupon; Promotion yêu cầu grant GLOBAL |
 | `PROMOTION_MANAGE` | PROMOTION | MANAGE | HIGH | TRUE | Tạo/sửa/phát hành/tạm dừng coupon; Promotion yêu cầu grant GLOBAL |
 
-Promotion được seed bởi `V22__seed_promotion_permissions.sql`, gán quyền cho role ADMIN đang bật và chưa archive.
+Promotion được seed bởi `V27__seed_promotion_permissions.sql`, gán quyền cho role ADMIN đang bật và chưa archive. V22 thuộc FINANCE, V23/V24 dành cho Shipping, V25/V26 đã thuộc payment; không chèn seed mới xuống các số đã dùng.
+Nếu Shipping giữ V23/V24, cần merge/deploy hai seed đó trước V27. Nhánh Promotion không tự cung cấp seed Shipping; kiểm tra lịch sử Flyway thật trước rollout, không bật out-of-order để che migration còn thiếu.
 Migration không tạo phân công nhân viên, không đổi scope và không cho phép bypass theo tên role. Sau khi deploy,
 sync các nhân viên bị ảnh hưởng bằng PermissionSyncService (forceRelogin=false) rồi refresh JWT để nhận grant mới.
 

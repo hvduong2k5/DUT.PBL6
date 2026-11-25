@@ -29,16 +29,20 @@ A rejected voucher after stock/funds commitment parks payment finalization for r
 it never changes the order to full price or authorizes fulfillment without the discount proof.
 Order snapshot 1.1 records the voucher; existing 1.0 snapshots and hashes are preserved.
 
-Promotion uses Order migration `000012_promotion_checkout.up.sql`: versions 9-11 belong to
-F-42 (case decisions, refund authority, evidence vault) on the release stack. The Order runner
+Promotion uses Order migration `000013_promotion_checkout.up.sql`: versions 9-11 belong to
+F-42 (case decisions, refund authority, evidence vault), and version 12 belongs to guest cart
+merge on the current dev chain. The Order runner
 uses the version in each filename, not its position in a list, and rejects duplicate versions.
 It does not insert fictitious history entries for files missing from this branch. When the
-F-42 stack is merged, its unchanged migrations are discovered at 9-11 and Promotion remains 12.
-Version 12 also tolerates the identical voucher table created by the earlier development-only
+F-42 and guest checkout stacks are merged, their unchanged migrations remain at 9-12.
+Version 13 also tolerates the identical voucher table created by the earlier development-only
 Promotion version 9; never remove or relabel release migration history to deploy this feature.
 An old development version-9 record does not prove that F-42 case-decision DDL ran. Before using
 such a database with the F-42 release, back it up and reconcile its history with the release owner,
 or recreate only a disposable development database. This change never rewrites that history.
+The same caution applies to a development database that applied Promotion at version 12 before
+guest cart merge arrived: its history does not prove the guest-cart tables exist. Reconcile
+that database separately; never mark guest-cart DDL as applied merely to start the service.
 
 Only explicit voucher eligibility errors return `is_applicable=false`. Database/unexpected
 failures return sanitized gRPC `Unavailable`; cancellation and deadline errors retain their
@@ -102,16 +106,26 @@ configured, admin routes fail closed with `503 AUTH_UNAVAILABLE`. Keep the key p
 mount a signing private key). gRPC and service-to-service loyalty routes continue using their
 separate internal tokens. Do not expose service-internal routes directly to untrusted networks.
 
-Identity migration `V22__seed_promotion_permissions.sql` is included in this change. It seeds
+Identity migration `V27__seed_promotion_permissions.sql` is included in this change. It seeds
 `PROMOTION_VIEW` and `PROMOTION_MANAGE` and grants both to the enabled, unarchived ADMIN role;
 it does not create employee assignments or widen a WAREHOUSE assignment to GLOBAL. V18 is not
-used because the current Identity sequence already includes V19-V21. Deploy Identity's migration,
+used because the current Identity sequence already includes V19-V26 (V23/V24 reserved for
+Shipping). V22 belongs to FINANCE and V25/V26 to payment; the unreleased Promotion seed moves
+to V27 rather than overwriting those versions. If a development Identity database previously
+applied Promotion as V22, stop and reconcile its history with the owner before deployment;
+do not use Flyway repair or out-of-order execution to hide conflicting migration identities.
+Deploy Identity's migration,
 then for each affected active employee use the existing IAM sync endpoint
 `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`, authorized
 under Identity's IAM permissions, and refresh/re-login to obtain the new signed grants.
 Verify effective permissions and `PROMOTION_VIEW#GLOBAL` / `PROMOTION_MANAGE#GLOBAL` in a real
 employee token before accepting admin rollout. Seed data alone cannot update previously issued
 JWTs. Promotion continues rejecting role-only tokens, customers, and non-GLOBAL grants.
+Coordinate the shared deployment stream before applying V27: if Shipping retains V23/V24,
+merge and deploy those seeds first. They are not supplied by this Promotion branch. Applying
+V27 first would leave later-arriving V23/V24 below Flyway's current version; that requires a
+reviewed forward-seed plan, not automatic out-of-order execution. Merge readiness does not
+prove the live database or Keycloak token attributes have been synchronized.
 A lifecycle worker advances scheduled coupons and ends expired ones;
 all manual/automatic status changes are audited. A voucher expiry worker marks overdue `HELD`
 resources as `EXPIRED` in batches using PostgreSQL time, incrementing the resource version. It

@@ -14,8 +14,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PromotionCheckoutContracts(unittest.TestCase):
+    def test_merged_contracts_do_not_silently_overwrite_duplicate_yaml_keys(self):
+        class UniqueKeyLoader(yaml.SafeLoader):
+            def construct_mapping(loader, node, deep=False):
+                keys = set()
+                for key_node, _ in node.value:
+                    key = loader.construct_object(key_node, deep=deep)
+                    if key in keys:
+                        raise AssertionError(f"Duplicate YAML key {key!r} at line {key_node.start_mark.line + 1}")
+                    keys.add(key)
+                return super().construct_mapping(node, deep=deep)
+
+        for name in ("customer-stable.openapi.yaml", "admin-stable.openapi.yaml",
+                     "order-service.openapi.yaml", "mvp-customer.openapi.yaml"):
+            with self.subTest(contract=name):
+                yaml.load((ROOT / "docs/03_api_specs" / name).read_text(encoding="utf-8"), Loader=UniqueKeyLoader)
+
     def test_identity_seed_grants_promotion_without_role_or_scope_bypass(self):
-        seed = ROOT / "services/identity-service/src/main/resources/db/migration/V22__seed_promotion_permissions.sql"
+        seed = ROOT / "services/identity-service/src/main/resources/db/migration/V27__seed_promotion_permissions.sql"
+        versions = [int(p.name.split("__", 1)[0][1:]) for p in seed.parent.glob("V*__*.sql")]
+        self.assertEqual(len(versions), len(set(versions)), "Duplicate Identity migration version")
+        self.assertTrue((seed.parent / "V22__seed_finance_payment_case_and_refund_permissions.sql").is_file())
+        self.assertTrue((seed.parent / "V26__seed_payment_refund_permissions.sql").is_file())
         # This seed uses portable INSERT/SELECT/ON CONFLICT only. Run it twice
         # against a memory database; the Java JDBC test separately covers PostgreSQL.
         with sqlite3.connect(":memory:") as db:
@@ -118,8 +138,9 @@ class PromotionCheckoutContracts(unittest.TestCase):
             method = "post" if path != "/api/v1/checkout-operations/{id}" else "get"
             actual, expected = stable["paths"][path][method], public["paths"][path][method]
             self.assertEqual(actual["operationId"], expected["operationId"])
-            self.assertEqual(actual["security"], [{"bearerAuth": []}])
-            self.assertEqual(set(actual["responses"]), set(expected["responses"]))
+            self.assertEqual(actual["security"], [{"bearerAuth": []}, {"customerSession": []}, {"guestSession": []}])
+            # F-53 adds guest quota errors to the same credential-owned quote route.
+            self.assertEqual(set(actual["responses"]) - {"429"}, set(expected["responses"]) - {"429"})
         quote = stable["components"]["schemas"]["MvpOrderQuote"]["properties"]
         self.assertIn("merchandise_discount", quote)
         self.assertIn("shipping_discount", quote)

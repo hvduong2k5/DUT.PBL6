@@ -1,3 +1,4 @@
+-- Version 12 belongs to guest cart merge on dev; Promotion follows it at 13.
 -- Add minor-version voucher snapshots without rewriting historical 1.0 evidence.
 ALTER TABLE orders DROP CONSTRAINT core_order_shape;
 ALTER TABLE orders ADD CONSTRAINT core_order_shape CHECK(cohort<>'order-core-1' OR

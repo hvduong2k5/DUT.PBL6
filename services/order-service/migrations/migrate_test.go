@@ -11,19 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func TestPromotionVersionIsTwelveAndF42GapIsNotRenumbered(t *testing.T) {
+func TestPromotionVersionFollowsF42AndGuestCartMerge(t *testing.T) {
 	plan, err := migrationPlan(migrationFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
 	found := false
 	for _, step := range plan {
-		if step.name == "000012_promotion_checkout.up.sql" && step.version == 12 {
+		if step.name == "000013_promotion_checkout.up.sql" && step.version == 13 {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("Promotion must retain version 12 before and after F-42 is merged")
+		t.Fatal("Promotion must follow guest cart merge at version 13")
 	}
 	// A later merge introduces these filenames. Discovery must include them
 	// without changing the persistent identity of the Promotion migration.
@@ -37,7 +37,7 @@ func TestPromotionVersionIsTwelveAndF42GapIsNotRenumbered(t *testing.T) {
 		}
 	}
 	plan, err = migrationPlan(merged)
-	if err != nil || len(plan) < 12 {
+	if err != nil || len(plan) < 13 {
 		t.Fatal("F-42 merge lost migration entries", err)
 	}
 	for index, step := range plan {
@@ -54,6 +54,38 @@ func TestMigrationPlanRejectsDuplicateVersion(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("duplicate migration IDs must fail, not silently skip DDL")
+	}
+}
+
+func TestMigrationPlanRejectsGuestCartPromotionVersionCollision(t *testing.T) {
+	_, err := migrationPlan(fstest.MapFS{
+		"000012_guest_cart_merge.up.sql":   {Data: []byte("SELECT 1;")},
+		"000012_promotion_checkout.up.sql": {Data: []byte("SELECT 2;")},
+	})
+	if err == nil {
+		t.Fatal("guest cart merge and Promotion must never share version 12")
+	}
+}
+
+func TestApplyRunsPromotionAfterPreviouslyAppliedGuestCartMerge(t *testing.T) {
+	tx := &migrationTestTx{versions: map[int]bool{}}
+	for version := 1; version <= 12; version++ {
+		tx.versions[version] = true
+	}
+	if err := Apply(context.Background(), migrationTestDB{tx}); err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, sql := range tx.executed {
+		if sql == GuestCartMerge {
+			t.Fatal("already applied guest-cart DDL was replayed")
+		}
+		if sql == PromotionCheckout {
+			count++
+		}
+	}
+	if count != 1 || !tx.versions[13] || tx.commits != 1 {
+		t.Fatal("guest-cart history must not skip Promotion DDL", count, tx.versions)
 	}
 }
 
@@ -103,7 +135,7 @@ func TestApplyRunsPromotionAfterPreviouslyAppliedF42Versions(t *testing.T) {
 			count++
 		}
 	}
-	if count != 1 || !tx.versions[12] || tx.commits != 1 {
+	if count != 1 || !tx.versions[12] || !tx.versions[13] || tx.commits != 1 {
 		t.Fatal("version 9-11 history incorrectly skipped Promotion DDL", count, tx.versions)
 	}
 	tx.executed = nil
@@ -112,7 +144,7 @@ func TestApplyRunsPromotionAfterPreviouslyAppliedF42Versions(t *testing.T) {
 	}
 	for _, sql := range tx.executed {
 		if sql == PromotionCheckout {
-			t.Fatal("already applied version 12 ran twice")
+			t.Fatal("already applied version 13 ran twice")
 		}
 	}
 }
@@ -125,7 +157,7 @@ func TestApplyDoesNotRecordFailedPromotionDDL(t *testing.T) {
 	if err := Apply(context.Background(), migrationTestDB{tx}); err == nil {
 		t.Fatal("DDL failure was swallowed")
 	}
-	if tx.versions[12] || tx.commits != 0 {
+	if tx.versions[13] || tx.commits != 0 {
 		t.Fatal("failed DDL was marked applied")
 	}
 }

@@ -1786,6 +1786,8 @@ components:
         payment_expires_at:
           type: string
           format: date-time
+          nullable: true
+          description: Null for COD orders, which have no bank-transfer payment deadline. Required date-time for VIETQR.
         updated_at:
           type: string
           format: date-time

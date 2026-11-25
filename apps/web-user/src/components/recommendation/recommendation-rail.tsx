@@ -94,21 +94,3 @@ export function RecommendationRail(props: RecommendationContext) {
   </section>;
 }
 
-export function RecommendationPreferences() {
-  const auth = useAuth();
-  const state = useRecommendation();
-  const [saving, setSaving] = useState(false);
-  if (!recommendationsEnabled) return null;
-  async function toggle(value: boolean) {
-    setSaving(true);
-    try { await state.setConsent(value); } catch { /* The provider renders the retry message. */ }
-    finally { setSaving(false); }
-  }
-  return <section className={styles.preferences} aria-label="Lựa chọn gợi ý">
-    <h3>Tùy chọn gợi ý</h3>
-    {auth.isCustomer && state.consent ? <label><input type="checkbox" checked={state.consent.enabled} disabled={saving}
-      onChange={(event) => { void toggle(event.target.checked); }} /> Cá nhân hóa gợi ý bằng lịch sử xem, thêm giỏ và mua hàng của tôi.</label> : null}
-    <label><input type="checkbox" checked={state.measurement} onChange={(event) => state.setMeasurement(event.target.checked)} /> Cho phép đo hiệu quả gợi ý bằng Google Analytics.</label>
-    {state.consentError ? <p role="status">{state.consentError}</p> : null}
-  </section>;
-}

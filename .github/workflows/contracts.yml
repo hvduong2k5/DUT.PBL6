@@ -1,6 +1,7 @@
 name: MVP contract gates
 
 on:
+  workflow_call:
   pull_request:
     branches: [dev, develop, main]
     paths:
