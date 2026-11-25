@@ -19,6 +19,7 @@ import type {
   ShippingAddress
 } from "@/lib/checkout/types";
 import { getCheckoutFormErrors, validateShippingAddress } from "@/lib/checkout/validation";
+import { userErrorCodeMessage, userErrorMessage } from "@/lib/checkout/error-messages";
 import { checkoutService } from "@/services/checkout-service";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -107,7 +108,7 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
         setRecipient(payload.defaultRecipient);
       }
     }).catch((cause: unknown) => {
-      if (active) setPageError(cause instanceof Error ? cause.message : "Không thể chuẩn bị Checkout lúc này.");
+      if (active) setPageError(userErrorMessage(cause, "Không thể chuẩn bị Checkout lúc này."));
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -116,6 +117,12 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
 
   useEffect(() => {
     if (!preparation || validateShippingAddress(address).length > 0 || !recipient.fullName.trim() || !recipient.phone.trim()) return;
+    const formatErrors = getCheckoutFormErrors(recipient, address);
+    if (Object.keys(formatErrors).length > 0) {
+      setFieldErrors(formatErrors);
+      setQuote(null);
+      return;
+    }
     const normalizedVoucher = MVP_FEATURE_GATES.voucher ? voucherCode.trim().toUpperCase() : "";
     if (normalizedVoucher && !VOUCHER_PATTERN.test(normalizedVoucher)) {
       setQuote(null);
@@ -140,7 +147,7 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
       }).catch((cause: unknown) => {
         if (!active) return;
         setQuote(null);
-        setQuoteError(cause instanceof PublicApiError ? cause.message : "Chưa thể tạo Checkout quote.");
+        setQuoteError(userErrorMessage(cause, "Chưa thể tạo Checkout quote."));
       }).finally(() => {
         if (active) setQuoting(false);
       });
@@ -201,12 +208,12 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
       } else if (result.terminal) {
         setSubmitError(result.status === "MANUAL_REVIEW"
           ? "Checkout cần được nhân viên kiểm tra thủ công. Không gửi lại lệnh với khóa mới."
-          : `Checkout thất bại${result.errorCode ? `: ${result.errorCode}` : "."}`);
+          : userErrorCodeMessage(result.errorCode, 0, "Checkout thất bại."));
       } else {
         setSubmitError("Checkout vẫn đang được xử lý. Bạn có thể kiểm tra lại operation này.");
       }
     } catch (cause) {
-      setSubmitError(cause instanceof PublicApiError ? cause.message : "Chưa thể đọc trạng thái Checkout operation.");
+      setSubmitError(userErrorMessage(cause, "Chưa thể đọc trạng thái Checkout operation."));
     } finally {
       setSubmitting(false);
     }
@@ -237,7 +244,7 @@ export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestC
       if (cause instanceof PublicApiError) {
         setSubmitError(cause.status === 409
           ? "Cart hoặc quote đã thay đổi. Hãy tạo lại quote trước khi thử lại."
-          : cause.message);
+          : userErrorMessage(cause, "Chưa thể accept Checkout lúc này."));
         setFieldErrors((current) => ({ ...current, ...detailsErrors(cause) }));
         if ([409, 410, 422].includes(cause.status)) setQuote(null);
       } else {
