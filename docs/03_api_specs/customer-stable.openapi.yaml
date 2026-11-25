@@ -43,6 +43,8 @@ tags:
   description: Customer support operations for the customer web application.
 - name: Traceability
   description: Traceability operations for the customer web application.
+- name: Media
+  description: Centralized media upload, optimization, and presigned access operations.
 - name: Partner webhooks
   description: Partner webhooks operations for the customer web application.
 paths:
@@ -6599,6 +6601,425 @@ paths:
                 price: 110000
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/media/upload-sessions:
+    post:
+      tags:
+      - Media
+      operationId: postMediaUploadSessions
+      summary: Create a direct-to-object-storage presigned upload session.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - purpose
+              - fileName
+              - mediaType
+              - sizeBytes
+              properties:
+                purpose:
+                  type: string
+                  enum:
+                  - CATALOG_PRODUCT
+                  - CATALOG_CATEGORY
+                  - OCOP_CERTIFICATE
+                  - SHIPPING_VIDEO
+                  - B2B_DOCUMENT
+                  - REFUND_EVIDENCE
+                  - AVATAR
+                fileName:
+                  type: string
+                  maxLength: 500
+                mediaType:
+                  type: string
+                  maxLength: 128
+                sizeBytes:
+                  type: integer
+                  minimum: 1
+                  maximum: 104857600
+                sha256:
+                  type: string
+                  maxLength: 64
+              additionalProperties: false
+            example:
+              purpose: REFUND_EVIDENCE
+              fileName: package.jpg
+              mediaType: image/jpeg
+              sizeBytes: 420000
+      responses:
+        '201':
+          description: Upload session created with presigned PUT URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - uploadSessionId
+                - fileId
+                - objectKey
+                - bucket
+                - uploadUrl
+                - expiresAt
+                - requiredHeaders
+                properties:
+                  uploadSessionId:
+                    type: string
+                  fileId:
+                    type: string
+                    format: uuid
+                  objectKey:
+                    type: string
+                  bucket:
+                    type: string
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  requiredHeaders:
+                    type: object
+                    additionalProperties:
+                      type: string
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    uploadSessionId: sess_01JDJ89K20
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    uploadUrl: https://s3.omama.vn/om-documents/refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg?X-Amz-Expires=900
+                    expiresAt: '2026-11-25T16:30:00Z'
+                    requiredHeaders:
+                      Content-Type: image/jpeg
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/media/upload-sessions/{uploadSessionId}/complete:
+    post:
+      tags:
+      - Media
+      operationId: postMediaUploadSessionsComplete
+      summary: Confirm direct S3 upload completion and trigger WebP/thumbnail optimization.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: uploadSessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Object verified in storage; async optimization started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+              examples:
+                success:
+                  value:
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    fileName: package.jpg
+                    mediaType: image/jpeg
+                    sizeBytes: 420000
+                    sha256Checksum: null
+                    purpose: REFUND_EVIDENCE
+                    accessLevel: PRIVATE_RESTRICTED
+                    status: PROCESSING
+                    variantsMeta: {}
+                    createdAt: '2026-11-25T16:15:00Z'
+                    updatedAt: '2026-11-25T16:16:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/media/{fileId}:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileById
+      summary: Get media file metadata, generated variants, and presigned view/download URLs.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Media metadata with view and download URLs.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/MediaFileMetadata'
+                - type: object
+                  required:
+                  - viewUrl
+                  - downloadUrl
+                  properties:
+                    viewUrl:
+                      type: string
+                      format: uri
+                    downloadUrl:
+                      type: string
+                      format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+      - Media
+      operationId: deleteMediaFileById
+      summary: Soft-delete (archive) a media file.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Media file archived.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/media/{fileId}/view-url:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileViewUrl
+      summary: Issue a short-lived presigned GET URL with Content-Disposition inline for streaming/viewing.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: expirySeconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+      responses:
+        '200':
+          description: Presigned inline view URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccessUrlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/media/{fileId}/download-url:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileDownloadUrl
+      summary: Issue a short-lived presigned GET URL with Content-Disposition attachment for downloading.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: expirySeconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+      responses:
+        '200':
+          description: Presigned attachment download URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccessUrlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/media/direct-upload:
+    post:
+      tags:
+      - Media
+      operationId: postMediaDirectUpload
+      summary: Fallback multipart upload endpoint for internal scripts and admin tools.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                purpose:
+                  type: string
+                  default: CATALOG_PRODUCT
+      responses:
+        '201':
+          description: File uploaded and processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
@@ -6632,6 +7053,97 @@ components:
         type: string
         format: uuid
   schemas:
+    MediaFileMetadata:
+      type: object
+      required:
+      - fileId
+      - objectKey
+      - bucket
+      - fileName
+      - mediaType
+      - sizeBytes
+      - purpose
+      - accessLevel
+      - status
+      - variantsMeta
+      - createdAt
+      - updatedAt
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        objectKey:
+          type: string
+        bucket:
+          type: string
+        fileName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+        sha256Checksum:
+          type:
+          - string
+          - 'null'
+        purpose:
+          type: string
+          enum:
+          - CATALOG_PRODUCT
+          - CATALOG_CATEGORY
+          - OCOP_CERTIFICATE
+          - SHIPPING_VIDEO
+          - B2B_DOCUMENT
+          - REFUND_EVIDENCE
+          - AVATAR
+        accessLevel:
+          type: string
+          enum:
+          - PUBLIC_READ
+          - AUTHENTICATED_READ
+          - PRIVATE_RESTRICTED
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - PROCESSING
+          - READY
+          - PROCESSING_FAILED
+          - ARCHIVED
+        variantsMeta:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    MediaAccessUrlResponse:
+      type: object
+      required:
+      - fileId
+      - url
+      - disposition
+      - expiresAt
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        disposition:
+          type: string
+          enum:
+          - inline
+          - attachment
+        expiresAt:
+          type: string
+          format: date-time
+      additionalProperties: false
     Error:
       type: object
       required:
