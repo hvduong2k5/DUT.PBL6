@@ -100,7 +100,7 @@ func TestProfileIntegrity(t *testing.T) {
 		a := makeAddress(99)
 		a.ProvinceCode = "48"
 		require.Error(t, addresses.CreateAddress(ctx, a))
-		a.ProvinceCode = "75"
+		a.ProvinceCode = "46"
 		a.WardName = "forged"
 		require.NoError(t, addresses.CreateAddress(ctx, a))
 		require.NotEqual(t, "forged", a.WardName)

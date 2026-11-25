@@ -37,15 +37,15 @@ func TestAdministrativeValidatorRejectsCrossProvincePairs(t *testing.T) {
 func TestAdministrativeValidatorRejectsUnknownAndLegacyCodes(t *testing.T) {
 	v := defaultAdministrativeValidator
 	cases := [][2]string{
-		{"99", "19753"},        // unknown province
-		{"46", "99999"},        // unknown ward
-		{"75", "19753"},        // ward of Hue (46) filed under Dong Nai (75): cross pair
-		{"75", "WARD-TH-001"},  // both codes retired with dataset v1
-		{"46", "WARD-TH-001"},  // retired v1 ward under its old province's successor
-		{"46", "HUE-01"},       // legacy synthetic ward of the old hardcode stays rejected
-		{"19753", "46"},        // swapped codes
-		{"", ""},               // empty
-		{"46", "46"},           // province code used as ward
+		{"99", "19753"},       // unknown province
+		{"46", "99999"},       // unknown ward
+		{"75", "19753"},       // ward of Hue (46) filed under Dong Nai (75): cross pair
+		{"75", "WARD-TH-001"}, // both codes retired with dataset v1
+		{"46", "WARD-TH-001"}, // retired v1 ward under its old province's successor
+		{"46", "HUE-01"},      // legacy synthetic ward of the old hardcode stays rejected
+		{"19753", "46"},       // swapped codes
+		{"", ""},              // empty
+		{"46", "46"},          // province code used as ward
 	}
 	for _, c := range cases {
 		if e := v.Validate(c[0], c[1]); e == nil {
