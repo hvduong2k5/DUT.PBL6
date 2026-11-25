@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package omamx.media.v1;
+
+option go_package = "github.com/omamx/proto/media/v1;mediav1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.media.v1";
+
+service MediaInternalService {
+  // Kiểm tra file có tồn tại, đúng purpose và status = READY trước khi Business Service lưu DB
+  rpc ValidateMediaReference (ValidateMediaRequest) returns (ValidateMediaResponse);
+
+  // Cấp Presigned GET URL ngắn hạn cho tài liệu mật hoặc ảnh chưa duyệt (dùng cho Admin/CSKH/Khách)
+  rpc GetPresignedAccessUrl (GetAccessUrlRequest) returns (GetAccessUrlResponse);
+  rpc GetPresignedDownloadUrl (GetDownloadUrlRequest) returns (GetDownloadUrlResponse);
+
+  // Đánh dấu gắn kết file với thực thể nghiệp vụ (chống bị Garbage Collector dọn dẹp nhầm)
+  rpc BindMediaToEntity (BindMediaRequest) returns (BindMediaResponse);
+
+  // Chuyển ảnh đã duyệt (APPROVED) từ vùng private sang vùng public (om-catalog / CDN)
+  rpc PublishMedia (PublishMediaRequest) returns (PublishMediaResponse);
+}
+
+message ValidateMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+  string expected_purpose = 3;
+}
+
+message ValidateMediaResponse {
+  bool is_valid = 1;
+  string status = 2; // AWAITING_UPLOAD, PROCESSING, READY, PROCESSING_FAILED
+  string object_key = 3;
+  string mime_type = 4;
+  int64 size_bytes = 5;
+  string sha256_checksum = 6;
+}
+
+message GetAccessUrlRequest {
+  string file_id = 1;
+  string requesting_user_id = 2;
+  string user_role = 3;
+  int32 expiry_seconds = 4; // Mặc định 900s (15 phút)
+  string disposition = 5;   // "inline" (xem/stream) hoặc "attachment" (tải về máy)
+}
+
+message GetAccessUrlResponse {
+  string access_url = 1;
+  string expires_at = 2;
+  string disposition = 3;
+}
+
+message GetDownloadUrlRequest {
+  string file_id = 1;
+  string requesting_user_id = 2;
+  string user_role = 3;
+  int32 expiry_seconds = 4;
+}
+
+message GetDownloadUrlResponse {
+  string download_url = 1;
+  string expires_at = 2;
+}
+
+message BindMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+  string entity_type = 3; // Product, TraceabilityProfile, FulfillmentTask, OrderRefund
+  string entity_id = 4;
+}
+
+message BindMediaResponse {
+  bool success = 1;
+}
+
+message PublishMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+}
+
+message PublishMediaResponse {
+  bool success = 1;
+  string public_object_key = 2;
+}
