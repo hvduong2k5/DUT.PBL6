@@ -33,7 +33,7 @@ func TestRealGRPCProvider(t *testing.T) {
 	id := uuid.New()
 	now := time.Now().UTC()
 	require.NoError(t, customers.Create(ctx, &domain.CustomerProfile{ID: id, UserID: uuid.New(), FullName: "GRPC Customer", PhoneNumber: "0905111111", Version: 1, Status: "ACTIVE", CreatedAt: now, UpdatedAt: now}))
-	a := &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Recipient", PhoneNumber: "0905111111", StreetAddress: "15 Lê Lợi", WardCode: "WARD-TH-001", ProvinceCode: "75", Label: "HOME", CreatedAt: now, UpdatedAt: now}
+	a := &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Recipient", PhoneNumber: "0905111111", StreetAddress: "15 Lê Lợi", WardCode: "19753", ProvinceCode: "46", Label: "HOME", CreatedAt: now, UpdatedAt: now}
 	require.NoError(t, addresses.CreateAddress(ctx, a))
 	server, err := transport.NewServer("0", transport.NewProfileGRPCServer(usecase.NewCustomerUsecase(customers, nil, pool), usecase.NewAddressUsecase(addresses, usecase.NewAddressFuzzyMatcher(), nil, pool)), "contract-test-only")
 	require.NoError(t, err)

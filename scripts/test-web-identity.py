@@ -710,6 +710,13 @@ def main():
             "SET search_path TO profile,public;"
             + (
                 ROOT
+                / "services/profile-service/migrations/000002_street_mappings_and_national_seed.up.sql"
+            ).read_text(encoding="utf-8")
+        )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
                 / "services/profile-service/migrations/000003_profile_integrity.up.sql"
             ).read_text(encoding="utf-8")
         )
@@ -718,6 +725,13 @@ def main():
             + (
                 ROOT
                 / "services/profile-service/migrations/000004_normalize_shipping_ward_names.up.sql"
+            ).read_text(encoding="utf-8")
+        )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
+                / "services/profile-service/migrations/000005_full_administrative_catalogue.up.sql"
             ).read_text(encoding="utf-8")
         )
         for index, account in enumerate(accounts.values()):
