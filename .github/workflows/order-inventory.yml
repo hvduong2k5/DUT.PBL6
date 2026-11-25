@@ -1,5 +1,6 @@
 name: Order Inventory provider integration
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'services/order-service/**'

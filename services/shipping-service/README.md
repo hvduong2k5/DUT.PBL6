@@ -299,12 +299,16 @@ Shipping implementation in either mode. TLS is required by configuration for pac
    it; the DB-backed production gateway requires the deployment owner to apply it to Kong's DB.
    Committing YAML does not update an already-running gateway. Admin reads forward the employee
    bearer unchanged; GHN must supply `X-GHN-Webhook-Secret`. Kong never injects an internal token.
-4. Deploy Identity V23, sync affected principals using the existing IAM sync-permissions endpoint
+4. Deploy Identity V22 (FINANCE, PR #163) before Shipping V23/V24, then sync affected principals using the existing IAM sync-permissions endpoint
    (`forceRelogin=false`), then refresh JWTs. Required grant is `SHIPMENT_VIEW#GLOBAL` and audience
-   `omama-api`. V22 is reserved by Promotion: deploy that seed before V23 in the shared
-   Identity migration stream. If Shipping must deploy first, coordinate a new higher version
-   for the still-unreleased Promotion seed; do not enable out-of-order migrations blindly or
-   rewrite applied Flyway history. Existing JWTs are not changed by a SQL migration.
+   `omama-api`. The updated dev chain also occupies V25/V26 with payment seeds; Promotion
+   must coordinate a currently unused version, not assume V25 remains free. Inspect
+   `flyway_schema_history` on the target before deployment: an existing database already
+   above V24 without V23/V24 needs a separately reviewed additive forward migration, not
+   `outOfOrder=true` or Flyway repair. The V23 header correction in this PR changes its
+   checksum: if an earlier V23 was applied, stop and reconcile the exact artifact/history
+   with the deployment owner rather than modifying applied migrations. Existing JWTs are
+   not changed by a SQL migration.
 5. Keep one packing-handoff owner as described above. With Order-owned handoff, configure
    Order's Shipping endpoint/CA/token, shared Kafka broker and `shipping.events.v2`. With F-41
    Shipping-owned handoff, additionally configure the dedicated snapshot credential and Order's
@@ -313,11 +317,60 @@ Shipping implementation in either mode. TLS is required by configuration for pac
    It calls the private `POST /api/v1/internal/return-shipments`, sends the Shipping service token
    and a stable `Idempotency-Key`; it does not call Kong or trigger a refund through Shipping.
 
-The Web admin Shipping BFF still targets port 4030 and expects camelCase UI projections plus
+The legacy Web admin Shipping BFF still targets port 4030 and expects camelCase UI projections plus
 session credentials. Shipping returns its snake_case provider read model and verifies a JWT.
 Do not point that BFF at this service without an explicit authentication/projection adapter;
-this backend/gateway task does not claim the admin UI or company-driver workbench is connected.
+the legacy management screen is not connected by these provider read routes. The separate
+company-driver and dispatcher screens are implemented behind `SHIPPING_COMPANY_BFF_ENABLED`
+and use the Identity session relay (or direct OIDC mode), not port 4030.
 Customer checkout and tracking continue through Order, not an unprotected Shipping endpoint.
+
+### Merge review and rc.2 acceptance gates
+
+Merge is not deployment acceptance. Keep internal delivery and assignments disabled until
+their own acceptance window. Do not reuse development secrets or infer runtime configuration
+from the defaults below.
+
+- Identity/Shipping must use the same **actual deployed realm issuer**. Set
+  `SHIPPING_OIDC_ISSUER` explicitly from that realm's discovery document, match `iss` exactly,
+  and configure reachable `SHIPPING_OIDC_JWKS_URL` if needed. Keep audience `omama-api` only
+  when it is actually present in freshly issued staff tokens. The example host is not a
+  verified live realm. Never log tokens or bypass signature/audience checks to get a smoke pass.
+- Set `SHIPPING_ENV=production`; mount the gRPC certificate/key read-only at the paths in
+  `SHIPPING_GRPC_TLS_CERT_FILE`/`SHIPPING_GRPC_TLS_KEY_FILE`. The certificate SAN must match
+  Order's configured Shipping server name and chain to its pinned CA. The local Compose
+  file passes paths but does not mount certificates for you. Provision mounts in Coolify.
+- Set a unique `SHIPPING_INTERNAL_TOKEN` of at least 32 characters; provision the identical
+  value through Order's `ORDER_SHIPPING_TOKEN_FILE`. Pin `SHIPPING_V2_ENABLED=true` explicitly
+  in live configuration; do not depend on the changed code default.
+- For the company screens, configure Identity's `IDENTITY_SHIPPING_API_ENABLED=true` and
+  `IDENTITY_SHIPPING_API_URL` to the Shipping origin without an API suffix. Prefer HTTPS;
+  `IDENTITY_SHIPPING_API_ALLOW_INSECURE_HTTP=true` is an explicit trusted-network exception,
+  not permission to publish plain HTTP externally. Set `SHIPPING_IDENTITY_BASE_URL` for live
+  employee checks and verify mutual network reachability without exposing private APIs.
+- After V23/V24, invoke `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`
+  as an authorized IAM operator for affected ADMIN holders, then refresh/login. Verify
+  `SHIPMENT_VIEW#GLOBAL`, `SHIPMENT_ASSIGN#GLOBAL`, `SHIPMENT_EXECUTE#GLOBAL` as appropriate;
+  assigning a driver additionally requires `USER_VIEW#GLOBAL`. Role names alone are insufficient.
+- Apply the two named Kong services/routes (`shipping-admin-service`,
+  `shipping-ghn-webhook-service`) from `services/api-gateway/config/kong.yml` through the
+  deployment owner's controlled DB-backed Admin API process. Preserve unrelated live routes;
+  do not upload a whole declarative file destructively. Validate list/detail employee reads
+  and GHN secret authentication through the public HTTPS host. Company mutation routes
+  remain private, reached by Identity, not newly exposed by these two Kong routes.
+- Re-run **F-41** using the deployment's single handoff owner: real Order -> real Fulfillment
+  packing proof -> Shipping create -> durable outbox -> Order exact proof consumption.
+  Record order/package/shipment IDs, revisions and event IDs; retry the same packing handoff
+  and confirm no duplicate shipment. CI/local fakes are not GHN deployment evidence.
+- In a separate controlled INTERNAL acceptance window, configure fee/ETA and enable
+  `SHIPPING_INTERNAL_DELIVERY_ENABLED`, `SHIPPING_INTERNAL_ASSIGNMENTS_ENABLED` and Web's
+  `SHIPPING_COMPANY_BFF_ENABLED`. Assign -> accept -> warehouse handover -> driver progress
+  -> delivered/failed-return with real employee sessions. Verify Order receives each supported
+  event/proof, another driver cannot act, and retries do not duplicate transitions. Disable
+  the flags again if acceptance fails; never force state with SQL.
+- GHN deployment smoke separately covers quote/create/label/cancel and the fixed HTTPS
+  callback plus secret. Real picked/delivering/delivered/failed/returned callbacks still
+  require GHN support; INTERNAL progress tests do not certify GHN lifecycle callbacks.
 
 The `Shipping integration gates` workflow runs regression guards, race/unit tests, real
 PostgreSQL transport/outbox tests and Kong config validation. Locally run

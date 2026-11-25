@@ -1,0 +1,70 @@
+name: Dev Gate
+
+# The single authoritative gate for the dev branch.
+#
+# Why this exists: the CD workflow (cd-deploy-v2.yml) authorises a deploy
+# from a workflow_run event. workflow_run fires when ANY listed workflow
+# completes and its GITHUB_SHA points at the default branch, so CD must
+# listen to exactly ONE workflow whose success certifies the whole tree at
+# one commit: this one. It runs on every push to dev with NO path filters
+# and re-runs every required per-service check as a reusable-workflow call,
+# so a push that touches only one service still certifies all of them
+# (the per-service workflows keep their own path-filtered PR/push triggers
+# for fast feedback; those runs are advisory, this gate is authoritative).
+#
+# The fixture runs WITH --guest-checkout here (the Phase 1 standard), even
+# though the standalone web-identity workflow keeps it off for PR speed.
+#
+# mobile-mvp is deliberately NOT part of the gate: the mobile app has no
+# deploy path, so it stays a PR-only check.
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-gate
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI (contract verification + catalog tests)
+    uses: ./.github/workflows/ci.yml
+
+  contracts:
+    name: MVP contract gates
+    uses: ./.github/workflows/contracts.yml
+
+  order:
+    name: Order service release gates
+    uses: ./.github/workflows/order-service.yml
+
+  order-inventory:
+    name: Order / inventory provider integration
+    uses: ./.github/workflows/order-inventory.yml
+
+  web-identity:
+    name: Web identity + fixture (guest checkout)
+    uses: ./.github/workflows/web-identity.yml
+    with:
+      guest_checkout: true
+
+  fulfillment:
+    name: Fulfillment service gates
+    uses: ./.github/workflows/fulfillment-service.yml
+
+  traceability:
+    name: Traceability service gates
+    uses: ./.github/workflows/traceability-service.yml
+
+  ai-agent:
+    name: AI agent service gates
+    uses: ./.github/workflows/ai-agent-service.yml
+
+  analytics:
+    name: Analytics service gates
+    uses: ./.github/workflows/analytics-service.yml

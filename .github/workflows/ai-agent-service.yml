@@ -1,6 +1,7 @@
 name: ai-agent-service
 
 on:
+  workflow_call:
   push:
     paths:
       - "services/ai-agent-service/**"

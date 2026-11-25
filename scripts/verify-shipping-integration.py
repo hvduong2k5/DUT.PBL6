@@ -221,6 +221,29 @@ class ShippingIntegrationTests(unittest.TestCase):
         self.assertEqual(db.execute("SELECT scope_required FROM iam_permissions").fetchone(), (1,))
         self.assertNotIn("INSERT INTO iam_role_assignments", sql)
 
+    def test_merged_identity_chain_keeps_finance_before_shipping(self):
+        folder = ROOT / "services/identity-service/src/main/resources/db/migration"
+        versions = {}
+        for path in folder.glob("V*__*.sql"):
+            version = int(path.name.split("__", 1)[0][1:])
+            self.assertNotIn(version, versions, f"Duplicate Flyway version {version}")
+            versions[version] = path
+        expected = {
+            22: "V22__seed_finance_payment_case_and_refund_permissions.sql",
+            23: "V23__seed_shipping_permissions.sql",
+            24: "V24__seed_internal_shipping_permissions.sql",
+            25: "V25__seed_payment_case_decide_permission.sql",
+            26: "V26__seed_payment_refund_permissions.sql",
+        }
+        for version, name in expected.items():
+            self.assertEqual(versions[version].name, name)
+        finance = versions[22].read_text(encoding="utf-8")
+        for grant in ("PAYMENT_CASE_DECIDE", "PAYMENT_REFUND_APPROVE", "PAYMENT_REFUND_EXECUTE", "PAYMENT_REFUND_VERIFY"):
+            self.assertIn(grant, finance)
+        shipping = versions[23].read_text(encoding="utf-8")
+        self.assertIn("PR #163", shipping)
+        self.assertNotIn("reserved by the Promotion", shipping)
+
     def test_contract_keeps_global_jwt_and_distinguishes_backend_projection(self):
         spec = yaml.safe_load((ROOT / "docs/03_api_specs/admin-stable.openapi.yaml").read_text(encoding="utf-8"))
         for path in ("/api/v1/admin/shipping/shipments", "/api/v1/admin/shipping/shipments/{shipmentId}"):

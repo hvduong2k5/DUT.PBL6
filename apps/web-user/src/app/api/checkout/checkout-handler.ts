@@ -6,10 +6,8 @@ import {
   type OrderQuote,
   type PublicErrorBody
 } from "@/lib/api-contract";
-import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/customer-access-server";
-import { credentialHeaders } from "@/lib/auth/server-credential";
-import { withCustomerAuth } from "@/lib/auth/customer-auth";
-import { customerCommerceUpstreamUrl } from "@/lib/upstream";
+import { customerAccessFailure } from "@/lib/auth/customer-access-server";
+import { applyStorefrontAuthorization, authorizeStorefrontCapability, withGuestCookie, storefrontUpstream, guestCredential, GuestRateLimitError } from "@/lib/auth/storefront-credential";
 import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import {
   parseMvpCheckoutRoute,
@@ -45,9 +43,9 @@ function publicErrorResponse(
   return Response.json(body, { status });
 }
 
-function upstreamHeaders(credential: string | undefined, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
+function upstreamHeaders(request: NextRequest, scenario?: string, hasBody = false, idempotencyKey?: string): Headers {
   const headers = new Headers({ Accept: "application/vnd.omama.customer-mvp+json, application/json" });
-  credentialHeaders(headers, credential);
+  applyStorefrontAuthorization(headers, request);
   if (hasBody) headers.set("Content-Type", "application/json");
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
   if (process.env.NODE_ENV !== "production" && scenario) headers.set("X-Mock-Scenario", scenario);
@@ -56,17 +54,16 @@ function upstreamHeaders(credential: string | undefined, scenario?: string, hasB
 
 async function callUpstream(
   request: NextRequest,
-  credential: string | undefined,
   path: string,
   method: string,
   scenario?: string,
   body?: unknown,
   idempotencyKey?: string
 ) {
-  const base = customerCommerceUpstreamUrl();
+  const base = storefrontUpstream(request);
   const response = await fetch(`${base}/${path}`, {
     method,
-    headers: upstreamHeaders(credential, scenario, body !== undefined, idempotencyKey),
+    headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
     redirect: "manual"
@@ -147,11 +144,11 @@ function isCheckoutOperation(value: unknown): value is CheckoutOperation {
     && isIsoDateTime(value.updated_at);
 }
 
-export async function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
-  return withCustomerAuth(request, (credential) => handleCheckoutRequestWithCredential(request, path, credential));
+export function handleCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
+  return withGuestCookie(request, () => handleAuthorizedCheckoutRequest(request, path));
 }
 
-async function handleCheckoutRequestWithCredential(request: NextRequest, path: string[], credential: string | undefined): Promise<Response> {
+async function handleAuthorizedCheckoutRequest(request: NextRequest, path: string[]): Promise<Response> {
   const route = parseMvpCheckoutRoute(request.method, path, request.nextUrl.searchParams);
   if (route.error || !route.operation) {
     const notFound = route.error?.field === "path";
@@ -171,15 +168,15 @@ async function handleCheckoutRequestWithCredential(request: NextRequest, path: s
   }
 
   try {
-    await authorizeCustomerCapability(credential, "CHECKOUT_CREATE");
+    await authorizeStorefrontCapability(request, "CHECKOUT_CREATE", request.method !== "GET");
   } catch (cause) {
-    const failure = customerAccessFailure(cause);
+    const failure = cause instanceof GuestRateLimitError ? { status: 429, code: cause.code, message: "Vui lòng thử lại sau." } : customerAccessFailure(cause);
     return publicErrorResponse(failure.status, failure.code, failure.message, "BFF-CHECKOUT-ACCESS");
   }
 
   try {
     if (route.operation === "get-operation") {
-      const result = await callUpstream(request, credential, `checkout-operations/${encodeURIComponent(route.operationId!)}`, "GET", route.mockScenario);
+      const result = await callUpstream(request, `checkout-operations/${encodeURIComponent(route.operationId!)}`, "GET", route.mockScenario);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       if (result.response.status !== 200) return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout operation trả status ngoài contract.", "BFF-CHECKOUT-OPERATION");
       return isCheckoutOperation(result.payload)
@@ -201,13 +198,14 @@ async function handleCheckoutRequestWithCredential(request: NextRequest, path: s
       }
       const parsed = validateMvpQuoteRequest(body);
       if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu tạo quote chưa hợp lệ.", "BFF-CHECKOUT-QUOTE", { errors: parsed.errors });
-      if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+      if (parsed.data.payment_method === "COD" && !(guestCredential(request) ? process.env.GUEST_COD_CHECKOUT_ENABLED === "true" : MVP_FEATURE_GATES.cod)) {
         return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
       }
+      if (guestCredential(request) && parsed.data.payment_method === "VIETQR" && process.env.GUEST_VIETQR_CHECKOUT_ENABLED !== "true") return publicErrorResponse(403,"GUEST_CHECKOUT_DISABLED","Thanh toán VietQR cho khách chưa được bật.","BFF-CHECKOUT-GUEST-GATE");
       if (parsed.data.voucher_code && !MVP_FEATURE_GATES.voucher) {
         return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "Voucher chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-VOUCHER-GATE");
       }
-      const result = await callUpstream(request, credential, "checkout/quote", "POST", route.mockScenario, parsed.data);
+      const result = await callUpstream(request, "checkout/quote", "POST", route.mockScenario, parsed.data);
       if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
       if (result.response.status !== 200) return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout quote trả status ngoài contract.", "BFF-CHECKOUT-QUOTE");
       return isOrderQuote(result.payload)
@@ -221,10 +219,11 @@ async function handleCheckoutRequestWithCredential(request: NextRequest, path: s
     }
     const parsed = validateMvpAcceptRequest(body);
     if (!parsed.data) return publicErrorResponse(400, "INVALID_REQUEST", "Yêu cầu accept Checkout chưa hợp lệ.", "BFF-CHECKOUT-ACCEPT", { errors: parsed.errors });
-    if (parsed.data.payment_method === "COD" && !MVP_FEATURE_GATES.cod) {
+    if (parsed.data.payment_method === "COD" && !(guestCredential(request) ? process.env.GUEST_COD_CHECKOUT_ENABLED === "true" : MVP_FEATURE_GATES.cod)) {
       return publicErrorResponse(403, "FEATURE_NOT_ENABLED", "COD chưa được bật cho Web MVP hiện tại.", "BFF-CHECKOUT-COD-GATE");
     }
-    const result = await callUpstream(request, credential, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
+    if (guestCredential(request) && parsed.data.payment_method === "VIETQR" && process.env.GUEST_VIETQR_CHECKOUT_ENABLED !== "true") return publicErrorResponse(403,"GUEST_CHECKOUT_DISABLED","Thanh toán VietQR cho khách chưa được bật.","BFF-CHECKOUT-GUEST-GATE");
+    const result = await callUpstream(request, "checkout", "POST", route.mockScenario, parsed.data, idempotencyKey);
     if (!result.response.ok) return relayUpstreamError(result.payload, result.response);
     if (result.response.status !== 201 && result.response.status !== 202) {
       return publicErrorResponse(502, "INVALID_CHECKOUT_STATUS", "Checkout accept trả status ngoài contract.", "BFF-CHECKOUT-ACCEPT");

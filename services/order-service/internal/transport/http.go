@@ -9,7 +9,6 @@ import (
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
 	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -56,6 +55,10 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	return nil
 }
 func failure(s *app.Service, w http.ResponseWriter, e error) {
+	if s.C.AuthMode == "keycloak" {
+		guestFailure(s, w, e)
+		return
+	}
 	code, status := s.ErrorCode(e)
 	write(w, status, map[string]any{"error": map[string]any{"code": code, "retryable": status >= 500}})
 }
@@ -98,7 +101,15 @@ func Handler(s *app.Service) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	})
-	r.Use(middleware.Timeout(3 * time.Second))
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			duration := 3 * time.Second
+			if r.Method == "POST" && r.URL.Path == "/api/v1/cart" {
+				duration = 15 * time.Second
+			}
+			middleware.Timeout(duration)(next).ServeHTTP(w, r)
+		})
+	})
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Vary", "Accept")
@@ -115,26 +126,7 @@ func Handler(s *app.Service) http.Handler {
 		write(w, 200, map[string]bool{"ready": true})
 	})
 	r.Handle("/metrics", promhttp.HandlerFor(s.Registry(), promhttp.HandlerOpts{}))
-	r.Post("/api/v1/guest-sessions", func(w http.ResponseWriter, r *http.Request) {
-		if s.C.AuthMode == "keycloak" {
-			failure(s, w, domain.E("GUEST_SESSIONS_DISABLED", 403))
-			return
-		}
-		id := uuid.NewString()
-		now := time.Now()
-		expires := now.Add(30 * 24 * time.Hour)
-		if s.Payment != nil {
-			expires = now.Add(24 * time.Hour)
-		}
-		token := app.SignToken(s.C.JWTSecret, app.Claims{Subject: id, Role: "GUEST", Issuer: "order-sandbox", Audience: "order-api", Issued: now.Unix(), Expires: expires.Unix()})
-		if s.Payment != nil {
-			if e := s.Payment.CreateGuestSession(r.Context(), id, token, now, expires); e != nil {
-				failure(s, w, domain.E("GUEST_SESSION_UNAVAILABLE", 503))
-				return
-			}
-		}
-		write(w, 201, map[string]string{"session_id": id, "access_token": token})
-	})
+	r.Post("/api/v1/guest-sessions", func(w http.ResponseWriter, r *http.Request) { issueGuestSession(s, w, r) })
 	r.Group(func(api chi.Router) {
 		api.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +135,10 @@ func Handler(s *app.Service) http.Handler {
 					return
 				}
 				p, e := s.AuthenticateContext(r.Context(), r.Header.Get("Authorization"))
-				if e == nil && s.C.AuthMode == "keycloak" {
+				if e == nil {
+					e = authorizeGuestRequest(s, p, r)
+				}
+				if e == nil && s.C.AuthMode == "keycloak" && p.PrincipalKind() != domain.Guest {
 					p, e = s.Resolve(r.Context(), p)
 				}
 				if e != nil {
@@ -167,6 +162,16 @@ func Handler(s *app.Service) http.Handler {
 			})
 		})
 		api.Get("/api/v1/cart", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			if r.URL.Query().Has("merge_key") {
+				result, e := s.CartMergeResult(r.Context(), principal(r), r.URL.Query().Get("merge_key"))
+				if e != nil {
+					failure(s, w, e)
+					return
+				}
+				write(w, 200, result)
+				return
+			}
 			c, e := s.Cart(r.Context(), principal(r))
 			if e != nil {
 				failure(s, w, e)
@@ -175,6 +180,7 @@ func Handler(s *app.Service) http.Handler {
 			w.Header().Set("ETag", strconv.Quote(strconv.FormatInt(c.Revision, 10)))
 			write(w, 200, c)
 		})
+		cartMergeRoute(s, api)
 		api.Post("/api/v1/cart/items", func(w http.ResponseWriter, r *http.Request) {
 			var in struct {
 				SKU      string `json:"sku_code"`
@@ -259,6 +265,10 @@ func Handler(s *app.Service) http.Handler {
 			}
 			o, status, e := s.Accept(r.Context(), principal(r), commandKey(r), in)
 			if e != nil {
+				if s.C.AuthMode == "keycloak" && principal(r).PrincipalKind() == domain.Guest {
+					guestFailure(s, w, e)
+					return
+				}
 				code, httpStatus := s.ErrorCode(e)
 				write(w, httpStatus, map[string]any{"error": map[string]string{"code": code}, "operation_id": o.ID})
 				return
@@ -548,26 +558,6 @@ func Handler(s *app.Service) http.Handler {
 	return r
 }
 
-// Keep employee access explicit as customer routes grow. Object permissions
-// are still enforced by the application on every admitted route.
 func staffOrderRoute(method, path string) bool {
-	if method == http.MethodGet && (path == "/api/v1/admin/orders" || path == "/api/v1/admin/orders/queue") {
-		return true
-	}
-	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
-		return len(parts) == 1 && parts[0] != ""
-	}
-	if strings.HasPrefix(path, "/api/v1/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/orders/"), "/")
-		if parts[0] == "" {
-			return false
-		}
-		return method == http.MethodGet && (len(parts) == 1 || len(parts) == 2 && parts[1] == "tracking") || method == http.MethodPost && len(parts) == 2 && parts[1] == "cancellation-requests"
-	}
-	if method == http.MethodPost && strings.HasPrefix(path, "/api/v1/admin/orders/") {
-		parts := strings.Split(strings.TrimPrefix(path, "/api/v1/admin/orders/"), "/")
-		return len(parts) == 2 && parts[0] != "" && parts[1] == "hold"
-	}
-	return false
+	return app.EmployeeOrderRouteAllowed(method, path)
 }

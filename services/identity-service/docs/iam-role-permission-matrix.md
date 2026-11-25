@@ -97,9 +97,9 @@ PermissionSyncService and refresh JWTs after migration. Seed SQL alone does not 
 
 ## 7. Quy tắc JWT claims (chốt trước PR #71 / #73)
 
-Migration ordering: V22 (Promotion) must precede V23 (Shipping) in the shared release stream. If release order changes before either seed is deployed, coordinate a higher number for the still-unreleased later seed. Do not rewrite applied migration history or silently rely on out-of-order execution.
+Migration ordering: V22 (FINANCE, PR #163) must precede V23/V24 (Shipping) in the shared release stream. Dev also occupies V25/V26 with payment seeds; Promotion must coordinate a fresh version rather than assume V25 is free. Inspect the target Flyway history before rollout. Do not rewrite applied migration history or silently rely on out-of-order execution.
 
-Shipping rollout (V23): `SHIPMENT_VIEW` is seeded and assigned to enabled, non-archived ADMIN roles. Direct Shipping reads require `SHIPMENT_VIEW#GLOBAL` in a JWT for `omama-api`; warehouse/department-only assignments do not grant global access. After deploying this additive migration, sync affected principals through `PermissionSyncService` with `forceRelogin=false`, then refresh JWTs. V22 remains reserved by the Promotion integration. The seed does not create principals, widen assignment scope or bypass permission checks with an ADMIN role.
+Shipping rollout (V23): `SHIPMENT_VIEW` is seeded and assigned to enabled, non-archived ADMIN roles. Direct Shipping reads require `SHIPMENT_VIEW#GLOBAL` in a JWT for `omama-api`; warehouse/department-only assignments do not grant global access. After deploying this additive migration, sync affected principals through `PermissionSyncService` with `forceRelogin=false`, then refresh JWTs. V22 is the prerequisite FINANCE seed from PR #163. The seed does not create principals, widen assignment scope or bypass permission checks with an ADMIN role.
 
 - **Thêm claim `principal_type` vào JWT.** Giá trị: `CUSTOMER` hoặc `EMPLOYEE`. Nguồn: `identity_principals.principal_type`. Được ghi vào Keycloak user attribute `principal_type`, rồi protocol mapper đưa vào claim `principal_type` của access token.
 - **Stale data tối đa 15 phút:** Access token chỉ sống 15 phút (`accessTokenLifespan = 900s`). Nếu `principal_type` thay đổi (rất hiếm), token cũ vẫn có giá trị đến khi hết hạn, sau đó phải refresh để nhận claim mới.

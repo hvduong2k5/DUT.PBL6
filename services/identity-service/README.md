@@ -21,8 +21,9 @@ origin for session-cookie writes. Web uses `IDENTITY_UPSTREAM_URL` and
 
 Migration V24 adds the two internal delivery permissions and maps them only to existing
 enabled/non-archived ADMIN bundles. It does not create principals, roles, GLOBAL assignments,
-or real driver accounts. Apply prior released migrations first (V22 remains reserved for
-the Promotion stack; V23 is the shipping-read seed). Recheck migration version reservations
+or real driver accounts. Apply prior released migrations first (V22 is the FINANCE seed
+from PR #163; V23 is Shipping read and V24 is internal delivery). Dev also uses V25/V26
+for payment seeds, so Promotion must coordinate a fresh version. Recheck migration versions
 against the release branch before deployment; never renumber applied migrations.
 
 After the additive seed, an authorized IAM operator must call

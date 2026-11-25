@@ -1,6 +1,7 @@
--- V22 is reserved by the Promotion integration; do not renumber published seeds.
--- Deploy the reserved V22 first. If release order changes, allocate the unreleased
--- later seed above V23 instead of silently skipping it with Flyway outOfOrder=false.
+-- V22 seeds FINANCE payment case/refund grants (PR #163); deploy it before V23/V24.
+-- V25/V26 are also occupied by payment seeds on dev. Coordinate a fresh version
+-- for unreleased Promotion seeds; never rewrite applied history or enable outOfOrder
+-- to hide a missing lower migration. This comment correction does not change DML.
 INSERT INTO iam_permissions (permission_code, resource_code, action_code, risk_level, scope_required, description)
 VALUES ('SHIPMENT_VIEW', 'SHIPMENT', 'VIEW', 'LOW', TRUE, 'Read shipping administration with GLOBAL scope')
 ON CONFLICT (permission_code) DO NOTHING;
