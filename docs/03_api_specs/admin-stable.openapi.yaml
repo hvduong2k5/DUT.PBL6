@@ -41,6 +41,15 @@ tags:
 security:
 - bearerAuth: []
 - adminSession: []
+x-promotion-backend-authorization:
+  path-prefix: /api/v1/admin/coupons
+  principal-type: EMPLOYEE
+  read-grant: PROMOTION_VIEW#GLOBAL
+  mutation-grant: PROMOTION_MANAGE#GLOBAL
+  identity-seed: services/identity-service/src/main/resources/db/migration/V27__seed_promotion_permissions.sql
+  role-bypass: false
+  rollout: Deploy seed, sync affected employees through IAM and refresh signed grants; a database seed cannot rewrite existing JWTs.
+  ui-facade: Separate from the historical UI-format operations in this contract.
 paths:
   /api/v1/admin/users:
     get:

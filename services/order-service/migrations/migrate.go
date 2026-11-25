@@ -2,8 +2,13 @@ package migrations
 
 import (
 	"context"
-	_ "embed"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"embed"
+	"fmt"
+	"io/fs"
+	"strconv"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 //go:embed 000001_order.up.sql
@@ -42,7 +47,53 @@ var EvidenceVault string
 //go:embed 000012_guest_cart_merge.up.sql
 var GuestCartMerge string
 
-func Apply(ctx context.Context, db *pgxpool.Pool) error {
+//go:embed 000013_promotion_checkout.up.sql
+var PromotionCheckout string
+
+// Discover by filename so merges cannot silently renumber or skip Promotion.
+// Never infer persistent migration versions from a slice index.
+//
+//go:embed *.up.sql
+var migrationFiles embed.FS
+
+type migration struct {
+	version int
+	name    string
+	ddl     string
+}
+
+func migrationPlan(source fs.FS) ([]migration, error) {
+	names, err := fs.Glob(source, "*.up.sql")
+	if err != nil {
+		return nil, err
+	}
+	plan := make([]migration, 0, len(names))
+	seen := map[int]bool{}
+	for _, name := range names {
+		prefix, _, ok := strings.Cut(name, "_")
+		version, err := strconv.Atoi(prefix)
+		if !ok || len(prefix) != 6 || err != nil || version < 1 || fmt.Sprintf("%06d", version) != prefix || seen[version] {
+			return nil, fmt.Errorf("invalid or duplicate Order migration version: %s", name)
+		}
+		seen[version] = true
+		ddl, err := fs.ReadFile(source, name)
+		if err != nil {
+			return nil, err
+		}
+		plan = append(plan, migration{version: version, name: name, ddl: string(ddl)})
+	}
+	return plan, nil
+}
+
+type migrationDB interface {
+	Begin(context.Context) (pgx.Tx, error)
+}
+
+func Apply(ctx context.Context, db migrationDB) error {
+	plan, e := migrationPlan(migrationFiles)
+	if e != nil {
+		return e
+	}
 	tx, e := db.Begin(ctx)
 	if e != nil {
 		return e
@@ -54,15 +105,15 @@ func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS order_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); e != nil {
 		return e
 	}
-	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection, FulfillmentIntegration, CaseDecisions, RefundAuthority, EvidenceVault, GuestCartMerge} {
-		version := index + 1
+	for _, step := range plan {
+		version := step.version
 		var done bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM order_migrations WHERE version=$1)", version).Scan(&done); e != nil {
 			return e
 		}
 		if !done {
-			if _, e = tx.Exec(ctx, ddl); e != nil {
-				return e
+			if _, e = tx.Exec(ctx, step.ddl); e != nil {
+				return fmt.Errorf("apply Order migration %s: %w", step.name, e)
 			}
 			if _, e = tx.Exec(ctx, "INSERT INTO order_migrations(version) VALUES($1)", version); e != nil {
 				return e

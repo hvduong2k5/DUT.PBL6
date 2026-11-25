@@ -295,13 +295,31 @@ func (p *Payment) WorkFinalize(ctx context.Context, inventory PaymentInventory) 
 		_ = p.retry(context.WithoutCancel(ctx), j, time.Second, "INVENTORY_UNKNOWN")
 		return true, e
 	}
-	e = p.finalized(ctx, j, proof)
+	var voucher core.VoucherDecision
+	terms := a.Snapshot().Data()
+	if terms.Voucher != nil {
+		if p.Promotion == nil {
+			e = ErrCapability
+		} else if proof.State == "COMMITTED" {
+			voucher, e = p.Promotion.Finalize(ctx, terms)
+		} else {
+			e = p.Promotion.Release(ctx, terms)
+		}
+		if errors.Is(e, core.ErrVoucherRejected) {
+			return true, p.parkVoucherFinalization(ctx, j, a)
+		}
+		if e != nil {
+			_ = p.retry(context.WithoutCancel(ctx), j, time.Second, "PROMOTION_UNKNOWN")
+			return true, e
+		}
+	}
+	e = p.finalized(ctx, j, proof, voucher)
 	if e != nil {
 		_ = p.retry(context.WithoutCancel(ctx), j, time.Second, "FINALIZATION_RETRY")
 	}
 	return true, e
 }
-func (p *Payment) finalized(ctx context.Context, j PaymentJob, proof core.ResourceProof) error {
+func (p *Payment) finalized(ctx context.Context, j PaymentJob, proof core.ResourceProof, vouchers ...core.VoucherDecision) error {
 	return p.Store.runner.Do(ctx, func(tx pgx.Tx) error {
 		var scope string
 		if e := tx.QueryRow(ctx, "SELECT scope FROM orders WHERE id=$1 AND cohort=$2 FOR UPDATE", j.Order, Cohort).Scan(&scope); e != nil {
@@ -358,13 +376,23 @@ func (p *Payment) finalized(ctx context.Context, j PaymentJob, proof core.Resour
 				return e
 			}
 		} else {
+			var voucher *core.VoucherDecision
+			if terms := a.Snapshot().Data(); terms.Voucher != nil {
+				if len(vouchers) != 1 || terms.Voucher.HoldID == nil || vouchers[0].HoldID != *terms.Voucher.HoldID || vouchers[0].DecisionID == "" {
+					return ErrIntegrity
+				}
+				voucher = &vouchers[0]
+				if _, e = tx.Exec(ctx, "INSERT INTO order_voucher_finalizations(order_id,hold_id,decision_id) VALUES($1,$2,$3)", a.ID(), voucher.HoldID, voucher.DecisionID); e != nil {
+					return e
+				}
+			}
 			if e = p.Store.savePaymentRoot(ctx, tx, a, next, "CONFIRMED", "FIRST_PAID"); e != nil {
 				return e
 			}
 			if _, e = tx.Exec(ctx, `INSERT INTO order_milestones(order_id,kind,decision_ref,occurred_at) VALUES($1,'FIRST_PAID',$2,$3)`, a.ID(), proof.DecisionID, now); e != nil {
 				return e
 			}
-			if e = p.Store.paidEvent(ctx, tx, next, now); e != nil {
+			if e = p.Store.paidEventWithVoucher(ctx, tx, next, now, voucher); e != nil {
 				return e
 			}
 			if e = p.Store.followup(ctx, tx, uuid.NewString(), uuid.NewString(), "FULFILLMENT_READY", a.ID(), a.Snapshot().Data().OperationID, "BARRIER", now); e != nil {

@@ -20,6 +20,7 @@ import (
 // Payment binds one stable merchant/environment to immutable receiver history.
 // It is not permitted to ingest into the legacy simulator cohort.
 type Payment struct {
+	Promotion          CheckoutPromotion
 	GrantKey           *ecdsa.PrivateKey
 	GrantKeyID         string
 	Store              *Store

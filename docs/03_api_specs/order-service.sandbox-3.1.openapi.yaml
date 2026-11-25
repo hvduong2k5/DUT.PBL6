@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MS-04 Order — asynchronous operations
-  version: 3.1.0
+  version: 3.1.1
   description: Go implementation contract. Dependencies use stateful sandbox protocols;
     money is integer VND. New checkout returns 202 and a durable checkout operation
     resource.
@@ -2496,6 +2496,9 @@ components:
     Quote:
       type: object
       additionalProperties: false
+      description: Quote and Order.snapshot share the server-owned quote DTO. Discount fields are
+        optional for compatibility with stored quotes from before the Promotion integration and
+        are zero for undiscounted sandbox checkouts.
       required:
       - catalog_snapshot_id
       - catalog_expires_at
@@ -2511,6 +2514,16 @@ components:
       - expires_at
       - shipping_expires_at
       properties:
+        merchandise_discount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Server-calculated merchandise discount in integer VND.
+        shipping_discount:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Server-calculated shipping discount in integer VND.
         catalog_snapshot_id:
           type: string
         catalog_expires_at:

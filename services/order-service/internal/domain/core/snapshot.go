@@ -150,6 +150,19 @@ type SnapshotInput struct {
 	Money         SnapshotMoney   `json:"money"`
 	Payment       PaymentTerms    `json:"payment_terms"`
 	Policies      Policies        `json:"policies"`
+	Voucher       *VoucherTerms   `json:"voucher,omitempty"`
+}
+
+// Voucher terms are present only in snapshot 1.1. Existing 1.0 canonical bytes
+// and hashes remain unchanged. Hold evidence is filled by the checkout worker.
+type VoucherTerms struct {
+	Code          string     `json:"code"`
+	Kind          string     `json:"discount_type"`
+	Amount        int64      `json:"discount_amount"`
+	Policy        string     `json:"policy_version"`
+	ValidUntil    time.Time  `json:"valid_until"`
+	HoldID        *string    `json:"hold_id"`
+	HoldExpiresAt *time.Time `json:"hold_expires_at"`
 }
 
 // Snapshot stores only immutable canonical bytes. Input slices/pointers and data
@@ -175,6 +188,11 @@ func DecodeSnapshot(data []byte) (Snapshot, error) {
 	if err != nil || requireShape(v, reflect.TypeOf(SnapshotInput{})) != nil {
 		return Snapshot{}, ErrSnapshot
 	}
+	if obj, ok := v.(map[string]any); ok && obj["snapshot_schema_version"] == "1.0" {
+		if _, exists := obj["voucher"]; exists {
+			return Snapshot{}, ErrSnapshot
+		}
+	}
 	var input SnapshotInput
 	if json.Unmarshal(data, &input) != nil || validateSnapshot(input) != nil {
 		return Snapshot{}, ErrSnapshot
@@ -198,7 +216,7 @@ func (s Snapshot) Data() SnapshotInput {
 func text(s string) bool { return strings.TrimSpace(s) != "" && utf8.RuneCountInString(s) <= 255 }
 
 func validateSnapshot(s SnapshotInput) error {
-	if s.SchemaVersion != "1.0" || s.Channel != "D2C_WEB" || s.Owner.Validate() != nil ||
+	if (s.SchemaVersion != "1.0" && s.SchemaVersion != "1.1") || s.Channel != "D2C_WEB" || s.Owner.Validate() != nil ||
 		!validID(s.SnapshotID) || !validID(s.OrderID) || !validID(s.OperationID) || !validID(s.MerchantID) ||
 		!text(s.WarehouseID) || s.PlacedAt.IsZero() {
 		return ErrSnapshot
@@ -252,8 +270,8 @@ func validateSnapshot(s SnapshotInput) error {
 		return ErrSnapshot
 	}
 	final, err := subtotal.Add(fee)
-	if err != nil || m.MerchandiseDiscount != 0 || m.ShippingDiscount != 0 || m.Subtotal != subtotal.Amount() ||
-		m.FinalAmount < 1 || final.Amount() != m.FinalAmount || s.Shipping.QuotedFee != m.ShippingFee ||
+	if err != nil || m.MerchandiseDiscount < 0 || m.MerchandiseDiscount > m.Subtotal || m.ShippingDiscount < 0 || m.ShippingDiscount > m.ShippingFee || m.Subtotal != subtotal.Amount() ||
+		m.FinalAmount < 1 || final.Amount()-m.MerchandiseDiscount-m.ShippingDiscount != m.FinalAmount || s.Shipping.QuotedFee != m.ShippingFee ||
 		s.Shipping.PackageWeightGrams < weight || s.Shipping.PackageWeightGrams > 1_000_000_000 {
 		return ErrSnapshot
 	}
@@ -264,9 +282,36 @@ func validateSnapshot(s SnapshotInput) error {
 			return ErrSnapshot
 		}
 	}
-	if !e164Pattern.MatchString(s.Address.PhoneE164) || s.Policies.Promotion != nil ||
+	if !e164Pattern.MatchString(s.Address.PhoneE164) ||
 		(s.Address.PostalCode != nil && !text(*s.Address.PostalCode)) {
 		return ErrSnapshot
+	}
+	if s.Voucher == nil {
+		if s.SchemaVersion != "1.0" || s.Policies.Promotion != nil || m.MerchandiseDiscount != 0 || m.ShippingDiscount != 0 {
+			return ErrSnapshot
+		}
+	} else {
+		v := s.Voucher
+		if s.SchemaVersion != "1.1" || s.Owner.Kind != "CUSTOMER" || s.Payment.Method != "VIETQR" ||
+			!regexp.MustCompile(`^[A-Z0-9_-]{3,50}$`).MatchString(v.Code) || v.Amount <= 0 ||
+			v.Policy != "promotion-voucher-1" || s.Policies.Promotion == nil || *s.Policies.Promotion != v.Policy ||
+			!s.PlacedAt.Before(v.ValidUntil) || (v.HoldID == nil) != (v.HoldExpiresAt == nil) {
+			return ErrSnapshot
+		}
+		if v.HoldID != nil && (!validID(*v.HoldID) || !s.PlacedAt.Before(*v.HoldExpiresAt) || s.Payment.ExpiresAt == nil || s.Payment.ExpiresAt.After(*v.HoldExpiresAt)) {
+			return ErrSnapshot
+		}
+		if v.Kind == "FREE_SHIPPING" {
+			if m.ShippingDiscount != v.Amount || m.MerchandiseDiscount != 0 {
+				return ErrSnapshot
+			}
+		} else if v.Kind == "FIXED_AMOUNT" || v.Kind == "PERCENTAGE" {
+			if m.MerchandiseDiscount != v.Amount || m.ShippingDiscount != 0 {
+				return ErrSnapshot
+			}
+		} else {
+			return ErrSnapshot
+		}
 	}
 	a := s.Address.Source
 	switch a.Kind {

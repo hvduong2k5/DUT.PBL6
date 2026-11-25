@@ -1,0 +1,13 @@
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/promotion-service ./cmd/server
+
+FROM alpine:3.20
+RUN addgroup -S app && adduser -S -G app app
+COPY --from=build /out/promotion-service /usr/local/bin/promotion-service
+USER app
+EXPOSE 8017 9017
+ENTRYPOINT ["/usr/local/bin/promotion-service"]

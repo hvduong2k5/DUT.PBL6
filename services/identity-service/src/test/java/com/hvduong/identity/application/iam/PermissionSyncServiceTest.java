@@ -112,6 +112,40 @@ class PermissionSyncServiceTest {
     }
 
     @Test
+    void syncPrincipal_PreservesPromotionPermissionScopesWithoutRelogin() {
+        UUID principalId = UUID.randomUUID();
+        IdentityPrincipalRow principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(principalId);
+        principal.setIdpSubject("kc-promotion-employee");
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
+        when(principalMapper.findById(principalId)).thenReturn(principal);
+
+        IamRolePermissionMapper.PermissionGrantRow view = new IamRolePermissionMapper.PermissionGrantRow();
+        view.setPermissionCode("PROMOTION_VIEW");
+        view.setScopeType("GLOBAL");
+        IamRolePermissionMapper.PermissionGrantRow manage = new IamRolePermissionMapper.PermissionGrantRow();
+        manage.setPermissionCode("PROMOTION_MANAGE");
+        manage.setScopeType("GLOBAL");
+        IamRolePermissionMapper.PermissionGrantRow scoped = new IamRolePermissionMapper.PermissionGrantRow();
+        scoped.setPermissionCode("PROMOTION_VIEW");
+        scoped.setScopeType("WAREHOUSE");
+        scoped.setScopeId("WH-HCM-01");
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
+                .thenReturn(List.of(view, manage, scoped));
+
+        PermissionSyncService.SyncResult result = service.syncPrincipal(
+                principalId, false, PermissionSyncService.Trigger.ROLE_PERMISSION_CHANGE, null);
+
+        assertThat(result.success()).isTrue();
+        verify(keycloakAdminClient).updateUserPermissionsWithGrants(
+                eq("kc-promotion-employee"),
+                eq(List.of("PROMOTION_VIEW#GLOBAL", "PROMOTION_MANAGE#GLOBAL", "PROMOTION_VIEW#WAREHOUSE#WH-HCM-01")),
+                eq(PrincipalType.EMPLOYEE.name()));
+        verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
+        verify(keycloakAdminClient, never()).logoutUserStrict(any());
+    }
+
+    @Test
     void syncPrincipal_KeycloakFailureIsAuditedAndNotThrown() {
         UUID principalId = UUID.randomUUID();
         IdentityPrincipalRow principal = new IdentityPrincipalRow();
