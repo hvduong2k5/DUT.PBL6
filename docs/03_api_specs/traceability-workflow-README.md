@@ -36,6 +36,8 @@ Trạng thái: **business decisions recorded / direct implementation authorized 
 
 ## Cách bàn giao để owner làm ngay
 
+Để gửi riêng qua Zalo, dùng [6 bản Markdown theo owner](traceability-owner-handoffs/README.md). Mỗi bản có yêu cầu đầu ra, test, contract liên quan nhúng đầy đủ và link đọc/lệnh lấy tài liệu nguồn tại commit `89e15ca19432749b606c6d0a61700e98fdb7fd67` đã push trên nhánh `codex/traceability-order-flow`. Các bản này là snapshot phân phối; khi đổi contract phải sửa nguồn chính rồi sinh lại, không sửa riêng bản gửi.
+
 1. Gửi section task của [phiếu handoff](traceability-workflow-peer-handoff.md) cùng artifacts và test IDs. Owner đọc được yêu cầu OUT, wire contract và bước triển khai mà không cần lịch sử chat. Không yêu cầu họ phản hồi ACCEPT hoặc gửi phương án trước.
 2. Owner tự kiểm code hiện có: đủ thì tái sử dụng và test, thiếu thì bổ sung. API nội bộ khác wire thì tự làm lớp tương thích trong phần phụ trách để consumer nhận đúng contract đích; không chờ duyệt mapping và không yêu cầu consumer đổi field/path.
 3. Làm phần độc lập ngay bằng fixture đúng contract có nhãn nếu peer chưa lên; chỉ giữ runtime integration ở trạng thái chưa chạy. Chưa nhận phản hồi không là lý do dừng code.

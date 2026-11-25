@@ -144,7 +144,7 @@ Cập nhật25/11/2026 · Target0.2.2-draft. Bắt đầu tại [mục lục wor
 | Identity cookie transports | [BFF draft](traceability-workflow-bff-draft.openapi.yaml), route/header/auth/CSRF rõ ràng; không expose internal resolver |
 | gRPC candidate | [BatchSource](traceability-workflow-candidates/batch_source.proto), [packing proof](traceability-workflow-candidates/packing.proto); compile riêng, chưa thay canonical `packages/proto/` hoặc generated code |
 | Kafka | [Event catalog](02_kafka_event_catalog.md) và [Events README](../../packages/events/README.md); packing không kích hoạt/publish QR |
-| Bàn giao owner | [Task/OUT và quy trình làm trực tiếp](traceability-workflow-peer-handoff.md); tái sử dụng phần đã có, không chờ phản hồi ACCEPT trước code |
+| Bàn giao owner | [Task/OUT và quy trình làm trực tiếp](traceability-workflow-peer-handoff.md), [6 file Markdown gửi riêng](traceability-owner-handoffs/README.md) có link nguồn ghim theo commit; tái sử dụng phần đã có, không chờ phản hồi ACCEPT trước code |
 | Kiểm thử/trạng thái UI | [Acceptance](traceability-workflow-acceptance.md), [admin matrix](admin-api-state-matrix.md), [customer matrix](customer-api-state-matrix.md); [testing index](../04_testing/traceability-service/README.md) tách evidence baseline/target |
 | Review code/rủi ro | [Review25/11](traceability-workflow-review-2026-11-25.md); các thay đổi thiết kế đã ghi và hạn chế còn lại |
 
