@@ -27,7 +27,6 @@
         SELECT * FROM product_images
         WHERE product_id = #{productId}
           AND media_status = 'APPROVED'::media_status
-          AND scan_status = 'CLEAN'::media_scan_status
         ORDER BY position ASC
     </select>
 
@@ -94,7 +93,6 @@
         WHERE product_id = #{productId}
           AND role = 'COVER'::image_role
           AND media_status = 'APPROVED'::media_status
-          AND scan_status = 'CLEAN'::media_scan_status
         <if test="excludeId != null">
           AND id != #{excludeId}
         </if>

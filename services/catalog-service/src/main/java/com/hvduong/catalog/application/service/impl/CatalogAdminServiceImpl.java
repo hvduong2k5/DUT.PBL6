@@ -38,6 +38,7 @@ import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductImage;
 import com.hvduong.catalog.domain.entity.ProductVariant;
+import com.hvduong.catalog.infrastructure.media.MediaIntegrationClient;
 import com.hvduong.catalog.infrastructure.outbox.CatalogOutboxWriter;
 import com.hvduong.catalog.repository.mybatis.CategoryMapper;
 import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
@@ -88,6 +89,9 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   private final CatalogDtoMapper dtoMapper;
   private final CatalogOutboxWriter outboxWriter;
   private final CatalogCacheEvictor cacheEvictor;
+
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  private MediaIntegrationClient mediaIntegrationClient;
 
   @Override
   @Transactional
@@ -1017,20 +1021,29 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     String role = normalizeEnum("GALLERY", request.getRole(), CatalogConstants.IMAGE_ROLES, "role");
     int position = request.getPosition() == null ? 0 : request.getPosition();
+    String objectKey = requireText(request.getObjectKey(), "objectKey");
+
+    if (mediaIntegrationClient != null) {
+      mediaIntegrationClient.validateProductImage(objectKey);
+    }
 
     imageMapper.insert(
         ProductImage.builder()
             .id(UUID.randomUUID())
             .productId(productId)
-            .objectKey(requireText(request.getObjectKey(), "objectKey"))
+            .objectKey(objectKey)
             .altText(trimToNull(request.getAltText()))
             .role(role)
             .position(position)
-            .mediaStatus("PENDING_SCAN")
+            .mediaStatus("PENDING_REVIEW")
             .scanStatus("PENDING")
             .uploadedBy(actorId)
             .version(0L)
             .build());
+
+    if (mediaIntegrationClient != null) {
+      mediaIntegrationClient.bindProductImage(objectKey, productId.toString());
+    }
 
     cacheEvictor.evictCategoriesCache();
     return getAdminProductDetail(productId.toString());
@@ -1087,14 +1100,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     ProductImage image = findImageOfProduct(productId, imageId);
 
-    // 2. Kiểm tra scan_status phải là CLEAN
-    if (!"CLEAN".equals(image.getScanStatus())) {
-      throw new CatalogException(
-          ErrorCode.CATALOG_IMAGE_NOT_SCANNED,
-          "Ảnh chưa được Media Service quét an toàn mã độc hoặc quét không đạt (scan_status != CLEAN).");
-    }
-
-    // 3. Kiểm tra media_status phải là PENDING_REVIEW
+    // 2. Kiểm tra media_status phải là PENDING_REVIEW (MVP bỏ qua Antivirus scan_status)
     if (!"PENDING_REVIEW".equals(image.getMediaStatus())) {
       throw new CatalogException(
           ErrorCode.CATALOG_IMAGE_NOT_PENDING_REVIEW,
@@ -1132,6 +1138,10 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
     if (imageMapper.update(image) == 0) {
       throw CatalogException.versionConflict(imageId.toString());
+    }
+
+    if ("APPROVED".equals(decision) && mediaIntegrationClient != null) {
+      mediaIntegrationClient.publishProductImage(image.getObjectKey());
     }
 
     cacheEvictor.evictCategoriesCache();

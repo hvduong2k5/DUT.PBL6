@@ -271,7 +271,7 @@ class CatalogAdminServiceImplTest {
     assertNotNull(result);
     ArgumentCaptor<ProductImage> captor = ArgumentCaptor.forClass(ProductImage.class);
     verify(imageMapper).insert(captor.capture());
-    assertEquals("PENDING_SCAN", captor.getValue().getMediaStatus());
+    assertEquals("PENDING_REVIEW", captor.getValue().getMediaStatus());
     assertEquals("PENDING", captor.getValue().getScanStatus());
     assertEquals("admin-1", captor.getValue().getUploadedBy());
     verify(imageMapper, never()).demoteOtherApprovedCovers(any(), any());
@@ -318,7 +318,7 @@ class CatalogAdminServiceImplTest {
   }
 
   @Test
-  void reviewImage_NotClean_ThrowsCatalogException() {
+  void reviewImage_PendingScanStatus_SucceedsInMvp() {
     UUID imageId = UUID.randomUUID();
     Product product = new Product();
     product.setId(productId);
@@ -327,6 +327,7 @@ class CatalogAdminServiceImplTest {
         ProductImage.builder()
             .id(imageId)
             .productId(productId)
+            .objectKey("products/2026/11/25/gallery.webp")
             .role("GALLERY")
             .mediaStatus("PENDING_REVIEW")
             .scanStatus("PENDING")
@@ -338,13 +339,17 @@ class CatalogAdminServiceImplTest {
         ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
 
     when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
     when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+    when(imageMapper.update(any(ProductImage.class))).thenReturn(1);
+    stubDetailMapping();
 
-    CatalogException ex =
-        assertThrows(
-            CatalogException.class,
-            () -> adminService.reviewImage(productId, imageId, req, "moderator-2"));
-    assertEquals(ErrorCode.CATALOG_IMAGE_NOT_SCANNED, ex.getErrorCode());
+    AdminProductDetailResponse result =
+        adminService.reviewImage(productId, imageId, req, "moderator-2");
+
+    assertNotNull(result);
+    assertEquals("APPROVED", image.getMediaStatus());
+    assertEquals("PENDING", image.getScanStatus());
   }
 
   @Test

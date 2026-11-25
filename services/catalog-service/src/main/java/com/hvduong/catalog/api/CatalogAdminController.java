@@ -492,7 +492,7 @@ public class CatalogAdminController {
   @Operation(
       summary = "Kiểm duyệt nội dung ảnh sản phẩm",
       description =
-          "Duyệt hoặc từ chối ảnh sản phẩm (Content Moderation). Yêu cầu quyền CATALOG_APPROVE. Ảnh phải có scanStatus là CLEAN và mediaStatus là PENDING_REVIEW.")
+          "Duyệt hoặc từ chối ảnh sản phẩm (Content Moderation). Yêu cầu quyền CATALOG_APPROVE. Ảnh phải có mediaStatus là PENDING_REVIEW.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "Kiểm duyệt ảnh sản phẩm thành công"),
     @ApiResponse(responseCode = "400", description = "Dữ liệu hoặc trạng thái duyệt không hợp lệ"),
