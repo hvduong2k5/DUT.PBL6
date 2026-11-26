@@ -73,7 +73,7 @@ public class SecurityConfig {
           NimbusJwtDecoder decoder = JwtDecoders.fromIssuerLocation(issuer);
           decoder.setJwtValidator(
               JwtValidators.createDefaultWithValidators(
-                  new JwtTimestampValidator(clockSkew), new JwtIssuerValidator(issuer)));
+                  List.of(new JwtTimestampValidator(clockSkew), new JwtIssuerValidator(issuer))));
           return decoder;
         });
   }
