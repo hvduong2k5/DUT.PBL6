@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/redis/go-redis/v9"
@@ -14,6 +16,38 @@ import (
 type coreCleanup struct{ s *Service }
 
 func (c coreCleanup) Cleanup(ctx context.Context, scope, cartID string, revision int64) (string, error) {
+	if !c.s.sqlCarts() {
+		return c.cleanupRedis(ctx, scope, cartID, revision)
+	}
+	tx, err := c.s.DB.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+	if err = persistence.LockCartScopes(ctx, tx, scope); err != nil {
+		return "", err
+	}
+	cart, id, err := readSQLCart(ctx, tx, scope)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return c.cleanupRedis(ctx, scope, cartID, revision)
+	}
+	if err != nil {
+		return "", err
+	}
+	if id != cartID {
+		return "SKIPPED_REPLACED", nil
+	}
+	if cart.Revision != revision {
+		return "SKIPPED_CHANGED", nil
+	}
+	cart.Items = []domain.Item{}
+	cart.Revision++
+	if err = persistence.WriteStorefrontCart(ctx, tx, scope, cart, uuid.NewString()); err != nil {
+		return "", err
+	}
+	return "APPLIED", tx.Commit(ctx)
+}
+func (c coreCleanup) cleanupRedis(ctx context.Context, scope, cartID string, revision int64) (string, error) {
 	key := "cart:" + scope
 	outcome := "APPLIED"
 	e := c.s.Redis.Watch(ctx, func(tx *redis.Tx) error {

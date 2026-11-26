@@ -19,6 +19,7 @@ type Claims struct {
 	PaymentReceivers  []string `json:"payment_receiver_ids,omitempty"`
 	MFAAt             int64    `json:"auth_time,omitempty"`
 	AMR               []string `json:"amr,omitempty"`
+	ACR               string   `json:"acr,omitempty"`
 	Subject           string   `json:"sub"`
 	Role              string   `json:"role"`
 	Warehouse         string   `json:"warehouse,omitempty"`
@@ -42,6 +43,10 @@ func (s *Service) Authenticate(token string) (domain.Principal, error) {
 
 func (s *Service) AuthenticateContext(ctx context.Context, token string) (domain.Principal, error) {
 	if s.C.AuthMode == "keycloak" {
+		// Unverified metadata selects exactly one validator; it never grants access.
+		if isGuestSessionCandidate(token) {
+			return s.AuthenticateGuestSession(ctx, token, true)
+		}
 		if s.Identity == nil {
 			return domain.Principal{}, domain.E("UNAUTHENTICATED", 401)
 		}

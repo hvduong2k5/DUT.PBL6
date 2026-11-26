@@ -1,5 +1,12 @@
 name: Web Identity Gateway integration
 on:
+  workflow_call:
+    inputs:
+      guest_checkout:
+        description: "Run the fixture with --guest-checkout (set by the Dev Gate)"
+        type: boolean
+        required: false
+        default: false
   pull_request:
     paths:
       - 'apps/web-user/**'
@@ -91,7 +98,7 @@ jobs:
       - name: Real Web, Identity, Order, Inventory, Fulfillment video and Shipping
         run: |
           python -m pip install -r packages/contracts/mvp/requirements.txt
-          python scripts/test-web-identity.py --gradle gradle --flutter flutter --fulfillment
+          python scripts/test-web-identity.py --gradle gradle --flutter flutter --fulfillment ${{ inputs.guest_checkout && '--guest-checkout' || '' }}
       - name: Shipping regression and notification verification
         run: |
           cd services/shipping-service

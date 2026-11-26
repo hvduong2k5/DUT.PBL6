@@ -56,6 +56,7 @@ def main():
     parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
     parser.add_argument("--fulfillment", action="store_true", help="Use actual Fulfillment/media providers instead of TEST packing")
+    parser.add_argument("--guest-checkout", action="store_true", help="Exercise F-53 guest COD, VietQR and Customer cart merge through the actual Web BFF")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
@@ -108,6 +109,19 @@ def main():
     web = f"http://127.0.0.1:{ports['web']}"
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
+    if args.guest_checkout:
+        env.update(
+            WEB_TEST_GUEST_CHECKOUT="true",
+            GUEST_SESSION_SECRET=secrets.token_urlsafe(48),
+            NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED="true",
+            NEXT_PUBLIC_MVP_COD_ENABLED="true",
+            GUEST_ORDER_UPSTREAM_URL=gateway+"/api/v1",
+            GUEST_SESSION_ISSUANCE_ENABLED="true",
+            GUEST_CART_MUTATION_ENABLED="true",
+            GUEST_COD_CHECKOUT_ENABLED="true",
+            GUEST_VIETQR_CHECKOUT_ENABLED="true",
+            GUEST_CART_MERGE_ENABLED="true",
+        )
     accounts = {
         key: {
             "principal": str(uuid.uuid4()),
@@ -696,6 +710,13 @@ def main():
             "SET search_path TO profile,public;"
             + (
                 ROOT
+                / "services/profile-service/migrations/000002_street_mappings_and_national_seed.up.sql"
+            ).read_text(encoding="utf-8")
+        )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
                 / "services/profile-service/migrations/000003_profile_integrity.up.sql"
             ).read_text(encoding="utf-8")
         )
@@ -706,13 +727,17 @@ def main():
                 / "services/profile-service/migrations/000004_normalize_shipping_ward_names.up.sql"
             ).read_text(encoding="utf-8")
         )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
+                / "services/profile-service/migrations/000005_full_administrative_catalogue.up.sql"
+            ).read_text(encoding="utf-8")
+        )
         for index, account in enumerate(accounts.values()):
             sql(
                 f"INSERT INTO profile.customer_profiles(id,user_id,full_name,phone_number,email,status) VALUES('{account['customer']}','{account['principal']}','Synthetic Customer {index}','090000000{index}','{account['email']}','ACTIVE');"
             )
-        sql(
-            "INSERT INTO profile.administrative_units(code,name,full_name,parent_code,level) VALUES('HUE-01','Synthetic TEST ward','Synthetic TEST ward','75','WARD');"
-        )
         internal_token = catalog_token
         env.update(
             DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=profile",
@@ -1243,6 +1268,11 @@ def main():
             opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(jar), NoRedirect()
             )
+            guest_source = None
+            if args.guest_checkout and key == "A":
+                from mvp_guest_checks import guest_purchases, prepare_merge_source
+                guest_purchases(request,web,f"http://127.0.0.1:{ports['control']}")
+                guest_source=prepare_merge_source(request,web,jar,opener)
             status, _, headers = request(
                 web + "/api/auth/oidc/login?returnUrl=%2Fcart", opener=opener
             )
@@ -1385,6 +1415,9 @@ def main():
             assert (
                 status == 200 and cart["items"][0]["sku_code"] == "PRIVATE-" + key
             ), "Cross-owner Cart/header spoofing"
+            if args.guest_checkout:
+                from mvp_guest_checks import merge_after_login
+                merge_after_login(request,web,gateway,jar,opener,guest_source,cart)
             status, native_refresh, refresh_headers = request(
                 gateway + "/api/v1/public/auth/tokens/refresh",
                 {},
@@ -1434,6 +1467,8 @@ def main():
                     shipping_webhook,
                     packing=real_packing,
                 )
+                if args.guest_checkout:
+                    guest_purchases(request, web, f"http://127.0.0.1:{ports['control']}", customer_opener=opener)
             elif key == "B":
                 for path in [
                     "/api/orders/" + placed_order,
@@ -1506,7 +1541,7 @@ def main():
                 request(web + "/api/auth/me", opener=opener)[0] == 401
             ), "Logout retained local session"
 
-        assert request(web + "/api/cart")[0] == 401
+        assert request(web + "/api/cart")[0] == (200 if args.guest_checkout else 401)
         for action, expected in [("LOGIN_SUCCESS", 3), ("LOGOUT_SUCCESS", 2)]:
             count = int(
                 sql(
@@ -1548,15 +1583,16 @@ def main():
             .splitlines()[2]
             .strip()
         )
+        expected_physical = 95 if args.guest_checkout else 98
         assert stock == {
-            "physical": 98,
+            "physical": expected_physical,
             "reserved": 0,
-            "batch_physical": 98,
+            "batch_physical": expected_physical,
             "batch_reserved": 0,
-            "events": 1,
+            "events": 4 if args.guest_checkout else 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
-        inventory_projection(98)
-        assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
+        inventory_projection(expected_physical)
+        assert ("(5 rows)" if args.guest_checkout else "(2 rows)") in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
             session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
@@ -1566,7 +1602,7 @@ def main():
             with (folder/"mobile-live.log").open("w",encoding="utf-8") as log:
                 run([args.flutter,"test","--no-pub","--dart-define=IDENTITY_ALLOW_HTTP=true","test/live_mvp_contract_test.dart"],ROOT/"apps/mobile-app",stdout=log,stderr=log)
             after=json.loads(sql(f"SELECT json_build_object('physical',physical_qty,'reserved',reserved_qty) FROM \"{inventory_schema}\".inventory_items WHERE sku='PEER';",tuples=True))
-            assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
+            assert after == {"physical":expected_physical,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
         # Drop the grants projected onto the fixture Employee for the
@@ -1598,6 +1634,7 @@ def main():
             "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
             "accounts": 4,
+            "guest_checkout": args.guest_checkout,
             "inventory": stock,
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
@@ -1610,6 +1647,7 @@ def main():
                 "shipping-revision-kafka-delivery-order-history",
                 "native-app-bound-PKCE-refresh-logout-persona-gates",
                 *( ["native-Dart-real-purchase-cancel-and-Inventory-release"] if args.flutter else [] ),
+                *( ["guest-COD-and-VietQR-order-grant-TEST-settlement", "OIDC-Customer-cart-merge-replay-revocation-dropped-SKU", "registered-Customer-COD"] if args.guest_checkout else [] ),
             ],
         }
         (folder / "result.json").write_text(json.dumps(result, indent=2))

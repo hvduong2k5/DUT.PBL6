@@ -6134,6 +6134,12 @@ paths:
       tags:
       - Orders
       operationId: getAdminOrdersOrderId
+      description: >-
+        The direct Order backend principal gate admits Employee requests to this
+        projection; the application still requires ORDER_VIEW and enforces its
+        GLOBAL or WAREHOUSE scope. Guest, payment-grant and Customer principals
+        cannot use this employee endpoint. Same-warehouse ORDER_SENSITIVE_VIEW
+        controls recipient visibility.
       summary: Read-only Order detail snapshot with separate payment, reservation,
         packing and shipping projections. Recipient fields are filtered again by the
         Web Admin BFF.

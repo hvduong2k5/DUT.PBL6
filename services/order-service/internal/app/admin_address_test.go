@@ -8,11 +8,11 @@ func TestAdminAddressUsesSnapshotNames(t *testing.T) {
 	}{
 		{"snapshot names", "Phường Phú Nhuận", "Thành phố Huế", "1 Lê Lợi, Phường Phú Nhuận, Thành phố Huế"},
 		{"historical duplicated name", "Phường Phú Nhuận, Thành phố Huế", "Thành phố Huế", "1 Lê Lợi, Phường Phú Nhuận, Thành phố Huế"},
-		{"historical codes", "", "", "1 Lê Lợi, 30109, 75"},
-		{"partial snapshot", "Phường Phú Nhuận", "", "1 Lê Lợi, Phường Phú Nhuận, 75"},
+		{"historical codes", "", "", "1 Lê Lợi, 30109, 46"},
+		{"partial snapshot", "Phường Phú Nhuận", "", "1 Lê Lợi, Phường Phú Nhuận, 46"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := formatAdminAddress("1 Lê Lợi", tc.ward, "30109", tc.province, "75")
+			got := formatAdminAddress("1 Lê Lợi", tc.ward, "30109", tc.province, "46")
 			if got != tc.want {
 				t.Fatalf("address = %q, want %q", got, tc.want)
 			}

@@ -32,7 +32,7 @@ func BenchmarkCheckoutPostgres(b *testing.B) {
 		_, err := pool.Exec(ctx, `DELETE FROM customer_profiles WHERE id=$1`, id)
 		require.NoError(b, err)
 	}()
-	a := &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Benchmark", PhoneNumber: "0905111111", StreetAddress: "15 Lê Lợi", WardCode: "WARD-TH-001", ProvinceCode: "75", Label: "HOME", CreatedAt: now, UpdatedAt: now}
+	a := &domain.ShippingAddress{ID: uuid.New(), CustomerID: id, RecipientName: "Benchmark", PhoneNumber: "0905111111", StreetAddress: "15 Lê Lợi", WardCode: "19753", ProvinceCode: "46", Label: "HOME", CreatedAt: now, UpdatedAt: now}
 	require.NoError(b, addresses.CreateAddress(ctx, a))
 	u := usecase.NewAddressUsecase(addresses, usecase.NewAddressFuzzyMatcher(), nil, pool)
 	b.ResetTimer()

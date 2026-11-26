@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useAuth } from "@/components/auth/auth-provider";
+import { orderService } from "@/services/order-service";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductImage } from "@/components/product/product-image";
@@ -17,7 +19,10 @@ import type {
   ShippingAddress
 } from "@/lib/checkout/types";
 import { getCheckoutFormErrors, validateShippingAddress } from "@/lib/checkout/validation";
+import { userErrorCodeMessage, userErrorMessage } from "@/lib/checkout/error-messages";
 import { checkoutService } from "@/services/checkout-service";
+import { LocationCombobox } from "@/components/location-combobox";
+import { recordGuestOrder } from "@/lib/orders/guest-orders";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const EMPTY_RECIPIENT: CheckoutRecipient = { fullName: "", phone: "", email: "" };
@@ -62,19 +67,21 @@ function detailsErrors(error: PublicApiError): Record<string, string> {
   }));
 }
 
-export function CheckoutFlow() {
+export function CheckoutFlow({ guestCOD = false, guestVietQR = false }: { guestCOD?: boolean; guestVietQR?: boolean }) {
+  const guest = useAuth().status === "guest";
+  const [orderCode, setOrderCode] = useState("");
   const { reload: reloadCartSummary } = useCartSummary();
   const searchParams = useSearchParams();
   const mockScenario = searchParams.get("mockScenario") ?? undefined;
   const cartScenario = searchParams.get("cartScenario") ?? undefined;
-  const requestOptions = useMemo(() => ({ mockScenario, cartScenario }), [mockScenario, cartScenario]);
+  const requestOptions = useMemo(() => ({ mockScenario, cartScenario, guest }), [mockScenario, cartScenario, guest]);
   const commandRef = useRef<{ quoteId: string; key: string } | undefined>(undefined);
 
   const [preparation, setPreparation] = useState<MvpCheckoutPreparation | null>(null);
   const [recipient, setRecipient] = useState<CheckoutRecipient>(EMPTY_RECIPIENT);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
   const [selectedAddressId, setSelectedAddressId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<MvpCheckoutPaymentMethod>("VIETQR");
+  const [paymentMethod, setPaymentMethod] = useState<MvpCheckoutPaymentMethod>(guest && !guestVietQR && guestCOD ? "COD" : "VIETQR");
   const [voucherCode, setVoucherCode] = useState("");
   const [quote, setQuote] = useState<MvpCheckoutQuote | null>(null);
   const [operation, setOperation] = useState<MvpCheckoutOperationView | null>(null);
@@ -103,7 +110,7 @@ export function CheckoutFlow() {
         setRecipient(payload.defaultRecipient);
       }
     }).catch((cause: unknown) => {
-      if (active) setPageError(cause instanceof Error ? cause.message : "Không thể chuẩn bị Checkout lúc này.");
+      if (active) setPageError(userErrorMessage(cause, "Không thể chuẩn bị Checkout lúc này."));
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -112,6 +119,12 @@ export function CheckoutFlow() {
 
   useEffect(() => {
     if (!preparation || validateShippingAddress(address).length > 0 || !recipient.fullName.trim() || !recipient.phone.trim()) return;
+    const formatErrors = getCheckoutFormErrors(recipient, address);
+    if (Object.keys(formatErrors).length > 0) {
+      setFieldErrors(formatErrors);
+      setQuote(null);
+      return;
+    }
     const normalizedVoucher = MVP_FEATURE_GATES.voucher ? voucherCode.trim().toUpperCase() : "";
     if (normalizedVoucher && !VOUCHER_PATTERN.test(normalizedVoucher)) {
       setQuote(null);
@@ -136,7 +149,7 @@ export function CheckoutFlow() {
       }).catch((cause: unknown) => {
         if (!active) return;
         setQuote(null);
-        setQuoteError(cause instanceof PublicApiError ? cause.message : "Chưa thể tạo Checkout quote.");
+        setQuoteError(userErrorMessage(cause, "Chưa thể tạo Checkout quote."));
       }).finally(() => {
         if (active) setQuoting(false);
       });
@@ -146,6 +159,17 @@ export function CheckoutFlow() {
       globalThis.clearTimeout(timer);
     };
   }, [address, paymentMethod, preparation, recipient, requestOptions, selectedAddressId, voucherCode]);
+
+  useEffect(() => {
+    if (!operation?.succeeded || !operation.orderId) return;
+    let active = true;
+    orderService.detail(operation.orderId).then((order) => {
+      if (!active) return;
+      setOrderCode(order.orderNumber);
+      if (guest) recordGuestOrder({ orderId: order.orderId, orderCode: order.orderNumber, totalVnd: order.pricing.totalVnd, placedAt: new Date().toISOString() });
+    }).catch(() => { if (active) setOrderCode(""); });
+    return () => { active = false; };
+  }, [operation?.succeeded, operation?.orderId, guest]);
 
   function applySavedAddress(addressId: string) {
     setSelectedAddressId(addressId);
@@ -190,12 +214,12 @@ export function CheckoutFlow() {
       } else if (result.terminal) {
         setSubmitError(result.status === "MANUAL_REVIEW"
           ? "Checkout cần được nhân viên kiểm tra thủ công. Không gửi lại lệnh với khóa mới."
-          : `Checkout thất bại${result.errorCode ? `: ${result.errorCode}` : "."}`);
+          : userErrorCodeMessage(result.errorCode, 0, "Checkout thất bại."));
       } else {
         setSubmitError("Checkout vẫn đang được xử lý. Bạn có thể kiểm tra lại operation này.");
       }
     } catch (cause) {
-      setSubmitError(cause instanceof PublicApiError ? cause.message : "Chưa thể đọc trạng thái Checkout operation.");
+      setSubmitError(userErrorMessage(cause, "Chưa thể đọc trạng thái Checkout operation."));
     } finally {
       setSubmitting(false);
     }
@@ -226,7 +250,7 @@ export function CheckoutFlow() {
       if (cause instanceof PublicApiError) {
         setSubmitError(cause.status === 409
           ? "Cart hoặc quote đã thay đổi. Hãy tạo lại quote trước khi thử lại."
-          : cause.message);
+          : userErrorMessage(cause, "Chưa thể accept Checkout lúc này."));
         setFieldErrors((current) => ({ ...current, ...detailsErrors(cause) }));
         if ([409, 410, 422].includes(cause.status)) setQuote(null);
       } else {
@@ -237,6 +261,7 @@ export function CheckoutFlow() {
     }
   }
 
+  if (guest && !guestCOD && !guestVietQR) return <main className="checkout-page"><h1>Thanh toán cho khách chưa được bật</h1><p>Bạn có thể đăng nhập để tiếp tục đặt hàng.</p><Link className="primary-link" href="/login?returnUrl=%2Fcheckout">Đăng nhập</Link></main>;
   if (loading) return <main className="checkout-page"><CheckoutSteps /><CheckoutLoading /></main>;
   if (pageError || !preparation) {
     return <main className="checkout-page"><CheckoutSteps /><section className="checkout-state-card error" role="alert"><span aria-hidden="true">!</span><p className="eyebrow">Checkout cần được làm mới</p><h1>Chưa thể kiểm tra giỏ hàng</h1><p>{pageError || "Giỏ hàng đã thay đổi."}</p><div><button className="primary-button" type="button" onClick={() => setRetryKey((value) => value + 1)}>Thử tải lại</button><Link className="secondary-link" href="/cart">Về giỏ hàng</Link></div></section></main>;
@@ -247,7 +272,7 @@ export function CheckoutFlow() {
 
   if (operation?.succeeded && operation.orderId) {
     const paymentPath = paymentMethod === "VIETQR" ? `/payment/${encodeURIComponent(operation.orderId)}` : `/orders/${encodeURIComponent(operation.orderId)}/confirmation`;
-    return <main className="checkout-page"><CheckoutSteps complete /><section className="checkout-confirmed"><span className="checkout-confirmed-icon" aria-hidden="true">✓</span><p className="eyebrow">Checkout operation thành công</p><h1>Order đã được tạo an toàn</h1><p>Operation <code>{operation.operationId}</code> đã hoàn tất và trả về Order <code>{operation.orderId}</code>.</p><dl><div><dt>Trạng thái operation</dt><dd>{operation.status}</dd></div><div><dt>Trạng thái Order</dt><dd>{operation.orderStatus ?? "Đang đồng bộ"}</dd></div><div><dt>Cập nhật lúc</dt><dd>{new Date(operation.updatedAt).toLocaleString("vi-VN")}</dd></div></dl><div className="checkout-confirmed-actions"><Link className="primary-link" href={paymentPath}>{paymentMethod === "VIETQR" ? "Mở trang thanh toán" : "Xem đơn hàng"}</Link><Link className="secondary-link" href="/products">Tiếp tục mua sắm</Link></div></section></main>;
+    return <main className="checkout-page"><CheckoutSteps complete /><section className="checkout-confirmed"><span className="checkout-confirmed-icon" aria-hidden="true">✓</span><p className="eyebrow">Checkout operation thành công</p><h1>Đặt hàng thành công</h1><p>Mã đơn hàng: <strong>{orderCode || "Đang tải…"}</strong></p>{guest ? <p>Đơn này đã được lưu trên thiết bị của bạn — xem lại ở mục <Link href="/track-order">Đơn đã đặt trên thiết bị này</Link>, hoặc bấm Xem đơn hàng bên dưới.</p> : null}<dl><div><dt>Trạng thái operation</dt><dd>{operation.status}</dd></div><div><dt>Trạng thái Order</dt><dd>{operation.orderStatus ?? "Đang đồng bộ"}</dd></div><div><dt>Cập nhật lúc</dt><dd>{new Date(operation.updatedAt).toLocaleString("vi-VN")}</dd></div></dl><div className="checkout-confirmed-actions"><Link className="primary-link" href={paymentPath}>{paymentMethod === "VIETQR" ? "Mở trang thanh toán" : "Xem đơn hàng"}</Link><Link className="secondary-link" href="/products">Tiếp tục mua sắm</Link></div></section></main>;
   }
 
   const selectedProvince = preparation.locations.find((entry) => entry.provinceCode === address.provinceCode);
@@ -256,7 +281,7 @@ export function CheckoutFlow() {
   return (
     <main className="checkout-page">
       <CheckoutSteps />
-      <div className="checkout-guest-banner"><span aria-hidden="true">♢</span><div><strong>{preparation.customerMode === "REGISTERED" ? "Checkout dùng danh tính tài khoản đã xác minh." : "Guest Checkout chưa được bật trong contract target."}</strong><p>Giá, tồn kho và phí vận chuyển chỉ được chốt bởi quote từ server.</p></div></div>
+      <div className="checkout-guest-banner"><span aria-hidden="true">♢</span><div><strong>{preparation.customerMode === "REGISTERED" ? "Checkout dùng danh tính tài khoản đã xác minh." : "Guest Checkout đang bật — bạn có thể đặt hàng không cần tài khoản."}</strong><p>Giá, tồn kho và phí vận chuyển chỉ được chốt bởi quote từ server.</p></div></div>
       {preparation.accountDataWarning ? <div className="checkout-inline-error" role="status"><strong>Thông tin tài khoản chưa tải đầy đủ</strong><p>{preparation.accountDataWarning}</p></div> : null}
 
       <div className="checkout-layout">
@@ -266,12 +291,12 @@ export function CheckoutFlow() {
             <div className="checkout-panel-body">
               {preparation.savedAddresses.length ? <label className="checkout-field full"><span>Địa chỉ đã lưu</span><select value={selectedAddressId} onChange={(event) => applySavedAddress(event.currentTarget.value)}><option value="">Nhập thông tin mới</option>{preparation.savedAddresses.map((saved) => <option value={saved.addressId} key={saved.addressId}>{optionLabel(saved)}</option>)}</select></label> : null}
               <div className="checkout-form-grid">
-                <label className="checkout-field"><span>Họ và tên người nhận <b>*</b></span><input value={recipient.fullName} onChange={(event) => updateRecipient("fullName", event.currentTarget.value)} />{fieldErrors.fullName ? <small role="alert">{fieldErrors.fullName}</small> : null}</label>
-                <label className="checkout-field"><span>Số điện thoại <b>*</b></span><input inputMode="tel" value={recipient.phone} onChange={(event) => updateRecipient("phone", event.currentTarget.value)} />{fieldErrors.phone ? <small role="alert">{fieldErrors.phone}</small> : null}</label>
-                <label className="checkout-field full"><span>Email nhận thông báo</span><input type="email" value={recipient.email ?? ""} onChange={(event) => updateRecipient("email", event.currentTarget.value)} />{fieldErrors.email ? <small role="alert">{fieldErrors.email}</small> : null}</label>
-                <label className="checkout-field"><span>Tỉnh/Thành phố <b>*</b></span><select value={address.provinceCode} onChange={(event) => updateProvince(event.currentTarget.value)}><option value="">Chọn Tỉnh/Thành phố</option>{preparation.locations.map((entry) => <option value={entry.provinceCode} key={entry.provinceCode}>{entry.provinceName}</option>)}</select>{fieldErrors.provinceCode ? <small role="alert">{fieldErrors.provinceCode}</small> : null}</label>
-                <label className="checkout-field"><span>Phường/Xã <b>*</b></span><select value={address.wardCode} disabled={!selectedProvince} onChange={(event) => updateWard(event.currentTarget.value)}><option value="">Chọn Phường/Xã</option>{selectedProvince?.wards.map((entry) => <option value={entry.wardCode} key={entry.wardCode}>{entry.wardName}</option>)}</select>{fieldErrors.wardCode ? <small role="alert">{fieldErrors.wardCode}</small> : null}</label>
-                <label className="checkout-field full"><span>Địa chỉ cụ thể <b>*</b></span><input value={address.addressLine} onChange={(event) => { setSelectedAddressId(""); setAddress((current) => ({ ...current, addressLine: event.currentTarget.value })); setQuote(null); }} />{fieldErrors.addressLine ? <small role="alert">{fieldErrors.addressLine}</small> : null}</label>
+                <label className="checkout-field"><span>Họ và tên người nhận <b>*</b></span><input value={recipient.fullName} onChange={(event) => updateRecipient("fullName", event.currentTarget.value)} /><small className="field-error-slot" role={fieldErrors.fullName ? "alert" : undefined}>{fieldErrors.fullName ?? ""}</small></label>
+                <label className="checkout-field"><span>Số điện thoại <b>*</b></span><input inputMode="tel" value={recipient.phone} onChange={(event) => updateRecipient("phone", event.currentTarget.value)} /><small className="field-error-slot" role={fieldErrors.phone ? "alert" : undefined}>{fieldErrors.phone ?? ""}</small></label>
+                <label className="checkout-field full"><span>Email nhận thông báo</span><input type="email" value={recipient.email ?? ""} onChange={(event) => updateRecipient("email", event.currentTarget.value)} /><small className="field-error-slot" role={fieldErrors.email ? "alert" : undefined}>{fieldErrors.email ?? ""}</small></label>
+                <label className="checkout-field"><span>Tỉnh/Thành phố <b>*</b></span><LocationCombobox ariaLabel="Tỉnh/Thành phố" placeholder="Chọn Tỉnh/Thành phố" options={preparation.locations.map((entry) => ({ value: entry.provinceCode, label: entry.provinceName }))} value={address.provinceCode} onChange={updateProvince} /><small className="field-error-slot" role={fieldErrors.provinceCode ? "alert" : undefined}>{fieldErrors.provinceCode ?? ""}</small></label>
+                <label className="checkout-field"><span>Phường/Xã <b>*</b></span><LocationCombobox ariaLabel="Phường/Xã" placeholder="Chọn Phường/Xã" disabled={!selectedProvince} options={(selectedProvince?.wards ?? []).map((entry) => ({ value: entry.wardCode, label: entry.wardName }))} value={address.wardCode} onChange={updateWard} /><small className="field-error-slot" role={fieldErrors.wardCode ? "alert" : undefined}>{fieldErrors.wardCode ?? ""}</small></label>
+                <label className="checkout-field full"><span>Địa chỉ cụ thể <b>*</b></span><input value={address.addressLine} onChange={(event) => { const value = event.currentTarget.value; setSelectedAddressId(""); setAddress((current) => ({ ...current, addressLine: value })); setQuote(null); }} /><small className="field-error-slot" role={fieldErrors.addressLine ? "alert" : undefined}>{fieldErrors.addressLine ?? ""}</small></label>
               </div>
             </div>
           </section>
@@ -279,8 +304,8 @@ export function CheckoutFlow() {
           <section className="checkout-panel" aria-labelledby="payment-title">
             <header><span>2</span><h2 id="payment-title">Phương thức thanh toán</h2><small>Quote phụ thuộc phương thức</small></header>
             <div className="checkout-options">
-              <label className={`checkout-option payment ${paymentMethod === "VIETQR" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "VIETQR"} onChange={() => { setPaymentMethod("VIETQR"); setQuote(null); }} /><span><strong>Chuyển khoản VietQR</strong><small>Payment instructions được đọc sau khi Order tạo thành công.</small></span></label>
-              {MVP_FEATURE_GATES.cod ? <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Chỉ hiển thị khi capability COD đã được nghiệm thu.</small></span></label> : null}
+              {(!guest || guestVietQR) ? <label className={`checkout-option payment ${paymentMethod === "VIETQR" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "VIETQR"} onChange={() => { setPaymentMethod("VIETQR"); setQuote(null); }} /><span><strong>Chuyển khoản VietQR</strong><small>Thông tin chuyển khoản hiển thị sau khi đặt hàng.</small></span></label> : null}
+              {(guest ? guestCOD : MVP_FEATURE_GATES.cod) ? <label className={`checkout-option payment ${paymentMethod === "COD" ? "selected" : ""}`}><input type="radio" name="payment" checked={paymentMethod === "COD"} onChange={() => { setPaymentMethod("COD"); setQuote(null); }} /><span><strong>Thanh toán khi nhận hàng (COD)</strong><small>Chỉ hiển thị khi capability COD đã được nghiệm thu.</small></span></label> : null}
             </div>
           </section>
         </div>
@@ -292,7 +317,7 @@ export function CheckoutFlow() {
             const lineTotal = item.unitPriceVnd === undefined ? undefined : item.unitPriceVnd * item.quantity;
             return <article key={`${item.skuCode}-${index}`}><div className="checkout-summary-image">{cartItem ? <ProductImage src={cartItem.imageUrl} alt={cartItem.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /> : <span className="gh-emblem" aria-hidden="true" />}</div><div><strong>{item.productName}</strong><small>{item.skuCode} · ×{item.quantity}</small></div><b>{lineTotal === undefined ? "Theo quote" : VND.format(lineTotal)}</b></article>;
           }) : preparation.items.map((item, index) => <article key={item.itemId}><div className="checkout-summary-image"><ProductImage src={item.imageUrl} alt={item.imageAlt} fill sizes="64px" loading={index < 2 ? "eager" : "lazy"} /></div><div><strong>{item.productName}</strong><small>{item.skuLabel} · ×{item.quantity}</small></div><b>{preparation.pricingComplete ? VND.format(item.lineSubtotalVnd) : "Chờ quote"}</b></article>)}</div>
-          {MVP_FEATURE_GATES.voucher ? <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div>{fieldErrors.voucherCode ? <p className="checkout-field-error" role="alert">{fieldErrors.voucherCode}</p> : null}</section> : null}
+          {MVP_FEATURE_GATES.voucher ? <section className="checkout-voucher"><div><strong>Mã ưu đãi</strong><small>Được backend xét khi tạo quote</small></div><div className="checkout-voucher-entry"><input value={voucherCode} onChange={(event) => { setVoucherCode(event.currentTarget.value.toUpperCase()); setQuote(null); setFieldErrors((current) => ({ ...current, voucherCode: "" })); }} placeholder="Nhập mã voucher" /></div><p className="checkout-field-error field-error-slot" role={fieldErrors.voucherCode ? "alert" : undefined}>{fieldErrors.voucherCode ?? ""}</p></section> : null}
           <dl className="checkout-totals"><div><dt>Tạm tính</dt><dd>{quote ? VND.format(quote.subtotalVnd) : preparation.pricingComplete ? VND.format(preparation.subtotalVnd) : "Chờ quote"}</dd></div><div><dt>Phí vận chuyển</dt><dd>{quote ? VND.format(quote.shippingFeeVnd) : "Chưa có quote"}</dd></div><div className="grand-total"><dt><strong>Tổng thanh toán</strong><small>{quote ? `Quote hết hạn ${new Date(quote.expiresAt).toLocaleString("vi-VN")}` : "Được server chốt"}</small></dt><dd>{quote ? VND.format(quote.totalVnd) : "—"}</dd></div></dl>
           {quoting ? <p className="cart-checkout-note" role="status">Đang tạo quote từ Cart revision {preparation.cartRevision}…</p> : null}
           {quoteError ? <div className="checkout-submit-error" role="alert">{quoteError}</div> : null}

@@ -101,16 +101,16 @@ func SetupRedisContainer(t *testing.T) (*redis.Client, func()) {
 func SeedSampleAdministrativeUnits(ctx context.Context, pool *pgxpool.Pool) error {
 	queries := []string{
 		`INSERT INTO administrative_units (code, name, name_en, full_name, parent_code, level) 
-		 VALUES ('75', 'Huế', 'Hue', 'Thành phố Huế', NULL, 'PROVINCE') 
+		 VALUES ('46', 'Thành phố Huế', 'Thanh pho Hue', 'Thành phố Huế', NULL, 'PROVINCE') 
 		 ON CONFLICT (code) DO NOTHING;`,
 		`INSERT INTO administrative_units (code, name, name_en, full_name, parent_code, level) 
-		 VALUES ('WARD-TH-001', 'Thuận Hòa', 'Thuan Hoa', 'Phường Thuận Hòa', '75', 'WARD') 
+		 VALUES ('19753', 'Phường Phú Xuân', 'Phuong Phu Xuan', 'Phường Phú Xuân, Thành phố Huế', '46', 'WARD') 
 		 ON CONFLICT (code) DO NOTHING;`,
 		`INSERT INTO administrative_units (code, name, name_en, full_name, parent_code, level) 
-		 VALUES ('WARD-VL-002', 'Vĩnh Lộc', 'Vinh Loc', 'Xã Vĩnh Lộc', '75', 'WARD') 
+		 VALUES ('19774', 'Phường Kim Long', 'Phuong Kim Long', 'Phường Kim Long, Thành phố Huế', '46', 'WARD') 
 		 ON CONFLICT (code) DO NOTHING;`,
 		`INSERT INTO administrative_units (code, name, name_en, full_name, parent_code, level) 
-		 VALUES ('WARD-PB-003', 'Phú Bài', 'Phu Bai', 'Phường Phú Bài', '75', 'WARD') 
+		 VALUES ('19777', 'Phường Vỹ Dạ', 'Phuong Vy Da', 'Phường Vỹ Dạ, Thành phố Huế', '46', 'WARD') 
 		 ON CONFLICT (code) DO NOTHING;`,
 	}
 	for _, q := range queries {

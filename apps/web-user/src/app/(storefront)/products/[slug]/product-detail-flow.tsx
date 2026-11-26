@@ -10,6 +10,7 @@ import { ProductImage } from "@/components/product/product-image";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { cartService } from "@/services/cart-service";
 import { productDetailService } from "@/services/product-detail-service";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { useAuth } from "@/components/auth/auth-provider";
 import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 import { useRecommendation } from "@/components/recommendation/recommendation-provider";
@@ -35,7 +36,7 @@ function ProductDetailLoading() {
 }
 
 export function ProductDetailFlow({ slug }: { slug: string }) {
-  const { isEmployee } = useAuth();
+  const { isEmployee, status } = useAuth();
   const recommendation = useRecommendation();
   const { record, consent } = recommendation;
   const { updateFromCart } = useCartSummary();
@@ -192,7 +193,7 @@ export function ProductDetailFlow({ slug }: { slug: string }) {
             {selectedSku ? <dl><div><dt>Khối lượng</dt><dd>{selectedSku.weightGrams}g</dd></div><div><dt>Hương vị</dt><dd>{selectedSku.flavor || "Nguyên bản"}</dd></div><div><dt>Đóng gói</dt><dd>{selectedSku.packageType}</dd></div><div><dt>Khả dụng</dt><dd className="available">Có thể chọn</dd></div></dl> : <p>Chưa chọn SKU. Không có quy cách nào được ngầm xác nhận.</p>}
           </div>
 
-          {isEmployee ? <div className="availability-banner employee-purchase-warning" role="note"><span aria-hidden="true">!</span><div><h2>Tài khoản nhân viên công vụ</h2><p>Chỉ được xem thông tin sản phẩm và quản trị; không thể tạo giỏ hàng hoặc đặt mua. Hãy đăng xuất và dùng tài khoản Customer cá nhân nếu cần mua hàng.</p><Link href="/admin">Đến Kênh Quản Trị →</Link></div></div> : <><div className="detail-cart-actions">
+          {isEmployee ? <div className="availability-banner employee-purchase-warning" role="note"><span aria-hidden="true">!</span><div><h2>Tài khoản nhân viên công vụ</h2><p>Chỉ được xem thông tin sản phẩm và quản trị; không thể tạo giỏ hàng hoặc đặt mua. Hãy đăng xuất và dùng tài khoản Customer cá nhân nếu cần mua hàng.</p><Link href="/admin">Đến Kênh Quản Trị →</Link></div></div> : status === "guest" && !MVP_FEATURE_GATES.guestOrder ? <Link className="primary-link" href={`/login?returnUrl=${encodeURIComponent(`/products/${slug}`)}`}>Đăng nhập để mua hàng</Link> : <><div className="detail-cart-actions">
             <label htmlFor="detail-quantity">Số lượng</label>
             <div className="detail-quantity-control">
               <button type="button" aria-label="Giảm số lượng" disabled={!selectedSku || addingToCart || quantity <= 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>

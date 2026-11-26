@@ -212,6 +212,24 @@ services:
           - PUT
           - DELETE
           - OPTIONS
+      - name: guest-session-routes
+        paths:
+          - /api/v1/guest-sessions
+        strip_path: false
+        methods: [POST, DELETE, OPTIONS]
+        # No Keycloak plugin: Order validates dedicated guest credentials.
+        plugins:
+          - name: rate-limiting
+            config:
+              hour: 10
+              policy: local
+      - name: guest-payment-access-routes
+        paths:
+          - ~/api/v1/orders/[0-9a-fA-F-]+/guest-payment-access$
+        strip_path: false
+        methods: [POST, DELETE, OPTIONS]
+        regex_priority: 10
+        # Order verifies session ownership; payment grants never authorize minting.
       - name: order-checkout-routes
         paths:
           - /api/v1/orders
@@ -220,7 +238,6 @@ services:
           - /api/v1/admin/orders
           - /api/v1/admin/payments
           - /api/v1/admin/checkout-operations
-          - /api/v1/guest-sessions
         strip_path: false
         methods:
           - GET
