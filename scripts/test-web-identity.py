@@ -822,21 +822,58 @@ def main():
         status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
         assert status == 200 and detail["variants"][0]["stock_available"] == 100, ("Catalog Kafka display", status, detail)
         print("PASS: real Inventory outbox -> Kafka -> Java Catalog consumer -> public stock display", flush=True)
-        # Revalidation must fail on a changed price, future price, or unapproved parent product.
-        headers={"X-Internal-Token":catalog_token}
-        selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection)[0]==401
-        status,pinned,_=request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)
-        assert status==200 and pinned["subtotal"]==1000
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
-        sql("UPDATE catalog_live.channel_prices SET amount_units=1001,version=version+1;")
-        assert not request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
-        sql("UPDATE catalog_live.channel_prices SET amount_units=1000,version=version+1,effective_from=NOW()+interval '1 day';")
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
-        sql("UPDATE catalog_live.channel_prices SET effective_from=NOW()-interval '1 day'; UPDATE catalog_live.products SET approval_status='DRAFT';")
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
-        sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
-        print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
+        # Catalog checkout pricing validation over gRPC must reject missing credentials, changed prices, future prices, and unapproved parent products.
+        import grpc
+        from grpc_tools import protoc as grpc_protoc
+        grpc_out = folder / "catalog_grpc_py"
+        grpc_out.mkdir(parents=True, exist_ok=True)
+        proto_root = Path(__file__).resolve().parents[1] / "packages" / "proto"
+        assert grpc_protoc.main([
+            "grpc_tools.protoc",
+            f"-I{proto_root}",
+            f"--python_out={grpc_out}",
+            f"--grpc_python_out={grpc_out}",
+            str(proto_root / "common" / "v1" / "types.proto"),
+            str(proto_root / "common" / "v1" / "errors.proto"),
+            str(proto_root / "catalog" / "v1" / "catalog.proto"),
+        ]) == 0
+        for pkg_dir in [grpc_out, *grpc_out.rglob("*")]:
+            if pkg_dir.is_dir():
+                (pkg_dir / "__init__.py").touch()
+        sys.path.insert(0, str(grpc_out))
+        from catalog.v1 import catalog_pb2, catalog_pb2_grpc
+        from common.v1 import types_pb2
+        with grpc.insecure_channel(f"127.0.0.1:{ports['catalog_grpc']}") as ch:
+            stub = catalog_pb2_grpc.CatalogServiceStub(ch)
+            req = catalog_pb2.ValidateCheckoutPricingRequest(
+                channel=catalog_pb2.SALES_CHANNEL_D2C_WEB,
+                items=[
+                    catalog_pb2.CheckoutItemInput(
+                        sku_code="PEER",
+                        quantity=1,
+                        client_unit_price=types_pb2.Money(currency_code="VND", units=1000),
+                    )
+                ],
+            )
+            try:
+                stub.ValidateCheckoutPricing(req, timeout=5)
+                raise AssertionError("Expected UNAUTHENTICATED without x-internal-token")
+            except grpc.RpcError as err:
+                assert err.code() == grpc.StatusCode.UNAUTHENTICATED, err.code()
+            meta = [("x-internal-token", catalog_token)]
+            resp = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert resp.is_valid and resp.canonical_subtotal.units == 1000, resp
+            sql("UPDATE catalog_live.channel_prices SET amount_units=1001,version=version+1;")
+            resp_changed = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_changed.is_valid, resp_changed
+            sql("UPDATE catalog_live.channel_prices SET amount_units=1000,version=version+1,effective_from=NOW()+interval '1 day';")
+            resp_future = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_future.is_valid, resp_future
+            sql("UPDATE catalog_live.channel_prices SET effective_from=NOW()-interval '1 day'; UPDATE catalog_live.products SET approval_status='DRAFT';")
+            resp_draft = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_draft.is_valid, resp_draft
+            sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
+        print("PASS: real Catalog gRPC rejects missing credentials, changed prices, future prices and unapproved products", flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
         # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
