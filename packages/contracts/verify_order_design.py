@@ -72,7 +72,7 @@ def protobuf_checks(raw, baseline=None):
         "omamx.inventory.v1.InventoryService": ["GetReservationByOrder", "FinalizeReservation", "ReleaseReservationByOrder", "ReverseCommittedStock"],
         "omamx.fulfillment.v1.FulfillmentService": ["AcceptTask", "CancelTask", "GetTaskDecision"],
         "omamx.order.v1.OrderService": ["GetFulfillmentPermit", "ValidateFulfillmentPermit"],
-        "omamx.catalog.v1.CatalogService": ["GetCheckoutSnapshot"],
+        "omamx.catalog.v1.CatalogService": ["ValidateCheckoutPricing"],
         "omamx.promotion.v1.PromotionService": ["GetVoucherHoldByOrder", "FinalizeVoucherHold", "ReleaseVoucherHoldByOrder"],
     }.items():
         check(name in services, f"Missing service {name}")
