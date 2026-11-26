@@ -26,6 +26,9 @@ public interface CatalogDtoMapper {
   // ── Category ──────────────────────────────────────────────────────────────
   @Mapping(source = "id", target = "categoryId")
   @Mapping(source = "active", target = "isActive")
+  @Mapping(
+      target = "imageUrl",
+      expression = "java(AdminCatalogMapper.imageUrl(category.getImageUrl()))")
   @Mapping(target = "children", ignore = true)
   CategoryResponse toCategoryResponse(Category category);
 

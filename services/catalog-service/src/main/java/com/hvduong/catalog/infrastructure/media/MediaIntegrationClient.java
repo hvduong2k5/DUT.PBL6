@@ -39,9 +39,22 @@ public class MediaIntegrationClient {
     this.grpcTarget = grpcTarget;
   }
 
+  public static boolean isExternalUrl(String value) {
+    return value != null && (value.startsWith("http://") || value.startsWith("https://"));
+  }
+
   public void validateProductImage(String objectKey) {
+    validateImage(objectKey, "CATALOG_PRODUCT");
+  }
+
+  public void validateCategoryImage(String objectKey) {
+    validateImage(objectKey, "CATALOG_CATEGORY");
+  }
+
+  private void validateImage(String objectKey, String expectedPurpose) {
     if (!grpcEnabled) {
-      log.debug("[MEDIA-GRPC] Disabled; skipping validateProductImage for {}", objectKey);
+      log.debug(
+          "[MEDIA-GRPC] Disabled; skipping validateImage({}) for {}", expectedPurpose, objectKey);
       return;
     }
     try {
@@ -51,7 +64,7 @@ public class MediaIntegrationClient {
               .validateMediaReference(
                   ValidateMediaRequest.newBuilder()
                       .setObjectKey(objectKey)
-                      .setExpectedPurpose("CATALOG_PRODUCT")
+                      .setExpectedPurpose(expectedPurpose)
                       .build());
       if (!response.getIsValid() || !"READY".equalsIgnoreCase(response.getStatus())) {
         throw new CatalogException(
@@ -69,6 +82,14 @@ public class MediaIntegrationClient {
   }
 
   public void bindProductImage(String objectKey, String productId) {
+    bindMedia(objectKey, "Product", productId);
+  }
+
+  public void bindCategoryImage(String objectKey, String categoryId) {
+    bindMedia(objectKey, "Category", categoryId);
+  }
+
+  private void bindMedia(String objectKey, String entityType, String entityId) {
     if (!grpcEnabled) {
       return;
     }
@@ -78,19 +99,28 @@ public class MediaIntegrationClient {
           .bindMediaToEntity(
               BindMediaRequest.newBuilder()
                   .setObjectKey(objectKey)
-                  .setEntityType("Product")
-                  .setEntityId(productId)
+                  .setEntityType(entityType)
+                  .setEntityId(entityId)
                   .build());
     } catch (Exception ex) {
       log.warn(
-          "[MEDIA-GRPC] BindMediaToEntity failed for objectKey={}, productId={}: {}",
+          "[MEDIA-GRPC] BindMediaToEntity failed for objectKey={}, entityType={}, entityId={}: {}",
           objectKey,
-          productId,
+          entityType,
+          entityId,
           ex.getMessage());
     }
   }
 
   public void publishProductImage(String objectKey) {
+    publishMedia(objectKey);
+  }
+
+  public void publishCategoryImage(String objectKey) {
+    publishMedia(objectKey);
+  }
+
+  private void publishMedia(String objectKey) {
     if (!grpcEnabled) {
       return;
     }

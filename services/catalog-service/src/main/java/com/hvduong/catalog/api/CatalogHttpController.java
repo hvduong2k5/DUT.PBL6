@@ -3,6 +3,7 @@ package com.hvduong.catalog.api;
 import com.hvduong.catalog.application.dto.request.ProductFilterRequest;
 import com.hvduong.catalog.application.dto.response.CategoryListResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
+import com.hvduong.catalog.application.mapper.AdminCatalogMapper;
 import com.hvduong.catalog.application.service.CatalogService;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.enums.SortBy;
@@ -83,7 +84,9 @@ public class CatalogHttpController {
                         .name(category.getName())
                         .slug(category.getSlug())
                         .description(Objects.toString(category.getDescription(), ""))
-                        .imageUrl(Objects.toString(category.getImageUrl(), ""))
+                        .imageUrl(
+                            Objects.toString(
+                                AdminCatalogMapper.imageUrl(category.getImageUrl()), ""))
                         .build())
             .toList();
     return CategoryListResponse.builder().categories(items).build();

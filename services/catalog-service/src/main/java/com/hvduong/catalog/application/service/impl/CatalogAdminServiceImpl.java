@@ -103,6 +103,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     UUID categoryId =
         UUID.nameUUIDFromBytes(
             ("catalog:create-category:" + actorId + ":" + key).getBytes(StandardCharsets.UTF_8));
+    String normalizedImageUrl = trimToNull(request.imageUrl());
+    validateCategoryImageIfObjectKey(normalizedImageUrl);
     Category category =
         Category.builder()
             .id(categoryId)
@@ -110,7 +112,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .name(request.name())
             .slug(request.slug())
             .description(request.description())
-            .imageUrl(request.imageUrl())
+            .imageUrl(normalizedImageUrl)
             .position(request.position() == null ? 0 : request.position())
             .isActive(true)
             .build();
@@ -133,6 +135,8 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         throw new CatalogException(ErrorCode.IDEMPOTENCY_CONFLICT);
       }
       saved = existing;
+    } else {
+      bindAndPublishCategoryImageIfObjectKey(normalizedImageUrl, categoryId);
     }
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
@@ -161,11 +165,13 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       validateCategoryParent(categoryId, request.getParentId());
     }
 
+    String normalizedImageUrl = trimToNull(request.getImageUrl());
+    validateCategoryImageIfObjectKey(normalizedImageUrl);
     category.setName(request.getName().trim());
     category.setSlug(request.getSlug().trim());
     category.setParentId(request.getParentId());
     category.setDescription(trimToNull(request.getDescription()));
-    category.setImageUrl(trimToNull(request.getImageUrl()));
+    category.setImageUrl(normalizedImageUrl);
     if (request.getPosition() != null) {
       category.setPosition(request.getPosition());
     }
@@ -177,6 +183,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (categoryMapper.update(category) == 0) {
       throw CatalogException.versionConflict(categoryId.toString());
     }
+    bindAndPublishCategoryImageIfObjectKey(normalizedImageUrl, categoryId);
 
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
@@ -234,7 +241,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
               .name(c.getName())
               .slug(c.getSlug())
               .description(c.getDescription())
-              .imageUrl(c.getImageUrl())
+              .imageUrl(AdminCatalogMapper.imageUrl(c.getImageUrl()))
               .position(c.getPosition())
               .isActive(c.isActive())
               .productCount(productCountMap.getOrDefault(c.getId(), 0L))
@@ -363,8 +370,11 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (request.getDescription() != null) {
       category.setDescription(trimToNull(request.getDescription()));
     }
+    String updatedCategoryImageUrl = null;
     if (request.getImageUrl() != null) {
-      category.setImageUrl(trimToNull(request.getImageUrl()));
+      updatedCategoryImageUrl = trimToNull(request.getImageUrl());
+      validateCategoryImageIfObjectKey(updatedCategoryImageUrl);
+      category.setImageUrl(updatedCategoryImageUrl);
     }
     if (request.getPosition() != null) {
       category.setPosition(request.getPosition());
@@ -378,6 +388,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     if (categoryMapper.update(category) == 0) {
       throw CatalogException.versionConflict(categoryId.toString());
     }
+    bindAndPublishCategoryImageIfObjectKey(updatedCategoryImageUrl, categoryId);
 
     TransactionSynchronizationManager.registerSynchronization(
         new TransactionSynchronization() {
@@ -1589,5 +1600,22 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   private static String formatInstant(Instant instant) {
     return instant == null ? null : instant.toString();
+  }
+
+  private void validateCategoryImageIfObjectKey(String imageUrl) {
+    if (imageUrl != null
+        && !MediaIntegrationClient.isExternalUrl(imageUrl)
+        && mediaIntegrationClient != null) {
+      mediaIntegrationClient.validateCategoryImage(imageUrl);
+    }
+  }
+
+  private void bindAndPublishCategoryImageIfObjectKey(String imageUrl, UUID categoryId) {
+    if (imageUrl != null
+        && !MediaIntegrationClient.isExternalUrl(imageUrl)
+        && mediaIntegrationClient != null) {
+      mediaIntegrationClient.bindCategoryImage(imageUrl, categoryId.toString());
+      mediaIntegrationClient.publishCategoryImage(imageUrl);
+    }
   }
 }
