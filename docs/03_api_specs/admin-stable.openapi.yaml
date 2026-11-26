@@ -4553,6 +4553,71 @@ paths:
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
           $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/stock-projections:
+    get:
+      tags:
+      - Product management
+      operationId: getAdminCatalogStockProjections
+      summary: Danh sách tồn kho đã đồng bộ từ Inventory (sku_stock_projection) để liên kết SKU.
+      description: Read model độc lập nhận event từ Inventory; Admin dùng để xem mã SKU kho và gắn vào biến thể qua PATCH /skus/{skuId}.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+      - name: linked
+        in: query
+        required: false
+        description: Lọc theo trạng thái đã gắn với biến thể Catalog hay chưa.
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Danh sách projection tồn kho phân trang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminStockProjectionPageResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
   /api/v1/admin/inventory/skus:
     get:
       tags:
@@ -12429,6 +12494,11 @@ components:
                 type: string
               skuCode:
                 type: string
+              inventorySkuCode:
+                type:
+                - string
+                - 'null'
+                description: Mã SKU kho liên kết tới sku_stock_projection (null nếu khớp mặc định theo skuCode).
               label:
                 type: string
               weightGrams:
@@ -12714,6 +12784,12 @@ components:
           type: integer
           minimum: 0
           description: Giá cơ sở (VND).
+        inventorySkuCode:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Mã SKU kho liên kết tới sku_stock_projection (tùy chọn).
       additionalProperties: false
     CatalogAdminSkuPatchRequest:
       type: object
@@ -12737,6 +12813,12 @@ components:
           - string
           - 'null'
           maxLength: 200
+        inventorySkuCode:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Mã SKU kho liên kết tới sku_stock_projection; chuỗi rỗng xóa liên kết tùy chỉnh.
         packagingType:
           type: string
           enum:
@@ -12759,6 +12841,62 @@ components:
           format: int64
           minimum: 0
       additionalProperties: false
+    CatalogAdminStockProjectionPageResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            type: object
+            required:
+            - items
+            - page
+            - pageSize
+            - total
+            properties:
+              page:
+                type: integer
+              pageSize:
+                type: integer
+              total:
+                type: integer
+                format: int64
+              items:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - skuCode
+                  - inventoryVersion
+                  - linkedVariantCount
+                  properties:
+                    skuCode:
+                      type: string
+                    sellableQuantity:
+                      type:
+                      - integer
+                      - 'null'
+                      format: int64
+                    inventoryVersion:
+                      type: integer
+                      format: int64
+                    sourceUpdatedAt:
+                      type:
+                      - string
+                      - 'null'
+                      format: date-time
+                    syncedAt:
+                      type:
+                      - string
+                      - 'null'
+                      format: date-time
+                    linkedVariantCount:
+                      type: integer
+                      format: int64
+                  additionalProperties: false
+            additionalProperties: false
     CatalogAdminPriceUpdateRequest:
       type: object
       required:
