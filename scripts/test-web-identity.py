@@ -970,7 +970,8 @@ def main():
                 raise
         env.update(
             WEB_TEST_CHECKOUT="true",
-            WEB_TEST_REAL_CATALOG_URL=catalog_url,
+            WEB_TEST_REAL_CATALOG_GRPC=f"127.0.0.1:{ports['catalog_grpc']}",
+            WEB_TEST_REAL_CATALOG_TOKEN=catalog_token,
             WEB_TEST_FIXTURE_DIR=str(folder),
             WEB_TEST_CONTROL_PORT=str(ports["control"]),
             WEB_TEST_ORDER_DATABASE=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=orders",

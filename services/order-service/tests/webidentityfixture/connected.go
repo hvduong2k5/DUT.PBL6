@@ -54,7 +54,12 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 	cfg.CallbackSecret = strings.Repeat("y", 32)
 	cfg.EncryptionKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{17}, 32))
 	cfg.Receiver = "SYNTHETIC-ONLY"
-	cfg.CatalogURL = os.Getenv("WEB_TEST_REAL_CATALOG_URL")
+	cfg.CatalogGRPC = os.Getenv("WEB_TEST_REAL_CATALOG_GRPC")
+	cfg.CatalogToken = os.Getenv("WEB_TEST_REAL_CATALOG_TOKEN")
+	cfg.CatalogAllowLocalInsecure = cfg.CatalogGRPC != ""
+	if cfg.CatalogGRPC == "" {
+		cfg.CatalogURL = os.Getenv("WEB_TEST_REAL_CATALOG_URL")
+	}
 	cfg.CatalogWarehouse = "00000000-0000-0000-0000-000000000001"
 	cfg.CatalogShippingCarrier = "FAKE"
 	cfg.CatalogShippingService = "STANDARD"
