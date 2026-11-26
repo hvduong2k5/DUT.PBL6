@@ -101,6 +101,7 @@ catalog:
     category-ttl-seconds: 86400
   events:
     topic: ${CATALOG_EVENTS_TOPIC:catalog.events.v1}
+    source: ${CATALOG_EVENTS_SOURCE:https://omama.vn/services/catalog-service}
   outbox:
     enabled: ${CATALOG_OUTBOX_ENABLED:true}
     poll-interval-ms: ${CATALOG_OUTBOX_POLL_INTERVAL_MS:1000}
