@@ -462,4 +462,30 @@ class CatalogServiceImplTest {
     assertEquals(1, result.getDiscrepancies().size());
     assertTrue(result.getDiscrepancies().get(0).getReason().contains("SKU không tồn tại"));
   }
+
+  @Test
+  void testGetPublicProductDetail_UsesInventorySkuCodeOverrideForStock() {
+    mockVariant.setInventorySkuCode("INV-OVERRIDE-99");
+    when(productMapper.findPublicBySlug("test-product")).thenReturn(Optional.of(mockProduct));
+    when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+    ProductDetailResponse detailResponse = ProductDetailResponse.builder().build();
+    when(dtoMapper.toDetailResponse(any(Product.class))).thenReturn(detailResponse);
+    when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(new ProductVariantResponse());
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), anyString()))
+        .thenReturn(Optional.of(mockPrice));
+    when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(new MoneyResponse());
+    when(stockProjectionService.getAvailableQuantities(List.of("INV-OVERRIDE-99")))
+        .thenReturn(java.util.Map.of("INV-OVERRIDE-99", 12L));
+    when(stockProjectionService.getStockStatus("INV-OVERRIDE-99")).thenReturn(StockStatus.IN_STOCK);
+
+    ProductDetailResponse response =
+        catalogService.getPublicProductDetail("test-product", SalesChannel.D2C_WEB);
+
+    assertNotNull(response);
+    assertEquals(1, response.getVariants().size());
+    assertEquals("IN_STOCK", response.getVariants().get(0).getStockStatus());
+    assertEquals(12L, response.getVariants().get(0).getStockAvailable());
+  }
 }

@@ -87,6 +87,7 @@ public class AdminProductDetailResponse {
   public static class AdminProductSkuResponse {
     private String skuId;
     private String skuCode;
+    private String inventorySkuCode;
     private String label;
     private Integer weightGrams;
     private String flavor;

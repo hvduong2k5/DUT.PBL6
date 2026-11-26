@@ -19,6 +19,7 @@ import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
@@ -45,8 +46,10 @@ import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
 import com.hvduong.catalog.repository.mybatis.projection.AdminCategoryRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
+import com.hvduong.catalog.repository.mybatis.projection.AdminStockProjectionRow;
 import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.nio.charset.StandardCharsets;
@@ -67,6 +70,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,11 +90,12 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   private final ChannelPriceMapper channelPriceMapper;
   private final ProductImageMapper imageMapper;
   private final CategoryMapper categoryMapper;
+  private final StockAvailabilityMapper stockAvailabilityMapper;
   private final CatalogDtoMapper dtoMapper;
   private final CatalogOutboxWriter outboxWriter;
   private final CatalogCacheEvictor cacheEvictor;
 
-  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  @Autowired(required = false)
   private MediaIntegrationClient mediaIntegrationClient;
 
   @Override
@@ -515,6 +520,51 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   }
 
   @Override
+  @Transactional(readOnly = true)
+  public AdminStockProjectionListResponse getStockProjections(
+      String q, Boolean linked, int page, int pageSize) {
+    int safePage = Math.max(1, page);
+    int safePageSize = Math.min(Math.max(1, pageSize), 100);
+    int offset = (safePage - 1) * safePageSize;
+    String normalizedQuery = trimToNull(q);
+
+    List<AdminStockProjectionRow> rows =
+        stockAvailabilityMapper.findAdminStockProjections(
+            normalizedQuery, linked, offset, safePageSize);
+    long total = stockAvailabilityMapper.countAdminStockProjections(normalizedQuery, linked);
+
+    List<AdminStockProjectionListResponse.Item> items =
+        rows == null
+            ? List.of()
+            : rows.stream()
+                .map(
+                    row ->
+                        AdminStockProjectionListResponse.Item.builder()
+                            .skuCode(row.getSkuCode())
+                            .sellableQuantity(row.getSellableQuantity())
+                            .inventoryVersion(row.getInventoryVersion())
+                            .sourceUpdatedAt(
+                                row.getSourceUpdatedAt() != null
+                                    ? row.getSourceUpdatedAt().toString()
+                                    : null)
+                            .syncedAt(
+                                row.getSyncedAt() != null ? row.getSyncedAt().toString() : null)
+                            .linkedVariantCount(
+                                row.getLinkedVariantCount() != null
+                                    ? row.getLinkedVariantCount()
+                                    : 0L)
+                            .build())
+                .collect(Collectors.toList());
+
+    return AdminStockProjectionListResponse.builder()
+        .items(items)
+        .page(safePage)
+        .pageSize(safePageSize)
+        .total(total)
+        .build();
+  }
+
+  @Override
   public AdminProductDetailResponse getAdminProductDetail(String productId) {
     log.debug("[CATALOG-ADMIN] getAdminProductDetail: productId={}", productId);
 
@@ -908,6 +958,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
             .id(variantId)
             .productId(productId)
             .skuCode(request.getSkuCode())
+            .inventorySkuCode(trimToNull(request.getInventorySkuCode()))
             .variantName(request.getVariantName())
             .weightValue(request.getWeightValue())
             .weightUnit(request.getWeightUnit())
@@ -967,6 +1018,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       }
       variant.setWeightUnit(unit);
     }
+    applyText(request.getInventorySkuCode(), variant::setInventorySkuCode);
     applyText(request.getFlavor(), variant::setFlavor);
     if (request.getPackagingType() != null) {
       String packaging =

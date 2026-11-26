@@ -34,4 +34,69 @@
             synced_at = NOW()
         WHERE EXCLUDED.inventory_version &gt; sku_stock_projection.inventory_version
     </insert>
+
+    <resultMap id="AdminStockProjectionRowMap"
+               type="com.hvduong.catalog.repository.mybatis.projection.AdminStockProjectionRow">
+        <result property="skuCode" column="sku_code"/>
+        <result property="sellableQuantity" column="sellable_quantity"/>
+        <result property="inventoryVersion" column="inventory_version"/>
+        <result property="sourceUpdatedAt" column="source_updated_at"/>
+        <result property="syncedAt" column="synced_at"/>
+        <result property="linkedVariantCount" column="linked_variant_count"/>
+    </resultMap>
+
+    <select id="findAdminStockProjections" resultMap="AdminStockProjectionRowMap">
+        SELECT ssp.sku_code,
+               ssp.sellable_quantity,
+               ssp.inventory_version,
+               ssp.source_updated_at,
+               ssp.synced_at,
+               COUNT(pv.id) AS linked_variant_count
+        FROM sku_stock_projection ssp
+        LEFT JOIN product_variants pv
+               ON COALESCE(NULLIF(BTRIM(pv.inventory_sku_code), ''), pv.sku_code) = ssp.sku_code
+        <where>
+            <if test="q != null and q != ''">
+                AND ssp.sku_code ILIKE CONCAT('%', #{q}, '%')
+            </if>
+        </where>
+        GROUP BY ssp.sku_code, ssp.sellable_quantity, ssp.inventory_version, ssp.source_updated_at, ssp.synced_at
+        <if test="linked != null">
+            <choose>
+                <when test="linked">
+                    HAVING COUNT(pv.id) &gt; 0
+                </when>
+                <otherwise>
+                    HAVING COUNT(pv.id) = 0
+                </otherwise>
+            </choose>
+        </if>
+        ORDER BY ssp.synced_at DESC, ssp.sku_code ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminStockProjections" resultType="long">
+        SELECT COUNT(*) FROM (
+            SELECT ssp.sku_code
+            FROM sku_stock_projection ssp
+            LEFT JOIN product_variants pv
+                   ON COALESCE(NULLIF(BTRIM(pv.inventory_sku_code), ''), pv.sku_code) = ssp.sku_code
+            <where>
+                <if test="q != null and q != ''">
+                    AND ssp.sku_code ILIKE CONCAT('%', #{q}, '%')
+                </if>
+            </where>
+            GROUP BY ssp.sku_code
+            <if test="linked != null">
+                <choose>
+                    <when test="linked">
+                        HAVING COUNT(pv.id) &gt; 0
+                    </when>
+                    <otherwise>
+                        HAVING COUNT(pv.id) = 0
+                    </otherwise>
+                </choose>
+            </if>
+        ) filtered
+    </select>
 </mapper>

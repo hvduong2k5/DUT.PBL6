@@ -16,6 +16,7 @@ import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
@@ -527,5 +528,39 @@ class CatalogAdminControllerTest {
         .perform(get("/api/v1/admin/catalog/categories").param("format", "tree").param("q", "keo"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT"));
+  }
+
+  @Test
+  void listsStockProjectionsSuccessfully() throws Exception {
+    AdminStockProjectionListResponse response =
+        AdminStockProjectionListResponse.builder()
+            .items(
+                List.of(
+                    AdminStockProjectionListResponse.Item.builder()
+                        .skuCode("INV-MX-001")
+                        .sellableQuantity(15L)
+                        .inventoryVersion(4L)
+                        .sourceUpdatedAt("2026-11-26T10:00:00Z")
+                        .syncedAt("2026-11-26T10:00:02Z")
+                        .linkedVariantCount(0L)
+                        .build()))
+            .page(1)
+            .pageSize(20)
+            .total(1L)
+            .build();
+
+    when(adminService.getStockProjections(eq("INV"), eq(false), eq(1), eq(20)))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            get("/api/v1/admin/catalog/stock-projections")
+                .param("q", "INV")
+                .param("linked", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].skuCode").value("INV-MX-001"))
+        .andExpect(jsonPath("$.data.items[0].sellableQuantity").value(15))
+        .andExpect(jsonPath("$.data.items[0].linkedVariantCount").value(0));
   }
 }

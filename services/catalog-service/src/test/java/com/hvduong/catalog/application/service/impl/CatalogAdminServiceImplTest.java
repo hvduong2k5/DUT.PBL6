@@ -8,6 +8,7 @@ import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
 import com.hvduong.catalog.application.dto.request.CreatePriceScheduleRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
+import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
 import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
@@ -19,6 +20,7 @@ import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
 import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogCacheEvictor;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
@@ -37,6 +39,8 @@ import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
+import com.hvduong.catalog.repository.mybatis.projection.AdminStockProjectionRow;
 import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.time.Instant;
@@ -58,6 +62,7 @@ class CatalogAdminServiceImplTest {
 
   @Mock private ProductMapper productMapper;
   @Mock private CategoryMapper categoryMapper;
+  @Mock private StockAvailabilityMapper stockAvailabilityMapper;
   @Mock private ProductVariantMapper variantMapper;
   @Mock private ChannelPriceMapper channelPriceMapper;
   @Mock private ProductImageMapper imageMapper;
@@ -78,6 +83,7 @@ class CatalogAdminServiceImplTest {
             channelPriceMapper,
             imageMapper,
             categoryMapper,
+            stockAvailabilityMapper,
             dtoMapper,
             outboxWriter,
             cacheEvictor);
@@ -910,5 +916,85 @@ class CatalogAdminServiceImplTest {
     assertNotNull(res);
     assertEquals(1, res.getCategories().size());
     assertEquals(id2, res.getCategories().get(0).getCategoryId());
+  }
+
+  @Test
+  void addVariant_TrimsInventorySkuCodeAndBuildsVariant() {
+    Product product = Product.builder().id(productId).name("Mè Xửng").build();
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    lenient().when(variantMapper.findBySkuCode("CAT-MX-001")).thenReturn(Optional.empty());
+    when(dtoMapper.toAdminDetailResponse(product)).thenReturn(new AdminProductDetailResponse());
+    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
+
+    CreateVariantRequest req = new CreateVariantRequest();
+    req.setSkuCode("CAT-MX-001");
+    req.setInventorySkuCode("  INV-MX-001  ");
+    req.setVariantName("Gói 250g");
+    req.setWeightValue(java.math.BigDecimal.valueOf(250));
+    req.setWeightUnit("GRAM");
+    req.setPackagingType("HOP_GIAY_KRAFT");
+    req.setBasePriceUnits(50000L);
+
+    adminService.addVariant(productId, req, "actor-1");
+
+    ArgumentCaptor<ProductVariant> captor = ArgumentCaptor.forClass(ProductVariant.class);
+    verify(variantMapper).insert(captor.capture());
+    assertEquals("INV-MX-001", captor.getValue().getInventorySkuCode());
+  }
+
+  @Test
+  void patchVariant_UpdatesAndClearsInventorySkuCode() {
+    UUID variantId = UUID.randomUUID();
+    Product product = Product.builder().id(productId).name("Mè Xửng").build();
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(variantId)
+            .productId(productId)
+            .skuCode("CAT-MX-001")
+            .inventorySkuCode("INV-OLD")
+            .variantName("Gói 250g")
+            .listingStatus(ListingStatus.ACTIVE)
+            .version(1L)
+            .build();
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(variantId)).thenReturn(Optional.of(variant));
+    when(variantMapper.update(any())).thenReturn(1);
+    when(dtoMapper.toAdminDetailResponse(product)).thenReturn(new AdminProductDetailResponse());
+    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of(variant));
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
+
+    PatchVariantRequest req = new PatchVariantRequest();
+    req.setInventorySkuCode("  ");
+    req.setExpectedVersion(1L);
+
+    adminService.patchVariant(productId, variantId, req, "actor-1");
+
+    assertNull(variant.getInventorySkuCode());
+  }
+
+  @Test
+  void getStockProjections_ReturnsPagedRows() {
+    AdminStockProjectionRow row = new AdminStockProjectionRow();
+    row.setSkuCode("INV-MX-001");
+    row.setSellableQuantity(42L);
+    row.setInventoryVersion(3L);
+    row.setSourceUpdatedAt(Instant.parse("2026-11-26T10:00:00Z"));
+    row.setSyncedAt(Instant.parse("2026-11-26T10:00:01Z"));
+    row.setLinkedVariantCount(0L);
+
+    when(stockAvailabilityMapper.findAdminStockProjections("INV", false, 0, 20))
+        .thenReturn(List.of(row));
+    when(stockAvailabilityMapper.countAdminStockProjections("INV", false)).thenReturn(1L);
+
+    AdminStockProjectionListResponse res = adminService.getStockProjections("  INV ", false, 1, 20);
+
+    assertEquals(1L, res.getTotal());
+    assertEquals(1, res.getPage());
+    assertEquals(20, res.getPageSize());
+    assertEquals(1, res.getItems().size());
+    assertEquals("INV-MX-001", res.getItems().get(0).getSkuCode());
+    assertEquals(42L, res.getItems().get(0).getSellableQuantity());
+    assertEquals(0L, res.getItems().get(0).getLinkedVariantCount());
   }
 }

@@ -14,10 +14,13 @@ import lombok.Data;
  * <p>{@code skuCode} là định danh nghiệp vụ bất biến, không cho phép đổi qua PATCH.
  *
  * <p>Quy ước PATCH: field {@code null}/không gửi = giữ nguyên; chuỗi rỗng = xóa field optional
- * (flavor, packagingType).
+ * (inventorySkuCode, flavor, packagingType).
  */
 @Data
 public class PatchVariantRequest {
+
+  @Size(max = 100)
+  private String inventorySkuCode;
 
   @Size(max = 500)
   private String variantName;

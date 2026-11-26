@@ -207,7 +207,7 @@ public class CatalogServiceImpl implements CatalogService {
     response.setChannel(channel.name());
     response.setPriceVersion(variant.getPriceRevision());
 
-    StockStatus stockStatus = stockProjectionService.getStockStatus(variant.getSkuCode());
+    StockStatus stockStatus = stockProjectionService.getStockStatus(effectiveStockSku(variant));
     response.setStockStatus(stockStatus != null ? stockStatus.name() : StockStatus.UNKNOWN.name());
     response.setStockAvailable(null);
 
@@ -329,7 +329,7 @@ public class CatalogServiceImpl implements CatalogService {
         stockProjectionService.getAvailableQuantities(
             variantsByProduct.values().stream()
                 .flatMap(List::stream)
-                .map(ProductVariant::getSkuCode)
+                .map(CatalogServiceImpl::effectiveStockSku)
                 .distinct()
                 .collect(Collectors.toList()));
     return products.stream()
@@ -352,10 +352,12 @@ public class CatalogServiceImpl implements CatalogService {
       Map<String, Long> quantities) {
     ProductListItemResponse item = dtoMapper.toListItemResponse(product);
     boolean stockKnown =
-        variants.stream().allMatch(variant -> quantities.get(variant.getSkuCode()) != null);
+        variants.stream().allMatch(variant -> quantities.get(effectiveStockSku(variant)) != null);
     Long available =
         stockKnown
-            ? variants.stream().mapToLong(variant -> quantities.get(variant.getSkuCode())).sum()
+            ? variants.stream()
+                .mapToLong(variant -> quantities.get(effectiveStockSku(variant)))
+                .sum()
             : null;
     item.setStockAvailable(available);
     item.setInStock(available == null ? null : available > 0);
@@ -374,16 +376,20 @@ public class CatalogServiceImpl implements CatalogService {
       List<ProductVariant> variants, SalesChannel channel) {
     Map<String, Long> quantities =
         stockProjectionService.getAvailableQuantities(
-            variants.stream().map(ProductVariant::getSkuCode).collect(Collectors.toList()));
+            variants.stream()
+                .map(CatalogServiceImpl::effectiveStockSku)
+                .distinct()
+                .collect(Collectors.toList()));
     return variants.stream()
         .map(
             v -> {
               ProductVariantResponse resp = dtoMapper.toVariantResponse(v);
               resp.setChannel(channel.name());
               resp.setPriceVersion(v.getPriceRevision());
-              StockStatus status = stockProjectionService.getStockStatus(v.getSkuCode());
+              String stockSku = effectiveStockSku(v);
+              StockStatus status = stockProjectionService.getStockStatus(stockSku);
               resp.setStockStatus(status != null ? status.name() : StockStatus.UNKNOWN.name());
-              resp.setStockAvailable(quantities.get(v.getSkuCode()));
+              resp.setStockAvailable(quantities.get(stockSku));
               channelPriceMapper
                   .findActiveByVariantAndChannel(v.getId(), channel.getValue())
                   .ifPresent(price -> resp.setPrice(dtoMapper.toMoneyResponse(price)));
@@ -409,6 +415,12 @@ public class CatalogServiceImpl implements CatalogService {
       }
     }
     return min;
+  }
+
+  private static String effectiveStockSku(ProductVariant variant) {
+    return StringUtils.hasText(variant.getInventorySkuCode())
+        ? variant.getInventorySkuCode()
+        : variant.getSkuCode();
   }
 
   /** TODO Phase 2: MinIO presigned URL generator */

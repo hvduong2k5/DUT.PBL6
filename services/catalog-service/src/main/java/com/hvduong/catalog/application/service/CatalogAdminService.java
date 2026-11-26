@@ -17,6 +17,7 @@ import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 
@@ -103,4 +104,8 @@ public interface CatalogAdminService {
 
   /** Hủy bản ghi giá đã lên lịch trong tương lai (chưa tới effective_from). */
   void deleteScheduledPrice(UUID productId, UUID skuId, UUID priceId, String actorId);
+
+  /** Tra cứu danh sách tồn kho đã đồng bộ từ Inventory (chỉ đọc). */
+  AdminStockProjectionListResponse getStockProjections(
+      String q, Boolean linked, int page, int pageSize);
 }

@@ -17,6 +17,9 @@ public class CreateVariantRequest {
   @Size(max = 100)
   private String skuCode;
 
+  @Size(max = 100)
+  private String inventorySkuCode;
+
   @NotBlank(message = "variantName không được bỏ trống")
   @Size(max = 500)
   private String variantName;

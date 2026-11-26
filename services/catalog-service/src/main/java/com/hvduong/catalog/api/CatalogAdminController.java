@@ -18,6 +18,7 @@ import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.dto.response.CategoryResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
@@ -638,5 +639,38 @@ public class CatalogAdminController {
         actorId);
     adminService.deleteScheduledPrice(productId, skuId, priceId, actorId);
     return ResponseEntity.ok(BaseResponse.success("Hủy bản ghi giá thành công", null));
+  }
+
+  @Operation(
+      summary = "Tra cứu tồn kho SKU đã đồng bộ từ Inventory",
+      description =
+          "Danh sách chỉ đọc các bản ghi tồn kho trong sku_stock_projection kèm số lượng SKU catalog đang liên kết (linkedVariantCount). Yêu cầu quyền CATALOG_VIEW.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "Lấy danh sách tồn kho thành công"),
+    @ApiResponse(responseCode = "401", description = "Chưa xác thực"),
+    @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện")
+  })
+  @PreAuthorize("hasAuthority('CATALOG_VIEW')")
+  @GetMapping("/stock-projections")
+  public ResponseEntity<BaseResponse<AdminStockProjectionListResponse>> listStockProjections(
+      @Parameter(description = "Tìm kiếm gần đúng theo mã SKU Inventory")
+          @RequestParam(required = false)
+          String q,
+      @Parameter(
+              description =
+                  "Lọc theo trạng thái liên kết: true = đã gắn variant, false = chưa gắn variant nào")
+          @RequestParam(required = false)
+          Boolean linked,
+      @RequestParam(required = false, defaultValue = "1") int page,
+      @RequestParam(required = false, defaultValue = "20") int pageSize) {
+    log.info(
+        "[REST-ADMIN] listStockProjections: q={}, linked={}, page={}, pageSize={}",
+        q,
+        linked,
+        page,
+        pageSize);
+    AdminStockProjectionListResponse result =
+        adminService.getStockProjections(q, linked, page, pageSize);
+    return ResponseEntity.ok(BaseResponse.success("Lấy danh sách tồn kho thành công", result));
   }
 }

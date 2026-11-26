@@ -60,6 +60,7 @@ public final class AdminCatalogMapper {
         new AdminProductDetailResponse.AdminProductSkuResponse();
     sku.setSkuId(variant.getId().toString());
     sku.setSkuCode(variant.getSkuCode());
+    sku.setInventorySkuCode(variant.getInventorySkuCode());
     sku.setLabel(variant.getVariantName());
     sku.setWeightGrams(weightGrams(variant.getWeightValue(), variant.getWeightUnit()));
     sku.setFlavor(variant.getFlavor());
