@@ -34,12 +34,26 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 	var out struct {
 		Valid bool `json:"valid"`
 	}
-	if c.s.C.CatalogURL != "" {
-		if e := c.s.callURL(ctx, c.s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots/"+terms.Catalog.SnapshotID+"/revalidate", nil, &out); e != nil {
-			return e
-		}
-		if !out.Valid {
-			return persistence.ErrTermsChanged
+	if c.s.Catalog != nil || c.s.C.CatalogURL != "" {
+		if c.s.Catalog != nil {
+			items := make([]domain.Item, 0, len(terms.Items))
+			for _, item := range terms.Items {
+				items = append(items, domain.Item{SKU: item.SKU, Quantity: int(item.Quantity), UnitPrice: item.UnitPrice})
+			}
+			if _, e := c.s.Catalog.ValidateCheckoutPricing(ctx, items, true); e != nil {
+				code, _ := c.s.ErrorCode(e)
+				if code == "PRICE_CHANGED" || code == "CATALOG_ITEM_UNAVAILABLE" {
+					return persistence.ErrTermsChanged
+				}
+				return e
+			}
+		} else {
+			if e := c.s.callURL(ctx, c.s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots/"+terms.Catalog.SnapshotID+"/revalidate", nil, &out); e != nil {
+				return e
+			}
+			if !out.Valid {
+				return persistence.ErrTermsChanged
+			}
 		}
 		ship, e := c.s.Shipping.Quote(ctx, domain.Address{Name: terms.Address.RecipientName, Phone: terms.Address.PhoneE164, Street: terms.Address.Street, Ward: terms.Address.WardCode, Province: terms.Address.ProvinceCode}, terms.Shipping.PackageWeightGrams, terms.Shipping.CarrierCode, terms.Shipping.ServiceCode, terms.WarehouseID, "shipping:"+terms.Provenance.QuoteID)
 		if e != nil {
@@ -85,7 +99,7 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	}
 	var terms core.SnapshotInput
 	var termsError error
-	if s.C.CatalogURL != "" {
+	if s.Catalog != nil || s.C.CatalogURL != "" {
 		terms, termsError = s.catalogTerms(ctx, q)
 	} else {
 		termsError = s.Call(ctx, "POST", "/order-core/terms", q, &terms)

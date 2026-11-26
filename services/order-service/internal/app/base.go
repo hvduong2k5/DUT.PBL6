@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/fulfillmentprovider"
 	"github.com/omamx/order-service/internal/persistence"
@@ -43,6 +44,8 @@ type Config struct {
 	GuestCartMutationEnabled, GuestCODCheckoutEnabled, GuestVietQRCheckoutEnabled, GuestCartMergeEnabled                         bool
 	IdentityURL                                                                                                                  string
 	CatalogURL, CatalogWarehouse, CatalogShippingCarrier, CatalogShippingService, CatalogShippingPolicy                          string
+	CatalogGRPC, CatalogToken, CatalogTokenFile, CatalogCAFile, CatalogServerName                                                string
+	CatalogAllowLocalInsecure                                                                                                    bool
 	AuthMode, OIDCIssuer, OIDCAudience, OIDCJWKSURL                                                                              string
 	OIDCAllowLocalHTTP                                                                                                           bool
 	SourceTopic                                                                                                                  string
@@ -59,6 +62,12 @@ func LoadConfig() (Config, error) {
 	c.ShippingOwnsPackingHandoff = os.Getenv("ORDER_SHIPPING_OWNS_PACKING_HANDOFF") == "true"
 	c.IdentityURL = os.Getenv("IDENTITY_URL")
 	c.CatalogURL = os.Getenv("ORDER_CATALOG_URL")
+	c.CatalogGRPC = os.Getenv("ORDER_CATALOG_GRPC")
+	c.CatalogToken = os.Getenv("ORDER_CATALOG_TOKEN")
+	c.CatalogTokenFile = os.Getenv("ORDER_CATALOG_TOKEN_FILE")
+	c.CatalogCAFile = os.Getenv("ORDER_CATALOG_CA_FILE")
+	c.CatalogServerName = os.Getenv("ORDER_CATALOG_SERVER_NAME")
+	c.CatalogAllowLocalInsecure = os.Getenv("ORDER_CATALOG_ALLOW_LOCAL_INSECURE") == "true"
 	c.CODPolicyReference = os.Getenv("ORDER_COD_POLICY_REFERENCE")
 	c.CatalogWarehouse = os.Getenv("ORDER_WAREHOUSE_ID")
 	c.CatalogShippingCarrier = os.Getenv("ORDER_QUOTE_CARRIER_CODE")
@@ -118,6 +127,7 @@ func LoadConfig() (Config, error) {
 
 type Service struct {
 	GuestStore           *persistence.Payment
+	Catalog              *catalogprovider.Adapter
 	Fulfillment          *fulfillmentprovider.Adapter
 	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity
@@ -195,6 +205,10 @@ func New(ctx context.Context, c Config) (*Service, error) {
 	if c.Kafka != "" {
 		s.Writer = &kafka.Writer{Addr: kafka.TCP(strings.Split(c.Kafka, ",")...), Balancer: &kafka.Hash{}, RequiredAcks: kafka.RequireAll, WriteTimeout: 2 * time.Second, ReadTimeout: 2 * time.Second, AllowAutoTopicCreation: true}
 	}
+	if e = s.EnableCatalogFromEnv(ctx); e != nil {
+		s.Close()
+		return nil, e
+	}
 	return s, nil
 }
 func (s *Service) Close() {
@@ -231,10 +245,10 @@ func (s *Service) Open(b []byte, v any) error {
 	return json.Unmarshal(data, v)
 }
 func (s *Service) Call(ctx context.Context, method, path string, in, out any) error {
-	if s.C.CatalogURL != "" && path == "/shipping/quote" && method == "POST" {
+	if (s.Catalog != nil || s.C.CatalogURL != "") && path == "/shipping/quote" && method == "POST" {
 		return s.catalogShippingValidation(ctx, in, out)
 	}
-	if s.C.CatalogURL != "" && method == "POST" && path == "/catalog/validate" {
+	if (s.Catalog != nil || s.C.CatalogURL != "") && method == "POST" && path == "/catalog/validate" {
 		return s.catalogValidation(ctx, in, out)
 	}
 	return s.callURL(ctx, s.C.Dependencies, method, path, in, out)

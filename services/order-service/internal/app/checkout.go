@@ -52,7 +52,7 @@ func (s *Service) redisCart(ctx context.Context, p domain.Principal) (domain.Car
 // or mutation: checkout always re-quotes from a fresh catalog snapshot,
 // so these values are never a pricing source.
 func (s *Service) enrichCart(ctx context.Context, c *domain.Cart) {
-	if s.C.CatalogURL == "" || len(c.Items) == 0 {
+	if (s.Catalog == nil && s.C.CatalogURL == "") || len(c.Items) == 0 {
 		return
 	}
 	snapshot, err := s.catalogSnapshot(ctx, c.Items)

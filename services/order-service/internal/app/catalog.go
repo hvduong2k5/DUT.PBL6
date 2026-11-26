@@ -3,13 +3,17 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/domain/core"
+	"github.com/omamx/order-service/internal/shippingprovider"
 )
 
 type catalogSnapshot struct {
@@ -30,7 +34,95 @@ type catalogSnapshot struct {
 	Channel  string `json:"channel"`
 }
 
+func (s *Service) EnableCatalogFromEnv(ctx context.Context) error {
+	target := s.C.CatalogGRPC
+	if target == "" {
+		target = os.Getenv("ORDER_CATALOG_GRPC")
+	}
+	token := s.C.CatalogToken
+	if token == "" {
+		token = os.Getenv("ORDER_CATALOG_TOKEN")
+	}
+	tokenFile := s.C.CatalogTokenFile
+	if tokenFile == "" {
+		tokenFile = os.Getenv("ORDER_CATALOG_TOKEN_FILE")
+	}
+	caFile := s.C.CatalogCAFile
+	if caFile == "" {
+		caFile = os.Getenv("ORDER_CATALOG_CA_FILE")
+	}
+	serverName := s.C.CatalogServerName
+	if serverName == "" {
+		serverName = os.Getenv("ORDER_CATALOG_SERVER_NAME")
+	}
+	allowLocal := s.C.CatalogAllowLocalInsecure || os.Getenv("ORDER_CATALOG_ALLOW_LOCAL_INSECURE") == "true"
+
+	if target == "" {
+		if token != "" || tokenFile != "" || caFile != "" || serverName != "" || allowLocal {
+			return errors.New("Catalog configuration requires ORDER_CATALOG_GRPC")
+		}
+		return nil
+	}
+	if token == "" && tokenFile != "" {
+		var err error
+		token, err = shippingprovider.TokenFile(tokenFile)
+		if err != nil {
+			return err
+		}
+	}
+	if token == "" {
+		return errors.New("Catalog configuration requires ORDER_CATALOG_TOKEN or ORDER_CATALOG_TOKEN_FILE")
+	}
+	adapter, conn, err := catalogprovider.Dial(ctx, target, token, caFile, serverName, s.C.Mode == "sandbox" && allowLocal)
+	if err != nil {
+		return err
+	}
+	s.Catalog = adapter
+	prior := s.PaymentClose
+	s.PaymentClose = func() error {
+		if prior != nil {
+			_ = prior()
+		}
+		return conn.Close()
+	}
+	return nil
+}
+
 func (s *Service) catalogSnapshot(ctx context.Context, items []domain.Item) (catalogSnapshot, error) {
+	if s.Catalog != nil {
+		snap, err := s.Catalog.ValidateCheckoutPricing(ctx, items, false)
+		if err != nil {
+			return catalogSnapshot{}, err
+		}
+		converted := catalogSnapshot{
+			ID:       snap.ID,
+			Version:  snap.Version,
+			Until:    snap.Until,
+			Subtotal: snap.Subtotal,
+			Contract: snap.Contract,
+			Channel:  snap.Channel,
+		}
+		for _, item := range snap.Items {
+			converted.Items = append(converted.Items, struct {
+				SKU       string `json:"sku_code"`
+				Quantity  int    `json:"quantity"`
+				Name      string `json:"product_name"`
+				Price     int64  `json:"unit_price"`
+				Weight    int64  `json:"weight_grams"`
+				Packaging string `json:"packaging_type"`
+				Active    bool   `json:"is_active"`
+			}{
+				SKU:       item.SKU,
+				Quantity:  item.Quantity,
+				Name:      item.Name,
+				Price:     item.Price,
+				Weight:    item.Weight,
+				Packaging: item.Packaging,
+				Active:    item.Active,
+			})
+		}
+		return converted, nil
+	}
 	var snapshot catalogSnapshot
 	err := s.callURL(ctx, s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots", map[string]any{"items": items, "channel": "D2C_WEB"}, &snapshot)
 	if err != nil {
