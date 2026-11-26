@@ -824,13 +824,16 @@ def main():
         print("PASS: real Inventory outbox -> Kafka -> Java Catalog consumer -> public stock display", flush=True)
         # Catalog checkout pricing validation over gRPC must reject missing credentials, changed prices, future prices, and unapproved parent products.
         import grpc
+        import grpc_tools
         from grpc_tools import protoc as grpc_protoc
         grpc_out = folder / "catalog_grpc_py"
         grpc_out.mkdir(parents=True, exist_ok=True)
         proto_root = Path(__file__).resolve().parents[1] / "packages" / "proto"
+        builtin_proto = Path(grpc_tools.__file__).resolve().parent / "_proto"
         assert grpc_protoc.main([
             "grpc_tools.protoc",
             f"-I{proto_root}",
+            f"-I{builtin_proto}",
             f"--python_out={grpc_out}",
             f"--grpc_python_out={grpc_out}",
             str(proto_root / "common" / "v1" / "types.proto"),
