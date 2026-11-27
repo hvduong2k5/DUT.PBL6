@@ -21,7 +21,7 @@ type fixture struct {
 
 func fixtures(t *testing.T) []fixture {
 	t.Helper()
-	p := filepath.Join("..", "..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json")
+	p := filepath.Join("..", "..", "..", "testdata", "order-snapshot.v1.examples.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatal(err)
@@ -552,7 +552,7 @@ func FuzzDecodeSnapshot(f *testing.F) {
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"snapshot_schema_version":"1.0","snapshot_schema_version":"1.0"}`))
 	f.Add([]byte(`{"x":"\ud800"}`))
-	p := filepath.Join("..", "..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json")
+	p := filepath.Join("..", "..", "..", "testdata", "order-snapshot.v1.examples.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		f.Fatal(err)

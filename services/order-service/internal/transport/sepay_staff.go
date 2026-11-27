@@ -474,4 +474,16 @@ func sepayStaffRoutes(s *app.Service, r chi.Router) {
 		}
 		write(w, 200, map[string]any{"items": items})
 	})
+	r.Get("/api/v1/admin/media/{file_id}/download-url", func(w http.ResponseWriter, r *http.Request) {
+		actor, ok := paymentStaff(s, w, r)
+		if !ok {
+			return
+		}
+		res, e := s.GetEvidenceDownloadURL(r.Context(), chi.URLParam(r, "file_id"), actor.ID, "STAFF", 900)
+		if e != nil {
+			sepayError(s, w, e)
+			return
+		}
+		write(w, 200, map[string]any{"download_url": res.DownloadURL, "expires_at": res.ExpiresAt})
+	})
 }

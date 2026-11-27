@@ -74,7 +74,7 @@ func (s *inventoryServer) FinalizeReservation(ctx context.Context, r *inventory.
 	return s.out(r), nil
 }
 func rootFixture(t *testing.T) core.Aggregate {
-	raw, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json"))
+	raw, e := os.ReadFile(filepath.Join("..", "..", "testdata", "order-snapshot.v1.examples.json"))
 	if e != nil {
 		t.Fatal(e)
 	}

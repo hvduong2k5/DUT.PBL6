@@ -48,16 +48,16 @@ output_dir = options.evidence_dir.resolve()
 
 result = {"time": datetime.now(timezone.utc).isoformat(), "mode": "local_sandbox", "openapi": []}
 for name in ["order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
-    path = ROOT / "docs/03_api_specs" / name
+    path = ROOT / "services/order-service/docs/contracts" / name
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
     validate_spec(document)
     result["openapi"].append({"path": str(path.relative_to(ROOT)), "status": "PASS", "paths": len(document["paths"])})
 
 # Runtime sandbox-3.1 responses must be checked against the deployed cohort.
 # The target contract is validated separately by verify_order_design.py.
-public = yaml.safe_load((ROOT / "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
+public = yaml.safe_load((ROOT / "services/order-service/docs/contracts/order-service.sandbox-3.1.openapi.yaml").read_text(encoding="utf-8"))
 result["runtime_cohort"] = "sandbox-3.1"
-result["runtime_contract"] = "docs/03_api_specs/order-service.sandbox-3.1.openapi.yaml"
+result["runtime_contract"] = "services/order-service/docs/contracts/order-service.sandbox-3.1.openapi.yaml"
 
 
 def expand(schema):

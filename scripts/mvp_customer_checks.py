@@ -14,7 +14,7 @@ from jsonschema import FormatChecker
 _spec = yaml.safe_load(
     (
         Path(__file__).resolve().parents[1]
-        / "docs/03_api_specs/mvp-customer.openapi.yaml"
+        / "docs/03_api_specs/customer-stable.openapi.yaml"
     ).read_text(encoding="utf-8")
 )
 
