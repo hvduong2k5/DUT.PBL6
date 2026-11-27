@@ -1,132 +1,133 @@
-> **MVP integration release 26/10/2026:** bắt đầu tại [contract guide](../../packages/contracts/mvp/README.md), [owner/consumer registry](../../packages/contracts/mvp/registry.yaml) và [migration](../../packages/contracts/mvp/MIGRATION.md).
->
-> Public target: [mvp-customer.openapi.yaml](mvp-customer.openapi.yaml). Core adapter target: [order-core-dependencies.mvp.openapi.yaml](order-core-dependencies.mvp.openapi.yaml). Các spec D2C tổng và frontend/candidate bên dưới giữ vai trò reference/provider proposal; không ghi đè target MVP ở các route trùng. Implementation acceptance vẫn pending, không được suy từ CI contract xanh.
->
-> Customer access support: [customer-access.support.openapi.yaml](customer-access.support.openapi.yaml), owner Profile. Luồng Web OIDC/Identity/Gateway và cách chạy kiểm tra nằm trong [hướng dẫn tích hợp](../ui_web/WEB_IDENTITY_GATEWAY_INTEGRATION.md). Các auth password-login spec/mock cũ không được dùng để suy ra runtime PKCE đã hỗ trợ các endpoint đó.
+# API Specifications — `docs/03_api_specs/`
 
-> Registration/locations support: [customer-onboarding.support.openapi.yaml](customer-onboarding.support.openapi.yaml), owner Identity/Profile. Bốn luồng hồ sơ, đăng ký, checkout–Inventory và Shipping có phạm vi/nghiệm thu tại [MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md](../ui_web/MVP_CUSTOMER_ORDER_SHIPPING_ACCEPTANCE.md).
-
-# CẨM NANG ĐẶC TẢ GIAO DIỆN & HỢP ĐỒNG HỆ THỐNG (API & CONTRACTS SPECIFICATIONS)
-
-> Fulfillment MVP: [luồng thật, bảng quyền và cách bật](../../packages/contracts/mvp/fulfillment-integration.md), [staff REST](fulfillment-service.candidate.openapi.yaml), [packing gRPC canonical](../../packages/proto/packing/v1/packing.proto). Chỉ bật có cấu hình; Customer không được thao tác đóng gói.
->
-> MS-11 Analytics: [OpenAPI Dashboard đề xuất](analytics-service.candidate.openapi.yaml) và [hợp đồng nguồn](../02_architecture/services/analytics-service/07_integrations_and_contract_gaps.md).
-## HỆ SINH THÁI THƯƠNG MẠI ĐIỆN TỬ & CHUỖI CUNG ỨNG ĐẶC SẢN OCOP HUẾ (MÈ XỬNG O MẠ)
-
-Thư mục này là **Single Source of Truth** về mặt tài liệu giao tiếp kỹ thuật của toàn bộ 18 Microservices, phục vụ trực tiếp cho quá trình lập trình song song, kiểm thử tự động (CI/CD Contract Test) và tài liệu bảo vệ đồ án.
+Thư mục này là **Single Source of Truth** cho tất cả contract giao tiếp kỹ thuật của hệ thống.
 
 > [!IMPORTANT]
-> Với migration Web Customer MVP, dùng baseline đã pin trong [`../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md`](../ui_web/MVP_PUBLIC_CONTRACT_MIGRATION_MATRIX.md). Ở các route trùng nhau, `mvp-customer.openapi.yaml` tại commit contract đã pin được ưu tiên hơn `openapi_d2c.yaml`, các file feature candidate và snapshot Web/Mobile cũ. Contract hiện là `integration-target`; CI contract không thay thế runtime acceptance của service.
+> **6 file frontend handoff bên dưới là nguồn chính thức duy nhất cho CI contract check.**
+> Mọi thay đổi REST API (thêm/sửa/xóa endpoint, schema, auth, status code) **bắt buộc** cập nhật các file này trước hoặc song song với code. Xem quy tắc đầy đủ tại [`AGENTS.md`](../../AGENTS.md).
 
 ---
 
-## 1. Bản Đồ Hợp Đồng Đa Giao Thức (Multi-Protocol Contracts Map)
+## 6 File Frontend Handoff (nguồn chính thức)
 
-Hệ thống phân định ranh giới giao tiếp rõ rệt theo 3 chiều:
+### Customer-facing API
+
+| File | Vai trò |
+|---|---|
+| [`customer-stable.openapi.yaml`](./customer-stable.openapi.yaml) | **Customer API — sẵn sàng triển khai.** Bao gồm toàn bộ luồng Customer: auth (OIDC/PKCE), catalog/product discovery, giỏ hàng, checkout, đơn hàng, profile, địa chỉ, voucher, review. Breaking change yêu cầu thay đổi phiên bản contract. |
+| [`customer-draft-planned.openapi.yaml`](./customer-draft-planned.openapi.yaml) | **Customer API — đề xuất/chờ duyệt.** Các capability đang chờ quyết định về policy, security hoặc workflow (ví dụ: return/refund customer-facing, loyalty). Không được import bởi `stable`. |
+| [`customer-api-state-matrix.md`](./customer-api-state-matrix.md) | **Bảng trạng thái UI bắt buộc cho Customer** (success / loading / empty / error / auth) cho tất cả endpoint stable. Cập nhật khi thêm/sửa endpoint hoặc thay đổi phân quyền. |
+
+### Admin / Staff-facing API
+
+| File | Vai trò |
+|---|---|
+| [`admin-stable.openapi.yaml`](./admin-stable.openapi.yaml) | **Admin/Staff API — sẵn sàng triển khai.** Bao gồm: quản lý đơn hàng, catalog, payment/reconciliation, media evidence download-url, fulfillment staff. Dùng permission-and-scope based auth (không dùng role name làm check duy nhất). |
+| [`admin-draft-planned.openapi.yaml`](./admin-draft-planned.openapi.yaml) | **Admin API — đề xuất/chờ duyệt.** Các luồng chưa policy-stable: payment mutations, refund orchestration, reconciliation batch, evidence full workflow. Không được import bởi `stable`. |
+| [`admin-api-state-matrix.md`](./admin-api-state-matrix.md) | **Bảng trạng thái UI bắt buộc cho Admin** (success / loading / empty / error / auth) cho tất cả endpoint stable. |
+
+### Vòng đời contract
+
+```
+candidate → draft-planned → stable (breaking change → version bump)
+```
+
+- **stable**: Backend có thể deploy ngay; thay đổi phá vỡ yêu cầu tăng version.
+- **draft-planned**: Hình dạng endpoint đủ cụ thể để review, nhưng ít nhất một policy/workflow chưa được giải quyết.
+
+---
+
+## Lint / Validation
+
+```powershell
+# Validate cả 4 file OpenAPI (chạy từ repo root)
+npx @redocly/cli lint .\docs\03_api_specs\customer-stable.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\customer-draft-planned.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\admin-stable.openapi.yaml
+npx @redocly/cli lint .\docs\03_api_specs\admin-draft-planned.openapi.yaml
+```
+
+CI chạy tự động tại `.github/workflows/ci.yml` trên mỗi PR — xem bước `Lint OpenAPI handoff contracts`.
+
+---
+
+## Các File Hỗ Trợ Khác Trong Thư Mục
+
+| File / Thư mục | Mô tả |
+|---|---|
+| [`01_grpc_contracts.md`](./01_grpc_contracts.md) | Đặc tả 8 gRPC Services nội bộ, SLA timeout, Retry Idempotent |
+| [`02_kafka_event_catalog.md`](./02_kafka_event_catalog.md) | Danh bạ Kafka Topics (100% 18 microservices), CloudEvents 1.0, Dead-Letter-Queue |
+| [`schema.graphql`](./schema.graphql) | GraphQL Schema cho Mobile BFF (NFR-02 Mobile First) |
+| [`iam-consumer-read.openapi.yaml`](./iam-consumer-read.openapi.yaml) | IAM read endpoints (identity service, internal consumer) |
+| [`profile-service.openapi.yaml`](./profile-service.openapi.yaml) | Profile service internal contract |
+| [`traceability-service.openapi.yaml`](./traceability-service.openapi.yaml) | Traceability (OCOP QR) service contract |
+| [`fulfillment-service.candidate.openapi.yaml`](./fulfillment-service.candidate.openapi.yaml) | Fulfillment staff REST (candidate) |
+| [`analytics-service.candidate.openapi.yaml`](./analytics-service.candidate.openapi.yaml) | Analytics Dashboard API (candidate) |
+| [`customer-access.support.openapi.yaml`](./customer-access.support.openapi.yaml) | Support spec cho Web OIDC/Identity/Gateway (owner: Profile) |
+| [`customer-onboarding.support.openapi.yaml`](./customer-onboarding.support.openapi.yaml) | Support spec đăng ký / địa chỉ (owner: Identity/Profile) |
+| `fulfillment-service/` | Fulfillment gRPC proto, packing schemas |
+
+---
+
+## Kiến Trúc Giao Tiếp Đa Giao Thức
 
 ```text
-                                 CLIENTS & ĐỐI TÁC NGOÀI
-           (Web Clients, Mobile Apps, Quầy POS, VietQR, Sàn Shopee/TikTok)
-                                            │
-                                            ▼  [North - South Edge]
-                                     API GATEWAY (KONG)
-                    ┌───────────────────────┼───────────────────────┐
-                    │ REST (OpenAPI 3.0)    │ GraphQL (/graphql)    │ Webhook HTTPS Sàn TMĐT
-                    ▼                       ▼                       ▼
-          MS-04: ORDER SERVICE       MOBILE BFF (Node.js)    MS-13: CHANNEL SERVICE
-            ▲       │                  (Gom query 4G)               │               │
-            │       │                  │       │                    │ gRPC Sync     │ Kafka Async
-            │       │                  │ gRPC  │ gRPC               │ CreatePOS     │ MarketplaceOrder
-            │       │  [Critical Path] ├──► MS-05: catalog          │ Order         │ Imported
-            │       │  (HTTP/2 Proto)  ├──► MS-07: promotion        ▼ (Quầy POS)    │
-            │       ├──► MS-01: inv    ├──► MS-15: profile   [MS-04 Order]          ▼
-            │       ├──► MS-05: cat    └──► MS-04: order             APACHE KAFKA BROKER CLUSTER
-            │       ├──► MS-07: promotion-service    [MS-04 Order]          ▼
-            │       ├──► MS-12: shipping-service                 APACHE KAFKA BROKER CLUSTER
-            │       ├──► MS-15: profile-service (Address Snapshot)          │
-            │       └──► MS-16: identity-service (ABAC Dynamic)  [Workflows & Chuỗi Cung Ứng]
-            │                                                    ├──► MS-01: inventory-service
-            └────────────────────────────────────────────────────┼──► MS-02: fulfillment-service
-                        (Saga Inbound Consumer)                  ├──► MS-06: care-service
-                                                                 ├──► MS-07: promotion-service
-                                                                 ├──► MS-08: procurement-service
-                                                                 ├──► MS-09: finance-service
-                                                                 ├──► MS-11: analytics-service
-                                                                 ├──► MS-17: notification-service
-                                                                 └──► MS-18: audit-service
+                         CLIENTS & ĐỐI TÁC NGOÀI
+       (Web, Mobile, POS Xưởng Hương Thủy, VietQR, Shopee/TikTok)
+                                    │
+                                    ▼  [North–South Edge]
+                             API GATEWAY (KONG)
+              ┌──────────────────────┼──────────────────────┐
+              │ REST (OpenAPI 3.0)   │ GraphQL (/graphql)   │ Webhook HTTPS
+              ▼                      ▼                       ▼
+    MS-04: ORDER SERVICE      MOBILE BFF (Node)       MS-13: CHANNEL
+              │                                               │ Kafka Async
+              ├──► MS-01: inventory  (gRPC)          MarketplaceOrderImported
+              ├──► MS-05: catalog    (gRPC)
+              ├──► MS-07: promotion  (gRPC)
+              ├──► MS-12: shipping   (gRPC)
+              ├──► MS-15: profile    (gRPC)
+              ├──► MS-16: identity   (gRPC ABAC)
+              └──► MS-19: media      (gRPC)
+                                    │
+                            APACHE KAFKA BROKER
+                                    │
+            ┌───────────────────────┼───────────────────────┐
+            ▼                       ▼                       ▼
+   MS-02: fulfillment      MS-11: analytics      MS-17: notification
+   MS-08: procurement      MS-09: finance        MS-18: audit
 ```
 
-> [!IMPORTANT]
-> **Làm Rõ Tuyệt Đối Về Vai Trò Của `CreatePOSOrder` vs Luồng Đơn Sàn:**
-> - **Đơn Sàn Shopee / TikTok Shop:** Tuyệt đối KHÔNG gọi gRPC sang `order-service`. MS-13 chỉ đóng vai trò ACL tiếp nhận Webhook và phát sự kiện `MarketplaceOrderImportedEvent` lên topic `channel.events.v1`. Saga Orchestrator trong MS-04 tiêu thụ sự kiện này từ Kafka để tự động điều phối khóa tồn kho, bảo đảm 100% nguyên tắc **Centralized Compensation** (Mục 3.4).
-> - **Quầy Bán Lẻ Trực Tiếp Offline (POS Xưởng Hương Thủy & Cửa hàng Huế):** Khi khách mua kẹo trực tiếp tại quầy, thu ngân bấm thanh toán trên thiết bị POS offline. Vì khách đang đứng trực tiếp chờ lấy hàng mang về ngay, MS-13 gọi gRPC Sync `CreatePOSOrder` sang MS-04 để in hóa đơn và hoàn tất đơn tức thời.
-> - **Đơn Sỉ Doanh Nghiệp B2B & Quản Trị Viên:** Tạo qua giao diện Admin Web CMS, đi qua REST API Gateway `/api/v1/admin/orders`.
+> **POS offline (Quầy Hương Thủy):** MS-13 gọi gRPC sync `CreatePOSOrder` → MS-04 để in hóa đơn tức thời.
+> **Đơn sàn (Shopee/TikTok):** MS-13 chỉ nhận Webhook → phát `MarketplaceOrderImportedEvent` lên Kafka; MS-04 Saga consume và điều phối.
 
 ---
 
-## 2. Bảng Ánh Xạ Mô Hình Lỗi Thống Nhất (Unified Error Model Mapping Table)
+## Bảng Mã Lỗi Thống Nhất (Unified Error Model)
 
-Để Frontend/Mobile chỉ cần quản lý 1 bộ mã lỗi duy nhất, API Gateway tự động dịch mã lỗi từ gRPC của các microservices nội bộ sang HTTP Status Code tương ứng:
-
-| Mã Lỗi Nghiệp Vụ (`ErrorCode`) | gRPC Status Code | HTTP Status Code | Thông Điệp Người Dùng (Tiếng Việt) | Hướng Xử Lý Phía Client (UX Action) |
-| :--- | :--- | :---: | :--- | :--- |
-| `ERR_INVENTORY_INSUFFICIENT_STOCK` | `FAILED_PRECONDITION` (9) | `400 Bad Request` | *"Sản phẩm đã hết hàng hoặc số lượng khả dụng không đủ."* | Hiển thị badge "Hết hàng", cập nhật lại giỏ hàng về số lượng tối đa. |
-| `ERR_INVENTORY_RESERVATION_EXPIRED` | `DEADLINE_EXCEEDED` (4) | `410 Gone` | *"Phiếu giữ kẹo đã hết hạn sau 15 phút. Vui lòng đặt lại."* | Chuyển hướng về giỏ hàng, thông báo giữ lại thông tin đơn. |
-| `ERR_CATALOG_PRICE_TAMPERED` | `INVALID_ARGUMENT` (3) | `400 Bad Request` | *"Giá sản phẩm đã thay đổi. Hệ thống đã cập nhật mức giá mới."* | Refresh lại giá niêm yết mới nhất từ Catalog Service. |
-| `ERR_PROMOTION_VOUCHER_EXPIRED` | `FAILED_PRECONDITION` (9) | `400 Bad Request` | *"Mã giảm giá đã hết hạn sử dụng."* | Gỡ voucher khỏi đơn hàng, cho phép khách nhập mã khác. |
-| `ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET` | `FAILED_PRECONDITION` (9) | `400 Bad Request` | *"Giá trị đơn kẹo chưa đạt mức tối thiểu để áp dụng mã này."* | Gợi ý khách mua thêm kẹo mè xửng giòn/dẻo để đủ điều kiện. |
-| `ERR_PROMOTION_VOUCHER_ALREADY_LOCKED` | `ABORTED` (10) | `409 Conflict` | *"Mã giảm giá đang được sử dụng ở một phiên thanh toán khác."* | Chờ 15 phút hoặc chọn mã khuyến mãi khác. |
-| `ERR_PAYMENT_HMAC_VERIFICATION_FAILED` | `UNAUTHENTICATED` (16) | `401 Unauthorized` | *"Xác thực chữ ký số Webhook ngân hàng thất bại."* | Từ chối cập nhật trạng thái đơn, ghi log cảnh báo an ninh. |
-| `ERR_IDEMPOTENCY_CONFLICT` | `ALREADY_EXISTS` (6) | `409 Conflict` | *"Yêu cầu đang được xử lý hoặc đã hoàn tất trước đó."* | Giữ nguyên trạng thái hiển thị, không gửi lại lệnh duplicate. |
-| `ERR_CIRCUIT_BREAKER_OPEN` | `UNAVAILABLE` (14) | `503 Service Unavailable`| *"Hệ thống kho đang quá tải, quý khách vui lòng thử lại sau giây lát!"* | Hiển thị popup thử lại kèm đếm ngược 5 giây (Retry with backoff). |
+| `ErrorCode` | gRPC Status | HTTP | Thông điệp người dùng |
+|---|:---:|:---:|---|
+| `ERR_INVENTORY_INSUFFICIENT_STOCK` | `FAILED_PRECONDITION` | 400 | Sản phẩm đã hết hàng hoặc số lượng không đủ |
+| `ERR_INVENTORY_RESERVATION_EXPIRED` | `DEADLINE_EXCEEDED` | 410 | Phiếu giữ hàng hết hạn sau 15 phút, vui lòng đặt lại |
+| `ERR_CATALOG_PRICE_TAMPERED` | `INVALID_ARGUMENT` | 400 | Giá sản phẩm đã thay đổi, hệ thống đã cập nhật mức giá mới |
+| `ERR_PROMOTION_VOUCHER_EXPIRED` | `FAILED_PRECONDITION` | 400 | Mã giảm giá đã hết hạn sử dụng |
+| `ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET` | `FAILED_PRECONDITION` | 400 | Giá trị đơn chưa đạt mức tối thiểu để áp dụng mã này |
+| `ERR_PROMOTION_VOUCHER_ALREADY_LOCKED` | `ABORTED` | 409 | Mã đang được dùng ở phiên thanh toán khác |
+| `ERR_PAYMENT_HMAC_VERIFICATION_FAILED` | `UNAUTHENTICATED` | 401 | Xác thực chữ ký Webhook ngân hàng thất bại |
+| `ERR_IDEMPOTENCY_CONFLICT` | `ALREADY_EXISTS` | 409 | Yêu cầu đang xử lý hoặc đã hoàn tất trước đó |
+| `ERR_CIRCUIT_BREAKER_OPEN` | `UNAVAILABLE` | 503 | Hệ thống kho đang quá tải, vui lòng thử lại sau |
 
 ---
 
-## 3. Hướng Dẫn Vận Hành Mock Server Cho Thành Viên Nhóm (Parallel Development)
+## Mock Server (Phát Triển Song Song)
 
-Để 18 thành viên có thể code song song độc lập mà không cần chờ đợi service đối tác hoàn thành, sử dụng Mock Server sinh trực tiếp từ các file Contract đã chốt:
-
-### 3.1. Chạy Mock Server gRPC Cục Bộ (Ví dụ: Mock `inventory-service` cho bạn làm `order-service`)
-Sử dụng công cụ `grpc-mock` hoặc `BloomRPC / Postman gRPC`:
 ```bash
-# Cài đặt công cụ giả lập gRPC từ file .proto
+# REST mock từ customer-stable (port 4010)
+npx @stoplight/prism-cli mock docs/03_api_specs/customer-stable.openapi.yaml -p 4010
+
+# GraphQL mock (Mobile BFF, port 4000)
+npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
+
+# gRPC mock (ví dụ inventory, port 8001)
 npx @improbable-eng/grpc-web-fake-server --proto packages/proto/inventory/v1/inventory.proto
 ```
-- Mock server sẽ tự động lắng nghe trên port `8001` và trả về payload mẫu hợp lệ theo đúng message `ReserveStockResponse`.
-- Bạn làm Order Service có thể tự tin test luồng Happy Path và luồng Out-of-stock mà không cần bạn làm Kho phải dựng database PostgreSQL xong trước.
-
-### 3.2. Chạy Mock Server REST Cho Frontend & Các Bên Tích Hợp
-Sử dụng công cụ **Prism** đọc file [`openapi_d2c.yaml`](./openapi_d2c.yaml):
-```bash
-# Chạy Prism mock server trên port 4010
-npx @stoplight/prism-cli mock docs/03_api_specs/openapi_d2c.yaml -p 4010
-```
-- Mọi endpoint trong 9 nhóm API (Auth, Catalog, Giỏ hàng, Checkout, Profile, Voucher, Review, OCOP QR, Webhooks) sẽ phản hồi tức thì với dữ liệu mẫu chuẩn Schema và mô phỏng chính xác mã lỗi HTTP 400, 401, 403, 404, 409, 503.
-
-### 3.3. Xem & Trải Nghiệm Trực Quan Trên Swagger UI
-Bạn có thể mở giao diện tương tác Swagger UI cho [`openapi_d2c.yaml`](./openapi_d2c.yaml) bằng một trong hai cách:
-```bash
-# Cách 1: Sử dụng npx swagger-ui-watcher (tự động mở trình duyệt và tự reload khi sửa file)
-npx swagger-ui-watcher docs/03_api_specs/openapi_d2c.yaml -p 8080
-
-# Cách 2: Sử dụng Docker container chính thức
-docker run -p 8080:8080 -e SWAGGER_JSON=/spec/openapi_d2c.yaml -v ${PWD}/docs/03_api_specs:/spec swaggerapi/swagger-ui
-```
-Truy cập `http://localhost:8080` để xem đầy đủ 32 endpoint được phân nhóm theo 9 Swagger Tag trực quan.
-
-### 3.4. Chạy Mock Server & GraphQL Playground Cho Mobile BFF
-Ứng dụng di động sử dụng tầng đệm **Mobile BFF** ([`schema.graphql`](./schema.graphql)) theo chuẩn **NFR-02 (Mobile First)** để gom toàn bộ dữ liệu màn hình (Home, Chi tiết sản phẩm, Giỏ hàng, Vận đơn) trong 1 Single Round-trip mạng 4G:
-```bash
-# Chạy Apollo Server / GraphQL Yoga Mock Server từ file schema
-npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
-```
-- Mở `http://localhost:4000` (hoặc Apollo Studio Sandbox) để gửi các query gom màn hình: `homeScreenData`, `productDetailScreen`, `cartScreenData`, `orderTracking`.
-
----
-
-## 4. Danh Sách Tệp Đặc Tả Chi Tiết Trong Thư Mục
-1. [01_grpc_contracts.md](./01_grpc_contracts.md): Đặc tả chi tiết 8 gRPC Services, SLA timeout 2.0s, và cơ chế Retry Idempotent.
-2. [02_kafka_event_catalog.md](./02_kafka_event_catalog.md): Danh bạ Kafka Topics phủ 100% 18 microservices, Partition Keys, định dạng CloudEvents 1.0 và cơ chế Dead-Letter-Queue.
-3. [openapi_d2c.yaml](./openapi_d2c.yaml): Đặc tả chuẩn OpenAPI 3.0 cho Tầng Biên REST API & Webhooks (32 endpoints, 9 nhóm thẻ nghiệp vụ, 40 schemas).
-4. [schema.graphql](./schema.graphql): Đặc tả GraphQL Schema cho Mobile BFF (Backend-For-Frontend) tối ưu mạng 4G cho Native Mobile App (NFR-02).
-
