@@ -52,13 +52,41 @@ capability, never invented dates, revision, impact or status. Existing CRUD APIs
 are not silently aliased to the new projections. Role mutations remain owned by
 task 2. Common BFF errors include code, safe message, requestId and errors.
 
-## Procurement service authorization (internal API; not yet a frontend route)
+## Procurement service authorization and read gateway (2.1.0)
+
+Identity migration `V28__seed_procurement_permissions.sql` adds the five permissions
+below to existing enabled, non-archived ADMIN roles. It creates no account, role or
+scope assignment. Coordinate Shipping V23/V24 and Promotion V27 before applying
+V28 to a shared environment; missing earlier seeds must not be bypassed with
+Flyway out-of-order or repair. After migration, run PermissionSync for affected
+employees (`forceRelogin=false`) and refresh/login: an existing token is unchanged.
+During rollout an employee with a stale token still receives 403, not a role-based
+bypass. This seed alone does not deploy a gateway route, BFF relay or Web screen.
+
+Kong configuration now allowlists only six GET operations in `admin-stable.openapi.yaml`:
+supplier/material list and detail, supplier offers and material offers. OPTIONS is
+preflight only. No Procurement mutations, PO/receipt/plan/contract paths, health
+probes or arbitrary suffixes are exposed by this new route. Authorization is Bearer
+JWT only; the contract's global cookie alternative does not apply to these operations.
+Web session relay/UI is not implemented by this change.
+
+| Read flow | Success / empty | Loading | Authentication / scope | Error |
+|---|---|---|---|---|
+| GET suppliers/materials | 200 page with items, limit, offset; empty items array, never null; no global total is claimed | Retain filters; disable duplicate pagination requests | 401 invalid/missing JWT; 403 known non-employee or missing PROCUREMENT_VIEW#GLOBAL, including warehouse-only grants | 400 invalid limit/offset; 500 safe dependency error, not a fabricated empty result |
+| GET supplier/material detail | 200 domain record; omitted optional fields remain absent | Detail skeleton | Same JWT/GLOBAL gate; ADMIN role alone is insufficient | 400 malformed UUID; 404 unknown record; 500 dependency failure |
+| GET supplier/material offers | 200 items array; known parent without offers returns []; all price versions included, no pagination/effective filter | Price comparison pending | Same JWT/GLOBAL gate | 400 malformed UUID; 404 unknown parent; 500 dependency failure |
+
+All Procurement HTTP errors, including private operations, now use the shared flat
+`Error` envelope (`code`, safe `message`, `requestId`), replacing the unpublished
+legacy `{error:{code,message}}` shape. Internal consumers must migrate. Admin
+responses are `Cache-Control: no-store`. A bounded safe `X-Request-Id` is preserved
+for gateway correlation; otherwise a new UUID is generated. It never grants access.
 
 Procurement's `/api/v1/admin/procurement/*` endpoints accept an Identity-issued
 RS256 bearer JWT and require `principal_type=EMPLOYEE`, `user_id`, and the signed
 `permission_grants` claim. Procurement no longer treats internal-token or user
 role headers as user authentication. Its BFF/Gateway must forward the bearer
-token and keep the service inaccessible to public clients. The service audience
+token and keep direct upstream access private. The service audience
 is configurable; align it with Identity (currently expected to be `omama-api`).
 
 | Procurement route family | Required grant | Scope/result |
@@ -71,9 +99,10 @@ is configurable; align it with Identity (currently expected to be `omama-api`).
 
 Missing/invalid credentials produce 401. A valid employee token missing the
 required permission or matching warehouse scope produces 403. These operations
-remain absent from the frontend OpenAPI paths until a BFF route is explicitly
-approved; the corresponding policy summary is recorded in the draft OpenAPI
-metadata meanwhile.
+other than the six management reads remain absent from frontend OpenAPI paths
+and the Procurement Kong allowlist. The policy summary for those private operations
+is retained in the draft OpenAPI metadata. A gateway read route does not create a
+Web session adapter or make private mutations a stable frontend contract.
 ## Permission sync semantics
 
 - The IAM database is the source of truth; Keycloak user attributes are a projection used to mint tokens.

@@ -9,6 +9,8 @@ on:
       - 'packages/events/**'
       - 'services/procurement-service/**'
       - 'scripts/verify-procurement-receipt-contract.py'
+      - 'scripts/verify-procurement-admin-contract.py'
+      - 'services/api-gateway/config/kong.yml'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
       - '.github/workflows/contracts.yml'
@@ -19,6 +21,8 @@ on:
       - 'packages/events/**'
       - 'services/procurement-service/**'
       - 'scripts/verify-procurement-receipt-contract.py'
+      - 'scripts/verify-procurement-admin-contract.py'
+      - 'services/api-gateway/config/kong.yml'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
       - '.github/workflows/contracts.yml'
@@ -55,9 +59,23 @@ jobs:
       - name: Procurement receipt producer contract and unit regressions
         run: |
           python scripts/verify-procurement-receipt-contract.py
+          python scripts/verify-procurement-admin-contract.py
           cd services/procurement-service
           go test -race -count=1 ./...
           go vet ./...
+      - name: Parse Kong configuration with the deployed version
+        run: docker run --rm -e KONG_DATABASE=off -v "$PWD/services/api-gateway/config/kong.yml:/config/kong.yml:ro" kong:3.9.3 kong config parse /config/kong.yml
+      - name: Procurement allowlist on a disposable Kong proxy
+        run: |
+          docker run -d --rm --name procurement-kong-contract \
+            -e KONG_DATABASE=off -e KONG_DECLARATIVE_CONFIG=/config/kong.yml \
+            -e KONG_ALLOW_DEBUG_HEADER=on -e KONG_ADMIN_LISTEN=off \
+            -e KONG_PROXY_LISTEN=0.0.0.0:8000 -e KONG_NGINX_WORKER_PROCESSES=1 \
+            --add-host procurement-service:127.0.0.1 -p 127.0.0.1::8000 \
+            -v "$PWD/services/api-gateway/config/kong.yml:/config/kong.yml:ro" kong:3.9.3
+          trap 'docker stop procurement-kong-contract > /dev/null' EXIT
+          port="$(docker port procurement-kong-contract 8000 | cut -d: -f2)"
+          python scripts/verify-procurement-admin-contract.py --gateway-url "http://127.0.0.1:$port"
       - name: Upload static contract evidence
         if: always()
         uses: actions/upload-artifact@v4

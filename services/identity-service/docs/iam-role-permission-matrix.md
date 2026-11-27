@@ -21,6 +21,27 @@
 
 ## 2. Danh sách Permission
 
+### Procurement (V28)
+
+| Permission Code | Resource | Action | Risk | Enforced scope in Procurement |
+|---|---|---|---|---|
+| `PROCUREMENT_VIEW` | PROCUREMENT | VIEW | LOW | GLOBAL |
+| `PROCUREMENT_MANAGE` | PROCUREMENT | MANAGE | HIGH | GLOBAL; includes contract reads |
+| `PROCUREMENT_APPROVE` | PROCUREMENT | APPROVE | HIGH | GLOBAL; maker-checker still applies |
+| `PROCUREMENT_RECEIVE` | PROCUREMENT | RECEIVE | HIGH | Matching WAREHOUSE or GLOBAL |
+| `PROCUREMENT_VARIANCE_RESOLVE` | PROCUREMENT | VARIANCE_RESOLVE | HIGH | Matching WAREHOUSE or GLOBAL |
+
+All five have `scope_required=true`. V28 only adds grants to enabled,
+non-archived ADMIN roles; it creates no roles, principals or assignments.
+The role is an assignment bundle, not an authorization bypass. Other employee
+roles require explicit IAM assignment; warehouse grants do not imply GLOBAL.
+Coordinate Shipping V23/V24 and Promotion V27 before shared deployment of V28.
+Run PermissionSync for affected employees (`forceRelogin=false` for additions),
+then refresh/login; existing signed tokens are not rewritten. This seed does
+not enable Procurement gateway/BFF routes or Web UI.
+
+### Catalog
+
 | Permission Code | Resource | Action | Risk Level | Scope Required | Mô tả |
 |-----------------|----------|--------|------------|----------------|-------|
 | `CATALOG_VIEW` | CATALOG | VIEW | LOW | FALSE | Xem danh mục và chi tiết sản phẩm trong hệ thống quản trị |

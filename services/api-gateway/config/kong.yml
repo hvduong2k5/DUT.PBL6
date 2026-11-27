@@ -5,6 +5,22 @@ _transform: true
 # 1. UPSTREAMS & SERVICES (18 MICROSERVICES ROUTING TABLE)
 # ==============================================================================
 services:
+  # Initial Procurement gateway surface is read-only. JWT and GLOBAL grants
+  # are verified by Procurement; no internal token or identity header is minted.
+  - name: procurement-service
+    url: http://procurement-service:8008
+    connect_timeout: 3000
+    read_timeout: 10000
+    write_timeout: 10000
+    retries: 0
+    routes:
+      - name: procurement-management-reads
+        paths:
+          - '~/api/v1/admin/procurement/(suppliers|materials)$'
+          - '~/api/v1/admin/procurement/(suppliers|materials)/[^/]+$'
+          - '~/api/v1/admin/procurement/(suppliers|materials)/[^/]+/offers$'
+        strip_path: false
+        methods: [GET, OPTIONS]
   - name: traceability-public
     url: http://traceability-service:8003/api/v1/trace
     routes:

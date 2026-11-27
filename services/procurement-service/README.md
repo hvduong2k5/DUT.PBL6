@@ -13,7 +13,7 @@ docker compose up --build
 
 The HTTP API listens on `localhost:8008`; PostgreSQL is exposed on `localhost:5449`. The service applies pending migrations at startup. `GET /health/live` reports process liveness and `GET /health/ready` checks the database.
 
-All `/api/v1/admin/procurement/*` routes validate an Identity-issued RS256 bearer access token. Configure `PROCUREMENT_OIDC_ISSUER` and `PROCUREMENT_OIDC_AUDIENCE`; `PROCUREMENT_OIDC_JWKS_URL` is optional and defaults to the Keycloak certs endpoint. HTTP is rejected except for an explicitly enabled loopback-only local test (`PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP=true`). The token must contain `principal_type=EMPLOYEE`, `user_id`, and the signed `permission_grants` array. The service does not trust `X-User-ID`, `X-User-Role`, or `X-Internal-Token` as user authentication. A BFF/Gateway must forward the user's bearer token to Procurement and must not make Procurement publicly reachable.
+All `/api/v1/admin/procurement/*` routes validate an Identity-issued RS256 bearer access token. Configure `PROCUREMENT_OIDC_ISSUER` and `PROCUREMENT_OIDC_AUDIENCE`; `PROCUREMENT_OIDC_JWKS_URL` is optional and defaults to the Keycloak certs endpoint. HTTP is rejected except for an explicitly enabled loopback-only local test (`PROCUREMENT_OIDC_ALLOW_LOCAL_HTTP=true`). The token must contain `principal_type=EMPLOYEE`, `user_id`, and the signed `permission_grants` array. The service does not trust `X-User-ID`, `X-User-Role`, or `X-Internal-Token` as user authentication. A BFF/Gateway must forward the user's bearer token, keep direct upstream access private and expose only explicitly allowlisted paths.
 
 The compact authorization vocabulary is:
 
@@ -23,7 +23,102 @@ The compact authorization vocabulary is:
 - `PROCUREMENT_RECEIVE#WAREHOUSE#<warehouseCode>`: create and inspect receipts, and read receipts for that warehouse. A GLOBAL grant is accepted for operational admins.
 - `PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#<warehouseCode>`: resolve receipt variances for that warehouse. A GLOBAL grant is accepted for operational admins.
 
-Grant format follows Identity's signed snapshot convention: `PERMISSION#GLOBAL` or `PERMISSION#WAREHOUSE#<scopeId>`. Realm roles are not used as authorization bypasses. Missing/invalid JWT returns 401; a valid employee token without the required permission or warehouse scope returns 403. The identity owner must seed/map these five permissions to employee roles before users can call Procurement.
+Grant format follows Identity's signed snapshot convention: `PERMISSION#GLOBAL` or `PERMISSION#WAREHOUSE#<scopeId>`. Realm roles are not used as authorization bypasses. Missing/invalid JWT returns 401; a valid employee token without the required permission or warehouse scope returns 403.
+
+### Identity permission rollout
+
+`services/identity-service/src/main/resources/db/migration/V28__seed_procurement_permissions.sql`
+adds the five permissions above to existing enabled, non-archived ADMIN roles.
+It does not create principals, roles or GLOBAL assignments, or overwrite existing
+permission metadata. Non-admin staff need explicit role/permission assignments
+through the existing IAM workflow. Procurement still checks permissions and scope,
+not the ADMIN role name.
+
+1. Coordinate the complete Identity migration chain before shared deployment:
+   Shipping owns V23/V24, Promotion owns V27, Procurement owns V28. Check the
+   deployed Flyway history first; do not deploy V28 ahead of pending lower seeds,
+   edit applied migrations, or use repair/out-of-order as a shortcut.
+2. Apply migrations through the normal Identity deployment, then reconcile each
+   affected employee using `POST /api/v1/admin/iam/principals/{principalId}/sync-permissions?forceRelogin=false`
+   with an authorized IAM operator. Verify effective permissions; handle 502 sync
+   failures before declaring activation complete.
+3. Refresh/login for a new signed token. Confirm EMPLOYEE, the exact configured
+   issuer, `omama-api` audience, and the intended grants. Token claims cannot be
+   changed by SQL. Receiving/variance staff use matching warehouse grants; a
+   warehouse ADMIN assignment does not automatically gain GLOBAL scope.
+4. Smoke-test missing token (401), insufficient/wrong-warehouse grant (403),
+   authorized reads/actions, and maker-checker denial using real Identity tokens.
+   Unit and isolated PostgreSQL tests do not replace this deployment acceptance.
+
+The seed alone does not activate deployed access. The read gateway configuration
+below still needs deployment; Identity BFF relay and Web UI remain separate work.
+
+Seed regression coverage lives in Identity's `ProcurementPermissionMigrationTest`
+(actual PostgreSQL DDL and transactional rollback) and `PermissionSyncServiceTest`
+(scoped Keycloak projection). Set `IDENTITY_TEST_JDBC_URL` to an **isolated test**
+PostgreSQL JDBC URL, including test credentials, before running Identity's Gradle
+test suite. The two database migration cases are explicitly skipped when that
+variable is absent; a unit-only green result is not migration execution evidence.
+
+### Read-only Kong integration
+
+The shared `admin-stable.openapi.yaml` version 2.1.0 documents six operations:
+supplier/material list and detail, supplier offers and material offers. Kong routes
+only GET/OPTIONS for those exact path shapes to `http://procurement-service:8008`,
+without stripping the path or injecting credentials. Procurement requires the
+employee's verified bearer JWT and `PROCUREMENT_VIEW#GLOBAL`; the gateway does
+not exchange a cookie for a token. A browser's Identity session alone is not enough
+until the separate BFF relay is implemented.
+
+POs, receipts, plans, contracts and every mutation are **not** exposed by this new
+Kong route. Their business implementation remains available on the private service;
+full request/response contracts and retry/idempotency acceptance are still needed
+before extending the public gateway surface. This is not a complete Procurement UI.
+
+Collections return `items: []` when empty. Supplier/material pages contain `limit`
+and `offset`, not a fabricated global total. Offers include all versions (including
+inactive/future/expired); clients must not equate `active` with currently effective.
+All service HTTP errors now use the shared flat `{code,message,requestId}` envelope,
+including private routes; migrate any caller still reading `error.code`. Admin
+responses use `Cache-Control: no-store`; the response request ID is also returned
+in `X-Request-Id`. It is diagnostic only, not trusted user identity.
+
+The base Compose publishes PostgreSQL and HTTP on loopback only. To connect Kong
+without putting the database on its shared network:
+
+```powershell
+# Use the existing network shared with Kong; Coolify may use a different name.
+$env:PROCUREMENT_GATEWAY_NETWORK = "omamx-network"
+docker compose -f docker-compose.yml -f docker-compose.gateway.yml config
+docker compose -f docker-compose.yml -f docker-compose.gateway.yml up -d --build
+```
+
+Set the exact realm issuer and real JWKS endpoint (HTTPS), configure audience
+`omama-api`, and ensure the gateway and service share the selected network. Do not
+publish the database or use a browser-visible internal token. Loading the updated
+Kong configuration and PermissionSync/token refresh are explicit rollout steps;
+none of these commands has been run against a shared/live deployment here.
+
+From the repository root, run `python scripts/verify-procurement-admin-contract.py`
+with the MVP Python dependencies. It validates actual Go HTTP/JWT response fixtures,
+all six operation examples, denied methods/paths and network wiring. Separately
+validate the real Kong 3.9.3 parser with:
+
+```powershell
+docker run --rm -e KONG_DATABASE=off -v "${PWD}/services/api-gateway/config/kong.yml:/config/kong.yml:ro" kong:3.9.3 kong config parse /config/kong.yml
+```
+
+For real router-selection coverage, CI also starts a disposable Kong with debug
+headers enabled **only in that test**, admin listener off, and the Procurement
+hostname mapped to the container's loopback (no application or live upstream).
+`verify-procurement-admin-contract.py --gateway-url http://127.0.0.1:<test-port>`
+checks the selected route for six GETs, 30 rejected method combinations and eight
+non-allowlisted paths. Expected upstream connection failures are not service
+failures in this routing-only test. Never enable Kong debug headers on the live
+gateway for this purpose. See `.github/workflows/contracts.yml` for the test setup.
+
+These are local contract/routing checks, not acceptance with live Identity tokens,
+deployed DNS, TLS or a Web session. Perform authorized/401/403 smoke checks after deployment.
 
 ## Supplier and material API
 
@@ -72,7 +167,7 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sendi
 - `POST /api/v1/admin/procurement/supply-plans/preview` accepts forecast and inventory snapshots, their source IDs/timestamps, a caller-provided freshness threshold and policy version, plus per-material forecast, on-hand, open-PO, safety-stock, MOQ, pack-size and lead-time values.
 - `POST /api/v1/admin/procurement/supply-plans` saves the same calculation as a `DRAFT` plan with revision 1 and an immutable JSON snapshot. `GET /api/v1/admin/procurement/supply-plans/{supplyPlanID}` retrieves its current snapshot; `GET /api/v1/admin/procurement/supply-plans?limit=50&offset=0` lists plans.
 - `POST /api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions` recalculates a draft plan from a new input snapshot and requires its current `expected_version`. Revision snapshots are append-only; `GET /api/v1/admin/procurement/supply-plans/{supplyPlanID}/revisions` returns the complete history. Concurrent or stale updates return `409 CONFLICT`.
-- `POST /api/v1/admin/procurement/supply-plans/{supplyPlanID}/submit` moves a draft to `PENDING_APPROVAL`; `POST .../{supplyPlanID}/approve` and `POST .../{supplyPlanID}/reject` are restricted to `ADMIN` or `PROCUREMENT_MANAGER`. The submitter and creator cannot approve or reject their own plan, and rejection requires a reason. `GET .../{supplyPlanID}/status-history` exposes the audit trail.
+- `POST /api/v1/admin/procurement/supply-plans/{supplyPlanID}/submit` moves a draft to `PENDING_APPROVAL`; `POST .../{supplyPlanID}/approve` and `POST .../{supplyPlanID}/reject` require `PROCUREMENT_APPROVE#GLOBAL`. The submitter and creator cannot approve or reject their own plan, and rejection requires a reason. `GET .../{supplyPlanID}/status-history` exposes the audit trail.
 - `POST /api/v1/admin/procurement/supply-plans/{supplyPlanID}/purchase-order` accepts `supplier_id` and `expected_version`. It converts only an approved plan, uses positive proposed quantities from the approved snapshot, and snapshots current effective supplier offers into a draft PO. The conversion and PO creation are atomic and unique per plan; retrying with the same supplier returns the existing PO, while a different supplier conflicts.
 - A plan line may include `manual_override_quantity` and a required `manual_override_reason`. Positive overrides must meet the plan MOQ and be a multiple of pack size; zero is allowed to explicitly omit a material. Snapshots preserve the algorithm's `recommended_order_quantity`, final `proposed_order_quantity`, reason and override warning. Add overrides while the plan is a draft so the approved revision contains the reviewed amounts.
 - The preview endpoint resolves material code/name/unit from the active Procurement catalog. It returns a `DRAFT_PREVIEW`, or `INPUT_WARNING` when either source is stale/future-dated; previewing does not save, approve, or create a PO.
@@ -84,7 +179,7 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sendi
 - `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates. It requires an `Idempotency-Key` header (16–128 visible ASCII characters); retrying the same key and payload returns the original receipt, while reusing the key with changed data returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
 - `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
-- `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve` lets `ADMIN` or `PROCUREMENT_MANAGER` resolve an open variance using `ACCEPT_VARIANCE` or `REJECT_VARIANCE` and a required note.
+- `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve` requires `PROCUREMENT_VARIANCE_RESOLVE` with matching WAREHOUSE or GLOBAL scope to resolve an open variance using `ACCEPT_VARIANCE` or `REJECT_VARIANCE` and a required note.
 
 Accepted plus rejected quantity must equal the physical quantity received. Inspection is versioned and updates the receipt, PO received/accepted quantities, PO lifecycle, histories, and one `GoodsReceivedEvent` per receipt line in a transactional outbox. Event rows commit atomically with inspection, so a failed database transaction cannot publish stock that Procurement did not accept. Outbox delivery is at-least-once; consumers must deduplicate by stable CloudEvent ID. Inventory PR #118 receives `quantity_received` as physical QUARANTINE stock, including fully rejected lines; accepted/rejected quantities are Procurement evidence and do not authorize Inventory QC release. It records open `OVER_RECEIVED` variances when physical quantity exceeds a PO line's remaining open quantity, and `QUALITY_REJECTED` variances for rejected quantities; the reason comes from required inspection notes. An under-delivery remains a valid partial receipt because the service has no supplier shipment notice proving that the delivery was complete. An open variance keeps the PO in `PARTIALLY_RECEIVED` and prevents closing the remaining quantity. Resolving the last variance recalculates the PO status; it reaches `RECEIVED` only when every line's accepted quantity meets the ordered quantity. Accepted quantity cannot exceed the PO quantity; rejected goods can be replaced under the same PO.
 

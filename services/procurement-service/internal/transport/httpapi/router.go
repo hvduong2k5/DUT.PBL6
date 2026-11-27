@@ -29,6 +29,27 @@ func NewRouter(service *application.Service, identityConfig IdentityConfig, ping
 	}
 	h := &Router{service: service, identity: identity, ping: ping}
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Preserve bounded, safe gateway correlation IDs (including uuid#counter).
+			// They are diagnostic labels only, never authentication or identity.
+			requestID := r.Header.Get("X-Request-Id")
+			if !validRequestID(requestID) {
+				requestID = uuid.NewString()
+			}
+			w.Header().Set("X-Request-Id", requestID)
+			if strings.HasPrefix(r.URL.Path, "/api/v1/admin/") {
+				w.Header().Set("Cache-Control", "no-store")
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "route was not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "method is not allowed")
+	})
 	r.Get("/health/live", h.live)
 	r.Get("/health/ready", h.ready)
 	r.Group(func(r chi.Router) {
@@ -889,6 +910,9 @@ func (h *Router) listSuppliers(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
+	if items == nil {
+		items = []domain.Supplier{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
 }
 
@@ -1035,6 +1059,9 @@ func (h *Router) listMaterials(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
+	if items == nil {
+		items = []domain.RawMaterial{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
 }
 
@@ -1169,6 +1196,9 @@ func (h *Router) listSupplierOffers(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
+	if items == nil {
+		items = []domain.SupplierMaterialOffer{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -1181,6 +1211,9 @@ func (h *Router) listMaterialOffers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
+	}
+	if items == nil {
+		items = []domain.SupplierMaterialOffer{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -1343,6 +1376,23 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
+func validRequestID(value string) bool {
+	if len(value) == 0 || len(value) > 128 {
+		return false
+	}
+	for _, ch := range value {
+		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || strings.ContainsRune("-_.:#", ch)) {
+			return false
+		}
+	}
+	return true
+}
+
 func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
+	requestID := w.Header().Get("X-Request-Id")
+	if requestID == "" {
+		requestID = uuid.NewString()
+		w.Header().Set("X-Request-Id", requestID)
+	}
+	writeJSON(w, status, map[string]string{"code": code, "message": message, "requestId": requestID})
 }

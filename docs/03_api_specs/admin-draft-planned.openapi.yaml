@@ -7,7 +7,14 @@ info:
     identifier: "LicenseRef-Proprietary"
   description: "Non-stable proposal for backend review. Every operation requires an explicit product/security decision before implementation compatibility is promised. Draft means a concrete proposal exists; planned means the capability is identified but policy or workflow remains incomplete."
   x-procurement-service-authorization:
-    status: "service-internal; Procurement routes are not currently exposed as frontend operations in this contract"
+    status: "Six supplier/material/offer GET operations are stable in admin-stable 2.1.0 and allowlisted in Kong. All other Procurement routes remain private; Web/BFF integration is pending."
+    response-compatibility: "Procurement errors now use the shared flat Error envelope (code, message, requestId), including private operations; the legacy nested error object is removed. Internal callers must migrate. Empty supplier/material/offer collections return items: [], not null."
+    identity-rollout:
+      migration: "V28__seed_procurement_permissions.sql"
+      assignment: "Add the five permissions to existing enabled, non-archived ADMIN roles only; no principal, role or scope assignment is created."
+      ordering: "Coordinate Shipping V23/V24 and Promotion V27 before applying V28 to shared environments; do not enable Flyway out-of-order or repair to bypass missing seeds."
+      activation: "Run PermissionSync for affected employee principals with forceRelogin=false, then refresh/login to obtain a new token. Migration alone does not update Keycloak or existing JWTs."
+      exposure: "Seed and gateway configuration availability do not imply a deployed route, Identity BFF relay or Web UI."
     receiving-handoff:
       operation: "POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect"
       validation: "Physical quantity must be at least 0.01; KG must convert exactly to integer grams; G/GRAM/UNIT/PIECE must be integral; converted quantity cannot exceed 2147483647. Unsupported units fail 400 INVALID_ARGUMENT."

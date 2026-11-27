@@ -92,6 +92,37 @@ class PermissionSyncServiceTest {
     }
 
     @Test
+    void syncProcurementGrantsPreservesWarehouseScopeWithoutForcingRelogin() {
+        UUID principalId = UUID.randomUUID();
+        IdentityPrincipalRow principal = new IdentityPrincipalRow();
+        principal.setPrincipalId(principalId);
+        principal.setIdpSubject("kc-procurement");
+        principal.setPrincipalType(PrincipalType.EMPLOYEE.name());
+        when(principalMapper.findById(principalId)).thenReturn(principal);
+        var grants = List.of("PROCUREMENT_VIEW", "PROCUREMENT_MANAGE", "PROCUREMENT_APPROVE",
+                "PROCUREMENT_RECEIVE", "PROCUREMENT_VARIANCE_RESOLVE").stream().map(code -> {
+                    var grant = new IamRolePermissionMapper.PermissionGrantRow();
+                    grant.setPermissionCode(code);
+                    boolean warehouse = code.equals("PROCUREMENT_RECEIVE") || code.equals("PROCUREMENT_VARIANCE_RESOLVE");
+                    grant.setScopeType(warehouse ? "WAREHOUSE" : "GLOBAL");
+                    grant.setScopeId(warehouse ? "WH-HCM-01" : null);
+                    return grant;
+                }).toList();
+        when(rolePermissionMapper.findEffectivePermissionGrantsByPrincipal(eq(principalId), any()))
+                .thenReturn(grants);
+
+        var result = service.syncPrincipal(principalId, false, PermissionSyncService.Trigger.MANUAL_RESYNC, null);
+
+        assertThat(result.success()).isTrue();
+        assertThat(result.grantCount()).isEqualTo(5);
+        verify(keycloakAdminClient).updateUserPermissionsWithGrants("kc-procurement", List.of(
+                "PROCUREMENT_VIEW#GLOBAL", "PROCUREMENT_MANAGE#GLOBAL", "PROCUREMENT_APPROVE#GLOBAL",
+                "PROCUREMENT_RECEIVE#WAREHOUSE#WH-HCM-01", "PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#WH-HCM-01"), "EMPLOYEE");
+        verify(bffSessionStore, never()).removeSessionsByPrincipalId(any());
+        verify(keycloakAdminClient, never()).logoutUserStrict(any());
+    }
+
+    @Test
     void syncPrincipal_ForceReloginDropsBffAndKeycloakSessions() {
         UUID principalId = UUID.randomUUID();
         IdentityPrincipalRow principal = new IdentityPrincipalRow();

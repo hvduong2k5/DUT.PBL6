@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.0.0
+  version: 2.1.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -38,10 +38,179 @@ tags:
   description: Shipping operations for the admin web application.
 - name: Customer support
   description: Customer support operations for the admin web application.
+- name: Procurement
+  description: Direct supplier, material and supplier-price reads; no Web/BFF adapter is implied.
 security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/procurement/suppliers:
+    get:
+      operationId: listProcurementSuppliers
+      summary: List procurement suppliers
+      description: >-
+        Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL in a verified bearer JWT.
+        Returns one offset-based page, including inactive suppliers. No global total
+        is returned; clients must not infer a global count from the page size.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementLimit'
+      - $ref: '#/components/parameters/ProcurementOffset'
+      responses:
+        '200':
+          description: Supplier page. Empty results are an empty array, never null or 404.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementSupplierPage'
+              examples:
+                success:
+                  value: {items: [{id: '10000000-0000-0000-0000-000000000001', code: SUP-01, name: Demo supplier, supplier_type: COMPANY, status: ACTIVE, created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z'}], limit: 50, offset: 0}
+                empty:
+                  value: {items: [], limit: 50, offset: 0}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/suppliers/{supplierID}:
+    parameters:
+    - name: supplierID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: getProcurementSupplier
+      summary: Read a procurement supplier
+      description: Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Unknown supplier returns 404.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, error, auth]
+      responses:
+        '200':
+          description: Supplier record; absent optional contact fields are omitted.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementSupplier'}
+              example: {id: '10000000-0000-0000-0000-000000000001', code: SUP-01, name: Demo supplier, supplier_type: COMPANY, status: ACTIVE, created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/suppliers/{supplierID}/offers:
+    parameters:
+    - name: supplierID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: listProcurementSupplierOffers
+      summary: Read all price versions for a supplier
+      description: >-
+        Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Includes inactive, future
+        and expired versions; active alone does not mean currently effective.
+        No pagination or effective-date filtering. Unknown supplier returns 404.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementOfferList'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/materials:
+    get:
+      operationId: listProcurementMaterials
+      summary: List raw materials
+      description: >-
+        Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Includes inactive materials.
+        Returns one offset-based page without a global total. Raw material IDs are
+        Procurement IDs, not Inventory SKU IDs; no stock or QC availability is implied.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementLimit'
+      - $ref: '#/components/parameters/ProcurementOffset'
+      responses:
+        '200':
+          description: Material page; empty results are items empty array.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementMaterialPage'}
+              examples:
+                success:
+                  value: {items: [{id: '20000000-0000-0000-0000-000000000001', code: RICE, name: Rice, base_unit: KG, status: ACTIVE, created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z'}], limit: 50, offset: 0}
+                empty:
+                  value: {items: [], limit: 50, offset: 0}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/materials/{materialID}:
+    parameters:
+    - name: materialID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: getProcurementMaterial
+      summary: Read a raw material
+      description: Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Unknown material returns 404.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, error, auth]
+      responses:
+        '200':
+          description: Material record. An unset preferred supplier is omitted, not null.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementMaterial'}
+              example: {id: '20000000-0000-0000-0000-000000000001', code: RICE, name: Rice, base_unit: KG, status: ACTIVE, created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/materials/{materialID}/offers:
+    parameters:
+    - name: materialID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: listProcurementMaterialOffers
+      summary: Compare all supplier price versions for a raw material
+      description: >-
+        Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Includes inactive, future
+        and expired price versions without pagination; clients must evaluate validity
+        explicitly. Unknown material returns 404. This is not a stock or checkout quote.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementOfferList'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/users:
     get:
       operationId: getAdminUsers
@@ -11497,6 +11666,14 @@ components:
       in: cookie
       name: admin_session
   parameters:
+    ProcurementLimit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+    ProcurementOffset:
+      name: offset
+      in: query
+      schema: {type: integer, minimum: 0, default: 0}
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -11507,6 +11684,79 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementSupplier:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, supplier_type, status, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        supplier_type: {type: string, enum: [FARMER, COOPERATIVE, OCOP_BUSINESS, COMPANY]}
+        contact_name: {type: string}
+        phone: {type: string}
+        email: {type: string}
+        address: {type: string}
+        legal_identifier: {type: string}
+        status: {type: string, enum: [ACTIVE, SUSPENDED]}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    ProcurementMaterial:
+      type: object
+      additionalProperties: false
+      required: [id, code, name, base_unit, status, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        base_unit: {type: string}
+        description: {type: string}
+        preferred_supplier_id: {type: string, format: uuid}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    ProcurementOffer:
+      type: object
+      additionalProperties: false
+      required: [id, supplier_id, material_id, unit, unit_price_minor, currency, minimum_quantity, lead_time_days, active, version, effective_from, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        supplier_id: {type: string, format: uuid}
+        material_id: {type: string, format: uuid}
+        supplier_sku: {type: string}
+        unit: {type: string}
+        unit_price_minor: {type: integer, format: int64}
+        currency: {type: string}
+        minimum_quantity: {type: string, description: Decimal quantity encoded without floating-point rounding.}
+        lead_time_days: {type: integer}
+        active: {type: boolean}
+        version: {type: integer}
+        effective_from: {type: string, format: date-time}
+        effective_to: {type: string, format: date-time, description: Exclusive end instant; omitted when open-ended.}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    ProcurementSupplierPage:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ProcurementSupplier'}}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+    ProcurementMaterialPage:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ProcurementMaterial'}}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+    ProcurementOffers:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ProcurementOffer'}}
     Error:
       type: object
       required:
@@ -12474,6 +12724,46 @@ components:
                   $ref: '#/components/schemas/CatalogAdminPriceRecord'
       additionalProperties: false
   responses:
+    ProcurementOfferList:
+      description: All supplier price versions; empty items for a known parent with no offers.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ProcurementOffers'}
+          examples:
+            success:
+              value: {items: [{id: '30000000-0000-0000-0000-000000000001', supplier_id: '10000000-0000-0000-0000-000000000001', material_id: '20000000-0000-0000-0000-000000000001', unit: KG, unit_price_minor: 25000, currency: VND, minimum_quantity: '1', lead_time_days: 2, active: true, version: 1, effective_from: '2026-11-27T00:00:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z'}]}
+            empty:
+              value: {items: []}
+    ProcurementBadRequest:
+      description: Malformed resource UUID or invalid limit/offset. Authentication and permission are checked first.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: INVALID_ARGUMENT, message: Resource ID or pagination is invalid., requestId: '40000000-0000-0000-0000-000000000001'}
+    ProcurementUnauthenticated:
+      description: Missing, malformed, expired or otherwise invalid employee bearer JWT.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: UNAUTHENTICATED, message: A valid employee bearer token is required., requestId: '40000000-0000-0000-0000-000000000001'}
+    ProcurementForbidden:
+      description: Authenticated non-employee, or employee without PROCUREMENT_VIEW#GLOBAL. A warehouse grant or ADMIN role alone does not authorize reads.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: FORBIDDEN, message: Required procurement permission or scope is missing., requestId: '40000000-0000-0000-0000-000000000001'}
+    ProcurementNotFound:
+      description: Unknown supplier/material, including the parent of an offers collection.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: NOT_FOUND, message: Resource was not found., requestId: '40000000-0000-0000-0000-000000000001'}
+    ProcurementInternalError:
+      description: Repository or unexpected service failure. Do not treat it as an empty collection or not-found result.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: INTERNAL, message: An internal error occurred., requestId: '40000000-0000-0000-0000-000000000001'}
     BadRequest:
       description: Malformed request or invalid query parameters.
       content:

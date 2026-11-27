@@ -1,0 +1,12 @@
+# Add to the base compose file; only the application joins Kong's network.
+services:
+  procurement-service:
+    networks:
+      default: {}
+      gateway:
+        aliases: [procurement-service]
+
+networks:
+  gateway:
+    external: true
+    name: ${PROCUREMENT_GATEWAY_NETWORK:-omamx-network}
