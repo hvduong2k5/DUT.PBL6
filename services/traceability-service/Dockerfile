@@ -1,13 +1,14 @@
-FROM golang:1.25.0-alpine AS build
+FROM golang:1.25.0-alpine AS test
+RUN apk add --no-cache gcc musl-dev
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN go mod download
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/traceability ./cmd/server
+CMD ["go", "test", "-race", "-count=1", "-p=2", "-coverpkg=./...", "./..."]
 
-FROM alpine:3.22
+FROM alpine:3.22 AS local
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 traceability
-COPY --from=build /out/traceability /usr/local/bin/traceability
+COPY --chmod=0555 build/traceability /usr/local/bin/traceability
 USER 10001
 EXPOSE 8003 9003
 ENTRYPOINT ["/usr/local/bin/traceability"]

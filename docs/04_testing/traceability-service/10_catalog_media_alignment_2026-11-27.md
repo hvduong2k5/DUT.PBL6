@@ -24,7 +24,7 @@ RunID: `traceability-catalog-media-20261127-local`, ngày 27/11/2026. Đã fetch
 | Redocly | 7 source specifications PASS exit0 |
 | Generated Go | 7 proto files khớp generator PASS |
 | MVP contract gate | PASS:46 OpenAPI,52 event schemas,17 proto/codegen,25 registry entries,20 negative guards; baseline exceptions do PR #175 đã ghi, không tự nới thêm |
-| Docker tooling | Xem checkpoint đóng gói ở cuối báo cáo; tách với runtime provider acceptance |
+| Docker tooling | Dockerfile local và Dockerfile.coolify build PASS; cả hai image chạy kiểm UID10001/executable PASS trong network none/read-only; runner parse PASS, không phải full stack/provider acceptance |
 
 Ba ca Kafka SKIP là TestKafkaRelayUnavailableThenAck, TestKafkaCrashWindowReplaysSameEvent, TestKafkaSameProfileOrder. Artifacts đã lọc trong `.sandbox/traceability-catalog-media-20261127-local/`; không chứa DSN/token. PostgreSQL test riêng loopback15433, không dùng database nhóm. Catalog/Media fixtures dùng đúng canonical wire nhưng không là provider Java/NestJS thật hoặc full E2E. Chưa kiểm UI upload/print/camera, provider thật, IAM/BFF hoặc Order exact-proof integration trong lượt này.
 
@@ -42,4 +42,4 @@ Không có PR mới/merge vào dev/release hoặc deploy production trong lượ
 
 AGENTS.md từ PR #175 yêu cầu bỏ Compose riêng từng service và có Dockerfile/Dockerfile.coolify. Runner scripts/dev.ps1 chuyển sang Docker CLI, chỉ quản lý container codex.task=traceability-local, cổng loopback và volume riêng; không dừng/reset container test15433 hoặc stack khác. Dockerfile local nhận Linux artifact; Dockerfile.coolify build source; race tests dùng target test của Dockerfile. Retire Dockerfile.test/ba Compose files; báo cáo08/09 là runbook lịch sử, dùng hướng dẫn hiện hành trong README.
 
-PowerShell runner đã parse PASS; Init có bước migrate/regrant khi dùng state cũ, giữ credential và data. Docker image/runtime smoke sẽ được ghi bằng kết quả thực sau kiểm đóng gói; không suy script parse thành stack chạy thật.
+PowerShell runner đã parse PASS; Init có bước migrate/regrant khi dùng state cũ, giữ credential và data. Hai image local/source đã build PASS và kiểm non-root UID10001 + executable trong network none/read-only PASS. Không khởi chạy lại toàn bộ dev runner/database/broker bằng script mới trong lượt này; không suy image smoke hoặc script parse thành full stack/provider acceptance.
