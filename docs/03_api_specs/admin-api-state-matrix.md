@@ -352,3 +352,5 @@ and employee authentication defaults. The independent Inventory operations spec
 was consolidated here; runtime URLs and response bodies are unchanged.
 
 Transport amendment 0.4.0 (2026-11-27): use canonical Catalog/Media from PR #175 per [current guide](traceability-workflow-grpc.md). OCOP upload-session/complete precedes document:<fileId> evidence; Media-enabled submit/publish invalid file400/dependency503 keeps draft/approval and receipt unchanged. Publication replay remains successful while a later Media outage is retried by the durable bind worker. QR/public DTO schema is unchanged. See [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md); UI/provider acceptance remains pending.
+
+Inventory receipt provider includes batchId/batchCode/skuCode/warehouseId on fresh APPLIED results in the same idempotent transaction. Legacy replay may omit them: preserve APPLIED and resolve context separately, never submit another receipt to recover traceability binding.

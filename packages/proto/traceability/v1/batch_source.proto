@@ -22,4 +22,6 @@ message BatchSnapshot {
   bool restricted = 6;
   bool depleted = 7;
   int64 batch_version = 8;
+  // Authoritative owning warehouse; empty only for legacy rows without a binding.
+  string warehouse_id = 9;
 }

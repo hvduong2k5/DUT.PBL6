@@ -5808,6 +5808,20 @@ paths:
                 - revision
                 - message
                 properties:
+                  batchId:
+                    type: string
+                    format: uuid
+                    description: Authoritative batch UUID on fresh APPLIED receipts; legacy replay may omit.
+                  batchCode:
+                    type: string
+                    description: Committed batch display code; never use as UUID.
+                  skuCode:
+                    type: string
+                    description: Exact committed SKU code, including EXISTING batch receipts.
+                  warehouseId:
+                    type: string
+                    format: uuid
+                    description: Authoritative owning warehouse; present on fresh APPLIED receipts.
                   operationId:
                     type: string
                   status:
