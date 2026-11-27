@@ -1,6 +1,6 @@
 # PBL6 — Bàn giao Order: ORD-TRC-01
 
-Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`b5ab16e36a841ecb02204651db0d4e9d83d17476`**.
+Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`34f3b4c7c2fb18de73efb749d5a083f70ff8429a`**.
 
 **Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
 
@@ -14,21 +14,22 @@ File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu c�
 
 | Tài liệu liên quan trong repository | Link bất biến |
 | --- | --- |
-| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
-| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-acceptance.md) |
-| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-service-spec.md) |
-| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
-| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-grpc.md) |
-| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-candidates/packing.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-candidates/packing.proto) |
-| `packages/proto/traceability/v1/batch_links.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/traceability/v1/batch_links.proto) |
+| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
+| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-acceptance.md) |
+| `docs/03_api_specs/traceability-workflow-supplement.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-supplement.md) |
+| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-service-spec.md) |
+| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
+| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-grpc.md) |
+| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-candidates/packing.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-candidates/packing.proto) |
+| `packages/proto/traceability/v1/batch_links.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/traceability/v1/batch_links.proto) |
 
 Trong repository đã clone, các lệnh đọc sau không checkout/reset hay ghi đè source đang làm:
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show b5ab16e36a841ecb02204651db0d4e9d83d17476:docs/03_api_specs/traceability-workflow-grpc.md
-git show b5ab16e36a841ecb02204651db0d4e9d83d17476:docs/03_api_specs/traceability-workflow-peer-handoff.md
+git show 34f3b4c7c2fb18de73efb749d5a083f70ff8429a:docs/03_api_specs/traceability-workflow-grpc.md
+git show 34f3b4c7c2fb18de73efb749d5a083f70ff8429a:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
 ## Bắt đầu thực hiện
@@ -62,7 +63,7 @@ Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạ
 
 **Đầu ra bắt buộc:** ORD-OUT-01: Web lấy được từng line/batch/quantity và link/trạng thái truy xuất đúng đơn; ORD-OUT-02: chỉ chủ đơn hoặc guest capability hợp lệ được đọc; ORD-OUT-03: proof/Traceability thiếu hoặc lỗi không phá detail/lifecycle, không gắn nhầm lô. Owner đối chiếu API/read model hiện có trước; endpoint riêng bên dưới là contract đích để triển khai. Có thể dùng logic/read model hiện có phía sau route/adapter đúng contract đó; không cần consumer duyệt phương án nội bộ. Không tự thêm field vào stable detail hoặc đổi response ngoài phạm vi.
 
-**Consumer:** Fulfillment proof candidate và gRPC `BatchLinkResolver.ResolveBatchLinks` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/traceability/v1/batch_links.proto), [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-grpc.md). Không gọi internal REST resolver0.2.2 nữa. **Provider đích:** `GET /api/v1/orders/{order_id}/traceability` trong OpenAPI tích hợp, endpoint riêng; không sửa frozen commercial snapshot hoặc lifecycle chỉ vì lookup nguồn gốc lỗi.
+**Consumer:** Fulfillment proof candidate và gRPC `BatchLinkResolver.ResolveBatchLinks` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/traceability/v1/batch_links.proto), [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-grpc.md). Không gọi internal REST resolver0.2.2 nữa. **Provider đích:** `GET /api/v1/orders/{order_id}/traceability` trong OpenAPI tích hợp, endpoint riêng; không sửa frozen commercial snapshot hoặc lifecycle chỉ vì lookup nguồn gốc lỗi.
 
 1. Dùng proof exact version từ luồng notification hiện có hoặc read model đã được kiểm chứng. Kiểm order/task/package/sealed version/generation/digest/warehouse và invariant dòng-lô-số lượng. Đầu ra nhận diện theo `(order, package, sealed_version, order_line_id, batch_id)`; duplicate input không cộng số lượng lần hai, event cũ không ghi lùi phiên bản. Persist projection là một phương án; owner có thể tái sử dụng projection/proof reader đã có nếu bảo đảm cùng semantics, ownership, deadline và không lấy latest/live allocation thay lịch sử. GET không tạo command nghiệp vụ để “bù” dữ liệu thiếu.
 
@@ -106,7 +107,56 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
 
 Đọc AGENTS.md và rule service trong repository trước khi sửa. Commit mới dùng tiếng Anh, giữ một type/scope; contract thay trước hoặc cùng code, không sửa migration cũ/generated rows sai quy trình. Không tự push dev/release hoặc deploy production; tạo PR theo quy trình nhóm.
 
+## Phần bổ sung riêng và ranh giới phối hợp
+
+Chốt ngày 27/11/2026 theo chủ nghiệp vụ: phần chưa có trong plan Dương được triển khai thành phần bổ sung riêng, tương thích với phần Dương đang làm. Baseline đã fetch lại: `dev@ac5395c5` / PR #175. Đây là phân chia phạm vi triển khai, không thay wire contract 0.4.0 và không tuyên bố các provider bổ sung đã chạy.
+
+## 1. Hai phạm vi công việc
+
+| Phạm vi | Nguồn chuẩn | Trách nhiệm |
+| --- | --- | --- |
+| Theo plan Dương | CatalogService trong catalog.proto; MediaInternalService trong media_service.proto; pricing, Media và video workflows tương ứng | Tái sử dụng implementation đã merge. Traceability làm consumer/adapters theo canonical, giữ fingerprint và semantics fileId. Không giao lại GetSkuBinding đã gỡ |
+| Bổ sung truy xuất | Guide, OpenAPI/candidates và phiếu owner Traceability 0.4.0 | Inventory warehouse/receipt binding; IAM scope/current grants/BFF; packed_lines exact sealed proof; Order customer traceability; UI nhập kho/hồ sơ/QR/đơn hàng |
+
+Owner contract truy xuất duy trì nguồn chuẩn và phát lại snapshot. Owner từng service thực hiện phần bổ sung trong nhánh/worktree riêng của service, hoặc commit/PR riêng nếu đang có PR plan Dương. Không nhét phần bổ sung vào PR pricing/Media đang làm mà không thể review riêng. Không tự sửa worktree hoặc nhánh đang làm của Dương. Nhánh riêng lấy nền dev hiện hành; không cherry-pick toàn bộ nhánh Traceability vào service khác chỉ để lấy tài liệu.
+
+## 2. Phần việc và ranh giới sở hữu
+
+| Task bổ sung | Owner triển khai | Đầu ra / phần giữ tương thích |
+| --- | --- | --- |
+| INV-TRC-01 | Inventory | warehouse_id field9 của BatchSource và receipt binding. Giữ field1–8, UUID lô và nghiệp vụ tồn/FEFO; không thêm auto-create profile |
+| IAM-TRC-01 | Identity/Keycloak | Scope kho đúng permission, current-grants RPC và BFF/Origin theo phiếu. Tái sử dụng query/principal/assignment hiện có; không đổi Media client, login/refresh hoặc RPC tài chính của Dương |
+| FUL-TRC-01 | Fulfillment | packed_lines field14 của đúng sealed proof. Giữ base proof, seal/video/parcel và Shipping; không lấy live allocation thay lịch sử |
+| ORD-TRC-01 | Order | Customer traceability read + consumer resolver, kiểm ownership trước peer. Giữ pricing snapshot/ValidateCheckoutPricing và lifecycle/payment/shipping hiện có |
+| WEB-TRC-01 | Web/Gateway | Nối receipt→context/profile, upload OCOP qua Media, in QR và nguồn gốc từ đơn. Dùng REST hiện có; không đổi pricing UI/API hoặc gọi gRPC trong browser |
+| Traceability backend | Traceability | Profile/revision, scoped authorization, resolver, consumer Catalog/Media, durable media binding. Không ghi DB của service khác |
+
+IAM current-grants và BatchLinkResolver là target của **phần bổ sung**, không phải RPC được lấy từ plan Dương hoặc đã có trong PR #175. Người phụ trách triển khai trực tiếp theo phiếu, không cần vòng ACCEPT trước code; kết quả vẫn phải review/test trước merge và rollout.
+
+## 3. Các điểm tránh conflict
+
+- **Canonical Catalog/Media:** giữ nguyên packages/proto/catalog/v1/catalog.proto và packages/proto/media/v1/media_service.proto của baseline khi làm phần bổ sung. Dùng adapter bên consumer; không tạo definition trùng, đổi method/field hoặc khôi phục REST đã decommission. Nếu phát hiện gap thật, nêu đúng OUT/test bị chặn và giữ compatibility, không âm thầm đổi contract của plan Dương.
+- **Proto mới:** IAM dùng file staff_authorization.proto riêng; resolver dùng batch_links.proto riêng, package/service names riêng. Không chèn RPC mới vào identity.proto/CatalogService chỉ để làm giống naming. Inventory/Packing candidate compile riêng; chỉ owner provider đưa field9/14 vào canonical, giữ các field/RPC cũ. Consumer lấy đúng canonical đã merge rồi codegen lại, không tự publish thêm một bản definition.
+- **Migration:** chỉ thêm migration mới trong service sở hữu DB. Không sửa V15/V17 pricing/media, V20/V21 IAM hoặc migration Traceability000001/000002. Kiểm số mới nhất trên dev và nhánh owner trước khi đặt tên; nếu trùng số chưa merge thì đổi số migration mới trước rollout, không sửa checksum bản đã áp dụng. Traceability000003 chỉ thêm local media_bind_jobs.
+- **OpenAPI/state matrix/registry:** Traceability owner duy trì bộ draft bổ sung và exporter. Phiếu gửi là generated snapshot, không sửa tay. Owner không ghi đè cả admin/customer stable hoặc generator output bằng bản từ nhánh khác; delta REST thật cập nhật contract tương ứng theo AGENTS.md. Contract stable không import draft.
+- **Route/port/auth:** Catalog giữ port cấu hình thực9005 + x-internal-token; Media9007 giữ policy provider. Identity RPC bổ sung dùng TLS listener riêng (mặc định9116 theo guide), resolver9003 nội bộ; kiểm deployment override thực tế trước bind. Không chuyển legacy Identity9016 sang TLS làm hỏng caller cũ; không expose RPC mới qua public wildcard. Không dùng permission/role của Media thay scope kho.
+- **Dữ liệu/events:** giữ namespace/Batch UUID/SKU, fingerprint, public hash và QR. Không đổi packing event v2, thêm activation event hoặc tự publish QR từ GoodsReceived. Lỗi traceability không đảo receipt hay chặn Order lifecycle; lỗi base proof thật vẫn bị từ chối theo baseline.
+
+Những ranh giới này giảm trùng sửa và breaking change; Git vẫn có thể conflict ở index/registry/state matrix dùng chung. Khi đó merge từng phần theo nguồn chuẩn, không chọn toàn bộ ours/theirs hoặc xóa nội dung owner khác để hết marker.
+
+## 4. Thứ tự tích hợp và yêu cầu đầu ra
+
+1. Ghim baseline dev và source SHA của phiếu trong PR. Owner làm phần độc lập bằng fixture đúng contract, ghi rõ IMPLEMENTED_NOT_INTEGRATED nếu chưa có provider thật. Không ghi E2E PASS từ mock.
+2. Tích hợp Inventory/IAM cho scoped workflow; Catalog/Media đi theo provider Dương đã có. Chỉ bật Media sau migrate/regrant và kiểm upload complete/READY; giữ job pending khi rollback flag.
+3. Order hỗ trợ proof extension và fail-soft trước khi Fulfillment phát field14; resolver sẵn sàng trước bật customer link. Thiếu extension chỉ làm traceability UNAVAILABLE, không phá base packing/shipping.
+4. Web dùng các provider đã đạt OUT; kiểm receipt độc lập, scope, review, upload, QR decode/print và nguồn gốc đơn. Không nghiệm thu bằng deploy chưa chứa commit mới.
+5. Trước merge, fetch/rebase dev mới nhất và kiểm diff chỉ còn phần bổ sung của service. Build/test cả khả năng mới và đường cũ bị chạm: Catalog binding/pricing, Media upload/validation/bind, IAM login/grants, Inventory receipt, sealed proof/shipping, Order checkout và traceability tùy phạm vi. Chạy gate contract chung nếu sửa shared contract; chưa đủ peer giữ flag tắt.
+
+PR nộp: task/OUT, base SHA + head SHA, files/contracts/migrations thực sự đổi, phần tái sử dụng từ plan Dương, PASS/FAIL/SKIPPED và giới hạn fixture/provider thật, thứ tự bật/rollback. Đây là kết quả sau triển khai, không phải mẫu xin duyệt trước. Trưởng nhóm vẫn duyệt PR vào dev/release; không tự deploy production.
+
 ## Quy định transport mới và contract gRPC
+
+**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
 
 Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR #175, `dev@ac5395c5`. Bản này thay phiếu 0.3.0 về Catalog và bổ sung tích hợp Media. Nghiệp vụ nhập kho độc lập hồ sơ, scope kho, duyệt độc lập và QR theo lô giữ nguyên. Không yêu cầu Dương triển khai CatalogTraceabilitySource/GetSkuBinding; target chưa phát hành đó đã được gỡ.
 
@@ -114,12 +164,12 @@ Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR
 
 | Kết nối | Canonical/target | Mức sẵn sàng |
 | --- | --- | --- |
-| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
-| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
-| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
-| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
-| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
-| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
+| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
+| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
+| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
+| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
+| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
+| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/34f3b4c7c2fb18de73efb749d5a083f70ff8429a/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
 | Web/BFF/admin/customer/public | REST/OpenAPI | Không viết gRPC browser client |
 
 Không thay canonical Catalog/Media method/message để khớp proposal riêng. Generate clients từ đúng file và common imports. Root AGENTS.md hiện đã bỏ internal REST Catalog và catalog-checkout OpenAPI; không khôi phục các artifact đã decommission trong PR #175. OIDC discovery/JWKS giữ HTTPS, BFF proxy giữ REST/Origin/CSRF; Kafka vẫn thông báo sau local commit, không kích hoạt QR.
@@ -203,7 +253,7 @@ info:
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: Distribution snapshot from documentation commit b5ab16e36a841ecb02204651db0d4e9d83d17476. Direct
+  description: Distribution snapshot from documentation commit 34f3b4c7c2fb18de73efb749d5a083f70ff8429a. Direct
     implementation target, not runtime acceptance. All references are local to this embedded contract.
 tags:
 - name: Order
@@ -502,7 +552,7 @@ components:
       scheme: bearer
       description: Existing authoritative Order detail guest credential only; payment-read grants do not authorize
         this operation. No new credential or header is introduced.
-x-source-commit: b5ab16e36a841ecb02204651db0d4e9d83d17476
+x-source-commit: 34f3b4c7c2fb18de73efb749d5a083f70ff8429a
 ```
 
 ## Proto target nhúng: `docs/03_api_specs/traceability-workflow-candidates/packing.proto`
@@ -735,4 +785,4 @@ message ResolveBatchLinksResponse {
 
 ## Tính toàn vẹn bản gửi
 
-Nguồn commit: `b5ab16e36a841ecb02204651db0d4e9d83d17476`. SHA-256 tập source: `09fdf97559ad681307d6003f33543015082cd0def3de228abbc654d28a2e155a`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.
+Nguồn commit: `34f3b4c7c2fb18de73efb749d5a083f70ff8429a`. SHA-256 tập source: `80267502a5698561772b8ac2c28e36ac84de0b8597eda1fbca474a13998c8d75`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.
