@@ -62,9 +62,9 @@ type Provenance struct {
 	CanonicalizedAt time.Time     `json:"canonicalized_at"`
 }
 type CatalogEvidence struct {
-	SnapshotID string    `json:"snapshot_id"`
-	Version    string    `json:"version"`
-	ValidUntil time.Time `json:"valid_until"`
+	CatalogVersion string    `json:"catalog_version"`
+	EvaluatedAt    time.Time `json:"evaluated_at"`
+	Channel        string    `json:"channel"`
 }
 type Packaging struct {
 	Description string `json:"description"`
@@ -208,8 +208,8 @@ func validateSnapshot(s SnapshotInput) error {
 		p.AcceptedAt.IsZero() || p.CanonicalizedAt.Before(p.AcceptedAt) || s.PlacedAt.Before(p.CanonicalizedAt) {
 		return ErrSnapshot
 	}
-	if !text(s.Catalog.SnapshotID) || !text(s.Catalog.Version) || !s.PlacedAt.Before(s.Catalog.ValidUntil) ||
-		!s.PlacedAt.Before(s.Shipping.ValidUntil) || len(s.Items) == 0 || len(s.Items) > 100 {
+	if !text(s.Catalog.CatalogVersion) || s.Catalog.EvaluatedAt.IsZero() || s.PlacedAt.Before(s.Catalog.EvaluatedAt) ||
+		!text(s.Catalog.Channel) || !s.PlacedAt.Before(s.Shipping.ValidUntil) || len(s.Items) == 0 || len(s.Items) > 100 {
 		return ErrSnapshot
 	}
 	var lines []SelectionLine
@@ -219,7 +219,7 @@ func validateSnapshot(s SnapshotInput) error {
 	for _, item := range s.Items {
 		if !validID(item.LineID) || seen[item.LineID] || !text(item.Name) || item.WeightGrams < 1 || item.WeightGrams > 1_000_000_000 ||
 			!text(item.Packaging.Description) || !text(item.Packaging.UnitCode) || !text(item.Packaging.Version) ||
-			item.CatalogVersion != s.Catalog.Version || item.UnitPrice < 1 {
+			item.CatalogVersion != s.Catalog.CatalogVersion || item.UnitPrice < 1 {
 			return ErrSnapshot
 		}
 		seen[item.LineID] = true

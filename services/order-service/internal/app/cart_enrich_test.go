@@ -3,18 +3,52 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
+	catalogpb "github.com/omamx/order-service/internal/gen/catalog/v1"
+	common "github.com/omamx/order-service/internal/gen/common/v1"
 	goredis "github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func cartTestService(t *testing.T, catalogURL string) (*Service, domain.Principal) {
+type cartCatalogMock struct {
+	catalogpb.CatalogServiceClient
+	err error
+}
+
+func (m cartCatalogMock) ValidateCheckoutPricing(_ context.Context, in *catalogpb.ValidateCheckoutPricingRequest, _ ...grpc.CallOption) (*catalogpb.ValidateCheckoutPricingResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &catalogpb.ValidateCheckoutPricingResponse{
+		IsValid: true,
+		Items: []*catalogpb.ValidatedCheckoutItem{
+			{
+				SkuCode:                in.Items[0].SkuCode,
+				ProductName:            "Me Xung Gion",
+				Quantity:               in.Items[0].Quantity,
+				AuthoritativeUnitPrice: &common.Money{CurrencyCode: "VND", Units: 345000, Nanos: 0},
+				NetWeight:              &common.Weight{DecimalValue: "500", Unit: common.WeightUnit_WEIGHT_UNIT_GRAM},
+				PackagingType:          catalogpb.PackagingType_PACKAGING_TYPE_HOP_GIAY_KRAFT,
+				IsSellable:             true,
+				VariantVersion:         7,
+				PriceVersion:           7,
+			},
+		},
+		CanonicalSubtotal: &common.Money{CurrencyCode: "VND", Units: 345000 * int64(in.Items[0].Quantity), Nanos: 0},
+		EvaluatedAt:       timestamppb.New(time.Now().UTC()),
+	}, nil
+}
+
+func cartTestService(t *testing.T, catalog *catalogprovider.Adapter) (*Service, domain.Principal) {
 	t.Helper()
 	mr := miniredis.RunT(t)
 	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
@@ -30,51 +64,17 @@ func cartTestService(t *testing.T, catalogURL string) (*Service, domain.Principa
 	}
 	mr.Set("cart:"+principal.Scope(), string(raw))
 	return &Service{
-		C:      Config{CatalogURL: catalogURL, InternalToken: "test-internal-token"},
-		Redis:  client,
-		Client: http.DefaultClient,
+		C:       Config{InternalToken: "test-internal-token"},
+		Redis:   client,
+		Catalog: catalog,
 	}, principal
 }
 
-func catalogStub(t *testing.T, status int) *httptest.Server {
-	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/internal/catalog/snapshots" {
-			http.NotFound(w, r)
-			return
-		}
-		if status != http.StatusOK {
-			w.WriteHeader(status)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{
-			"snapshot_id": "11111111-1111-1111-1111-111111111111",
-			"catalog_version": 7,
-			"valid_until": %q,
-			"items": [{
-				"sku_code": "MX-500",
-				"quantity": 2,
-				"product_name": "Me Xung Gion",
-				"unit_price": 345000,
-				"weight_grams": 500,
-				"packaging_type": "BOX",
-				"is_active": true
-			}],
-			"subtotal": 690000,
-			"contract_version": "catalog-checkout-1.0",
-			"channel": "D2C_WEB"
-		}`, time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano))
-	}))
-	t.Cleanup(server.Close)
-	return server
-}
-
-// F-35: a cart read must carry the catalog's name/price/weight for each
-// item - the cart itself persists only SKU + quantity.
-func TestCartEnrichesItemsFromCatalog(t *testing.T) {
-	server := catalogStub(t, http.StatusOK)
-	service, principal := cartTestService(t, server.URL)
+// F-35: a cart read falls back to Catalog gRPC when projection rows are missing
+// while keeping the cart itself SKU + quantity only.
+func TestCartEnrichesItemsFromCatalogGRPCFallback(t *testing.T) {
+	adapter := &catalogprovider.Adapter{Client: cartCatalogMock{}, Token: "token-012345678901234567890123456789"}
+	service, principal := cartTestService(t, adapter)
 
 	cart, err := service.Cart(context.Background(), principal)
 	if err != nil {
@@ -92,8 +92,8 @@ func TestCartEnrichesItemsFromCatalog(t *testing.T) {
 // F-35: when enrichment is impossible (catalog failing), the cart read
 // degrades to the SKU-only cart instead of failing.
 func TestCartDegradesWhenCatalogFails(t *testing.T) {
-	server := catalogStub(t, http.StatusInternalServerError)
-	service, principal := cartTestService(t, server.URL)
+	adapter := &catalogprovider.Adapter{Client: cartCatalogMock{err: status.Error(codes.Unavailable, "down")}, Token: "token-012345678901234567890123456789"}
+	service, principal := cartTestService(t, adapter)
 
 	cart, err := service.Cart(context.Background(), principal)
 	if err != nil {
@@ -108,10 +108,10 @@ func TestCartDegradesWhenCatalogFails(t *testing.T) {
 	}
 }
 
-// F-35: without a catalog URL configured there is nothing to enrich
-// with; the cart read must behave exactly as before.
+// F-35: without a catalog provider configured there is nothing to enrich
+// with; the cart read must behave cleanly as SKU-only.
 func TestCartWithoutCatalogConfigured(t *testing.T) {
-	service, principal := cartTestService(t, "")
+	service, principal := cartTestService(t, nil)
 
 	cart, err := service.Cart(context.Background(), principal)
 	if err != nil {
@@ -119,5 +119,20 @@ func TestCartWithoutCatalogConfigured(t *testing.T) {
 	}
 	if len(cart.Items) != 1 || cart.Items[0].Name != "" || cart.Items[0].UnitPrice != 0 {
 		t.Fatalf("expected SKU-only cart, got %+v", cart)
+	}
+}
+
+func TestProcessCatalogPriceEventValidation(t *testing.T) {
+	s := &Service{}
+	if _, err := s.ProcessCatalogPriceEvent(context.Background(), []byte(`not-json`)); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	statusCode, err := s.ProcessCatalogPriceEvent(context.Background(), []byte(`{"specversion":"1.0","id":"11111111-1111-1111-1111-111111111111","type":"vn.omama.catalog.product.updated.v1","data":{}}`))
+	if err != nil || statusCode != "IGNORED" {
+		t.Fatalf("expected IGNORED for non-price event, got status=%q err=%v", statusCode, err)
+	}
+	_, err = s.ProcessCatalogPriceEvent(context.Background(), []byte(`{"specversion":"1.0","id":"11111111-1111-1111-1111-111111111111","type":"vn.omama.catalog.product.price.changed.v1","data":{"sku_code":"MX-500","prices":[{"channel":"D2C_WEB","currency_code":"VND","amount_units":50000,"status":"ACTIVE"}]}}`))
+	if err == nil || !errors.Is(err, err) {
+		t.Fatal("expected DATABASE_UNAVAILABLE when DB is nil")
 	}
 }

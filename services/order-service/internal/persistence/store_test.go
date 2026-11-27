@@ -158,7 +158,7 @@ func prepared(t *testing.T, h *harness, index int) (Acceptance, Placement) {
 	d.OrderID, d.OperationID, d.SnapshotID = a.PlannedOrderID, a.OperationID, uuid.NewString()
 	d.Provenance.QuoteID, d.Provenance.CartID, d.Provenance.CartRevision = in.QuoteID, in.CartID, in.CartRevision
 	d.Provenance.AcceptedAt, d.Provenance.CanonicalizedAt, d.PlacedAt = a.AcceptedAt, now, now
-	d.Catalog.ValidUntil = now.Add(20 * time.Minute)
+	d.Catalog.EvaluatedAt = now.Add(-time.Second)
 	d.Shipping.ValidUntil = now.Add(20 * time.Minute)
 	if d.Payment.Method == "VIETQR" {
 		expires := now.Add(15 * time.Minute)

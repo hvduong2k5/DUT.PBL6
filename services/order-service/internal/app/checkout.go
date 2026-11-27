@@ -45,17 +45,44 @@ func (s *Service) redisCart(ctx context.Context, p domain.Principal) (domain.Car
 }
 
 // enrichCart fills display-only catalog data (product name, unit price,
-// weight) into cart items (F-35). The cart itself persists only SKU +
-// quantity, so without this the storefront can show nothing but the SKU
-// and "awaiting quote". Any enrichment failure degrades silently to the
-// SKU-only cart - the previous behaviour - and never blocks a cart read
-// or mutation: checkout always re-quotes from a fresh catalog snapshot,
-// so these values are never a pricing source.
+// weight) into cart items (F-35) from the local sku_prices_projection table,
+// falling back to Catalog gRPC only for SKUs missing from the projection.
+// Any enrichment failure degrades silently to the SKU-only cart and never
+// blocks a cart read or mutation: checkout always re-validates via gRPC.
 func (s *Service) enrichCart(ctx context.Context, c *domain.Cart) {
-	if (s.Catalog == nil && s.C.CatalogURL == "") || len(c.Items) == 0 {
+	if len(c.Items) == 0 {
 		return
 	}
-	snapshot, err := s.catalogSnapshot(ctx, c.Items)
+	skus := make([]string, 0, len(c.Items))
+	for _, item := range c.Items {
+		skus = append(skus, item.SKU)
+	}
+	var missing []domain.Item
+	if s.DB != nil {
+		if projected, err := s.LookupCartPrices(ctx, "D2C_WEB", skus); err == nil {
+			for i := range c.Items {
+				if p, ok := projected[c.Items[i].SKU]; ok {
+					c.Items[i].Name = p.ProductName
+					c.Items[i].UnitPrice = p.UnitPrice
+					c.Items[i].Weight = p.WeightGrams
+					c.Items[i].Version = p.PriceVersion
+				} else {
+					missing = append(missing, c.Items[i])
+				}
+			}
+			if len(missing) == 0 {
+				return
+			}
+		} else {
+			missing = c.Items
+		}
+	} else {
+		missing = c.Items
+	}
+	if s.Catalog == nil || len(missing) == 0 {
+		return
+	}
+	snapshot, err := s.catalogSnapshot(ctx, missing)
 	if err != nil {
 		return
 	}
@@ -64,6 +91,9 @@ func (s *Service) enrichCart(ctx context.Context, c *domain.Cart) {
 		bySKU[item.SKU] = index
 	}
 	for i := range c.Items {
+		if c.Items[i].Name != "" && c.Items[i].UnitPrice > 0 {
+			continue
+		}
 		index, ok := bySKU[c.Items[i].SKU]
 		if !ok {
 			continue

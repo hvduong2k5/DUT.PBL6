@@ -282,7 +282,7 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 			e = core.ErrDeadline
 			break
 		}
-		if !now.Before(accepted.QuoteExpires) || !now.Add(30*time.Second).Before(terms.Catalog.ValidUntil) || !now.Add(30*time.Second).Before(terms.Shipping.ValidUntil) {
+		if !now.Before(accepted.QuoteExpires) || !now.Add(30*time.Second).Before(terms.Shipping.ValidUntil) {
 			return true, r.fail(ctx, w, "CHECKOUT_TERMS_EXPIRED")
 		}
 		terms.OrderID = w.Planned
@@ -293,9 +293,6 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		terms.Provenance.CanonicalizedAt = now
 		if terms.Payment.Method == "VIETQR" {
 			expiry := now.Add(15 * time.Minute)
-			if terms.Catalog.ValidUntil.Before(expiry) {
-				expiry = terms.Catalog.ValidUntil
-			}
 			if terms.Shipping.ValidUntil.Before(expiry) {
 				expiry = terms.Shipping.ValidUntil
 			}
@@ -316,7 +313,7 @@ func (r *CheckoutRuntime) Work(ctx context.Context) (bool, error) {
 		if e = r.Store.db.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 			break
 		}
-		if !now.Add(30*time.Second).Before(terms.Catalog.ValidUntil) || !now.Add(30*time.Second).Before(terms.Shipping.ValidUntil) || (terms.Payment.ExpiresAt != nil && !now.Add(30*time.Second).Before(*terms.Payment.ExpiresAt)) {
+		if !now.Add(30*time.Second).Before(terms.Shipping.ValidUntil) || (terms.Payment.ExpiresAt != nil && !now.Add(30*time.Second).Before(*terms.Payment.ExpiresAt)) {
 			return true, r.advance(ctx, w, "COMPENSATE", terms, nil)
 		}
 		if stop, e := r.deadlineGate(ctx, w); e != nil {

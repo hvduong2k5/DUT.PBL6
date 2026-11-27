@@ -702,7 +702,15 @@ class CatalogAdminServiceImplTest {
             eq("Product"),
             eq(productId.toString()),
             eq("vn.omama.catalog.product.price.changed.v1"),
-            any());
+            argThat(
+                raw ->
+                    raw instanceof java.util.Map<?, ?> payload
+                        && "MX-TEST".equals(payload.get("sku_code"))
+                        && Long.valueOf(2L).equals(payload.get("price_revision"))
+                        && payload.containsKey("product_name")
+                        && payload.containsKey("weight_grams")
+                        && payload.containsKey("packaging_type")
+                        && payload.containsKey("is_saleable")));
   }
 
   @Test

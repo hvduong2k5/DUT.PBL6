@@ -30,9 +30,9 @@
           "canonicalized_at": "2026-10-17T10:01:03+07:00"
         },
         "catalog": {
-          "snapshot_id": "catalog-snapshot-example-42",
-          "version": "catalog-42",
-          "valid_until": "2026-10-17T10:20:00+07:00"
+          "catalog_version": "catalog-42",
+          "evaluated_at": "2026-10-17T10:01:02+07:00",
+          "channel": "D2C_WEB"
         },
         "items": [
           {
@@ -116,7 +116,7 @@
           "promotion_policy_version": null
         }
       },
-      "expected_logical_hash": "93c1d30cd1d965e8c756be5c708a8c0c36bc778f0fdf0ade128976f267788df9"
+      "expected_logical_hash": "44a1405aee0329485347dcf9a84fcf52958820b0dc5a5f8484ee10e367dc202f"
     },
     {
       "name": "guest_cod",
@@ -146,9 +146,9 @@
           "canonicalized_at": "2026-10-17T10:01:03+07:00"
         },
         "catalog": {
-          "snapshot_id": "catalog-snapshot-example-42",
-          "version": "catalog-42",
-          "valid_until": "2026-10-17T10:20:00+07:00"
+          "catalog_version": "catalog-42",
+          "evaluated_at": "2026-10-17T10:01:02+07:00",
+          "channel": "D2C_WEB"
         },
         "items": [
           {
@@ -232,7 +232,7 @@
           "promotion_policy_version": null
         }
       },
-      "expected_logical_hash": "e0a6bab7a431197d28e117ac4c7c7c83ff95caa33e7e58c723e2cc867cfa43bf"
+      "expected_logical_hash": "d5afbb96930e7ce8df590c6973ed5f25b64a305a80f8b7dc4cb581db9da7cd4d"
     }
   ]
 }

@@ -89,66 +89,41 @@ func (s *Service) EnableCatalogFromEnv(ctx context.Context) error {
 }
 
 func (s *Service) catalogSnapshot(ctx context.Context, items []domain.Item) (catalogSnapshot, error) {
-	if s.Catalog != nil {
-		snap, err := s.Catalog.ValidateCheckoutPricing(ctx, items, false)
-		if err != nil {
-			return catalogSnapshot{}, err
-		}
-		converted := catalogSnapshot{
-			ID:       snap.ID,
-			Version:  snap.Version,
-			Until:    snap.Until,
-			Subtotal: snap.Subtotal,
-			Contract: snap.Contract,
-			Channel:  snap.Channel,
-		}
-		for _, item := range snap.Items {
-			converted.Items = append(converted.Items, struct {
-				SKU       string `json:"sku_code"`
-				Quantity  int    `json:"quantity"`
-				Name      string `json:"product_name"`
-				Price     int64  `json:"unit_price"`
-				Weight    int64  `json:"weight_grams"`
-				Packaging string `json:"packaging_type"`
-				Active    bool   `json:"is_active"`
-			}{
-				SKU:       item.SKU,
-				Quantity:  item.Quantity,
-				Name:      item.Name,
-				Price:     item.Price,
-				Weight:    item.Weight,
-				Packaging: item.Packaging,
-				Active:    item.Active,
-			})
-		}
-		return converted, nil
+	if s.Catalog == nil {
+		return catalogSnapshot{}, domain.E("CATALOG_UNAVAILABLE", 503)
 	}
-	var snapshot catalogSnapshot
-	err := s.callURL(ctx, s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots", map[string]any{"items": items, "channel": "D2C_WEB"}, &snapshot)
+	snap, err := s.Catalog.ValidateCheckoutPricing(ctx, items, false)
 	if err != nil {
-		return snapshot, err
+		return catalogSnapshot{}, err
 	}
-	if snapshot.Contract != "catalog-checkout-1.0" || snapshot.Channel != "D2C_WEB" || snapshot.Version < 1 || !time.Now().Before(snapshot.Until) || len(snapshot.Items) != len(items) {
-		return snapshot, domain.E("CATALOG_INCONSISTENT", 503)
+	converted := catalogSnapshot{
+		ID:       snap.ID,
+		Version:  snap.Version,
+		Until:    snap.Until,
+		Subtotal: snap.Subtotal,
+		Contract: snap.Contract,
+		Channel:  snap.Channel,
 	}
-	if _, err = uuid.Parse(snapshot.ID); err != nil {
-		return snapshot, domain.E("CATALOG_INCONSISTENT", 503)
+	for _, item := range snap.Items {
+		converted.Items = append(converted.Items, struct {
+			SKU       string `json:"sku_code"`
+			Quantity  int    `json:"quantity"`
+			Name      string `json:"product_name"`
+			Price     int64  `json:"unit_price"`
+			Weight    int64  `json:"weight_grams"`
+			Packaging string `json:"packaging_type"`
+			Active    bool   `json:"is_active"`
+		}{
+			SKU:       item.SKU,
+			Quantity:  item.Quantity,
+			Name:      item.Name,
+			Price:     item.Price,
+			Weight:    item.Weight,
+			Packaging: item.Packaging,
+			Active:    item.Active,
+		})
 	}
-	var total int64
-	for index, item := range snapshot.Items {
-		if item.SKU != items[index].SKU || item.Quantity != items[index].Quantity || !item.Active || item.Weight < 1 || item.Name == "" || item.Packaging == "" || item.Quantity < 1 || item.Quantity > 999 || item.Price < 1 || item.Price > domain.MaxMoney/int64(item.Quantity) {
-			return snapshot, domain.E("CATALOG_INCONSISTENT", 503)
-		}
-		line := item.Price * int64(item.Quantity)
-		if total > domain.MaxMoney-line {
-			return snapshot, domain.E("INVALID_TOTAL", 422)
-		}
-		total += line
-	}
-	if total != snapshot.Subtotal {
-		return snapshot, domain.E("CATALOG_INCONSISTENT", 503)
-	}
-	return snapshot, nil
+	return converted, nil
 }
 
 func (s *Service) catalogValidation(ctx context.Context, input, output any) error {
@@ -202,8 +177,12 @@ func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.Snapsh
 		return terms, err
 	}
 	version := strconv.FormatInt(snapshot.Version, 10)
+	evaluatedAt := snapshot.Until.Add(-15 * time.Minute)
+	if evaluatedAt.IsZero() {
+		evaluatedAt = time.Now().UTC()
+	}
 	terms.WarehouseID = s.C.CatalogWarehouse
-	terms.Catalog = core.CatalogEvidence{SnapshotID: snapshot.ID, Version: version, ValidUntil: snapshot.Until}
+	terms.Catalog = core.CatalogEvidence{CatalogVersion: version, EvaluatedAt: evaluatedAt, Channel: snapshot.Channel}
 	var weight int64
 	for _, item := range snapshot.Items {
 		terms.Items = append(terms.Items, core.SnapshotItem{LineID: uuid.NewString(), SKU: item.SKU, Name: item.Name, Quantity: int64(item.Quantity), UnitPrice: item.Price, LineSubtotal: item.Price * int64(item.Quantity), WeightGrams: item.Weight, Packaging: core.Packaging{Description: item.Packaging, UnitCode: "UNIT", Version: "catalog-packaging-1"}, CatalogVersion: version})
