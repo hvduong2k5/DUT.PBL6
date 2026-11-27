@@ -124,10 +124,36 @@ func TestPublishInspectedReceiptsE2E(t *testing.T) {
 		{"2.5", "2", "0.5", "receiving-e2e-partial-0001"}, {"1", "0", "1", "receiving-e2e-rejected-0001"},
 	} {
 		r := create(tc.quantity, tc.key)
-		if _, err := service.InspectGoodsReceipt(ctx, r.ID, "inspector", []domain.GoodsReceiptInspectionLine{{
+		lines := []domain.GoodsReceiptInspectionLine{{
 			GoodsReceiptLineID: r.Lines[0].ID, QuantityAccepted: tc.accepted, QuantityRejected: tc.rejected, InspectionNotes: "Synthetic quality rejection",
-		}}); err != nil {
+		}}
+		type result struct {
+			receipt domain.GoodsReceipt
+			err     error
+		}
+		results := make(chan result, 2)
+		start := make(chan struct{})
+		for i := 0; i < 2; i++ {
+			go func() {
+				<-start
+				receipt, err := application.NewService(postgres.New(db)).InspectGoodsReceiptWithIdempotency(ctx, r.ID, "inspector", "inspect-"+tc.key, lines)
+				results <- result{receipt, err}
+			}()
+		}
+		close(start)
+		for i := 0; i < 2; i++ {
+			got := <-results
+			if got.err != nil || got.receipt.Version != r.Version+1 || got.receipt.InspectionIdempotencyKey != "inspect-"+tc.key {
+				t.Fatalf("concurrent inspection replay: %v version=%d", got.err, got.receipt.Version)
+			}
+		}
+		// A fresh service/repository instance must replay from PostgreSQL evidence.
+		if _, err := application.NewService(postgres.New(db)).InspectGoodsReceiptWithIdempotency(ctx, r.ID, "inspector", "inspect-"+tc.key, lines); err != nil {
 			t.Fatal(err)
+		}
+		var inspections int
+		if err := db.QueryRow(ctx, "SELECT count(*) FROM goods_receipt_status_history WHERE goods_receipt_id=$1 AND action='INSPECTED'", r.ID).Scan(&inspections); err != nil || inspections != 1 {
+			t.Fatalf("inspection replay added history: count=%d err=%v", inspections, err)
 		}
 	}
 	// Inject a failure at the outbox boundary. Receipt, PO and history writes must
@@ -141,12 +167,12 @@ func TestPublishInspectedReceiptsE2E(t *testing.T) {
 CREATE TRIGGER reject_test_outbox BEFORE INSERT ON goods_received_outbox FOR EACH ROW EXECUTE FUNCTION reject_test_outbox()`); err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.InspectGoodsReceipt(ctx, r.ID, "inspector", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: r.Lines[0].ID, QuantityAccepted: "1", QuantityRejected: "0"}})
+	_, err = service.InspectGoodsReceiptWithIdempotency(ctx, r.ID, "inspector", "inspect-rollback-00001", []domain.GoodsReceiptInspectionLine{{GoodsReceiptLineID: r.Lines[0].ID, QuantityAccepted: "1", QuantityRejected: "0"}})
 	if err == nil || !strings.Contains(err.Error(), "injected outbox failure") {
 		t.Fatalf("fault was not observed: %v", err)
 	}
 	after, err := repo.GetGoodsReceipt(ctx, r.ID)
-	if err != nil || after.Status != domain.GoodsReceiptDraft || after.Version != r.Version {
+	if err != nil || after.Status != domain.GoodsReceiptDraft || after.Version != r.Version || after.InspectionIdempotencyKey != "" || after.InspectionRequestHash != "" {
 		t.Fatalf("receipt did not roll back: %v", err)
 	}
 	poAfter, err := repo.GetPurchaseOrder(ctx, po.ID)

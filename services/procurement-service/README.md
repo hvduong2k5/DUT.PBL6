@@ -50,7 +50,7 @@ not the ADMIN role name.
    authorized reads/actions, and maker-checker denial using real Identity tokens.
    Unit and isolated PostgreSQL tests do not replace this deployment acceptance.
 
-The seed alone does not activate deployed access. The read gateway configuration
+The seed alone does not activate deployed access. The gateway configuration
 below still needs deployment; Identity BFF relay and Web UI remain separate work.
 
 Seed regression coverage lives in Identity's `ProcurementPermissionMigrationTest`
@@ -60,20 +60,22 @@ PostgreSQL JDBC URL, including test credentials, before running Identity's Gradl
 test suite. The two database migration cases are explicitly skipped when that
 variable is absent; a unit-only green result is not migration execution evidence.
 
-### Read-only Kong integration
+### Kong integration: management reads and idempotent receiving
 
-The shared `admin-stable.openapi.yaml` version 2.1.0 documents six operations:
-supplier/material list and detail, supplier offers and material offers. Kong routes
-only GET/OPTIONS for those exact path shapes to `http://procurement-service:8008`,
-without stripping the path or injecting credentials. Procurement requires the
-employee's verified bearer JWT and `PROCUREMENT_VIEW#GLOBAL`; the gateway does
+The shared `admin-stable.openapi.yaml` version 2.2.0 documents eleven operations:
+six supplier/material/offer GETs, PO create/detail, receipt create/detail and receipt
+inspection. Kong routes the exact contracted GET/POST/OPTIONS path shapes to
+`http://procurement-service:8008`, without stripping the path, retrying business
+requests or injecting credentials. Procurement verifies the employee bearer JWT
+and operation permission/scope; the gateway does
 not exchange a cookie for a token. A browser's Identity session alone is not enough
 until the separate BFF relay is implemented.
 
-POs, receipts, plans, contracts and every mutation are **not** exposed by this new
-Kong route. Their business implementation remains available on the private service;
-full request/response contracts and retry/idempotency acceptance are still needed
-before extending the public gateway surface. This is not a complete Procurement UI.
+PO approval/send/revisions/cancel/close, variance resolution, plan/contract APIs and
+master-data mutations are **not** exposed. Their implementation remains private;
+full contracts and retry/idempotency acceptance are needed before gateway expansion.
+In particular, creating a PO does not yet provide the whole approval/dispatch UI.
+This is not a complete Procurement Web/BFF integration.
 
 Collections return `items: []` when empty. Supplier/material pages contain `limit`
 and `offset`, not a fabricated global total. Offers include all versions (including
@@ -101,7 +103,7 @@ none of these commands has been run against a shared/live deployment here.
 
 From the repository root, run `python scripts/verify-procurement-admin-contract.py`
 with the MVP Python dependencies. It validates actual Go HTTP/JWT response fixtures,
-all six operation examples, denied methods/paths and network wiring. Separately
+all eleven operation examples, denied methods/paths and network wiring. Separately
 validate the real Kong 3.9.3 parser with:
 
 ```powershell
@@ -112,7 +114,7 @@ For real router-selection coverage, CI also starts a disposable Kong with debug
 headers enabled **only in that test**, admin listener off, and the Procurement
 hostname mapped to the container's loopback (no application or live upstream).
 `verify-procurement-admin-contract.py --gateway-url http://127.0.0.1:<test-port>`
-checks the selected route for six GETs, 30 rejected method combinations and eight
+checks the selected route for eleven operations, 55 rejected method combinations and eleven
 non-allowlisted paths. Expected upstream connection failures are not service
 failures in this routing-only test. Never enable Kong debug headers on the live
 gateway for this purpose. See `.github/workflows/contracts.yml` for the test setup.
@@ -175,6 +177,18 @@ The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sendi
 - These plans use caller-supplied snapshots. Live Analytics/Inventory connectors and manual overrides remain separate work. If a selected supplier's current minimum quantity exceeds the approved proposal or no effective offer exists, conversion is rejected; update and reapprove the plan before retrying.
 
 ## Goods receipt and quality inspection
+
+Schema migration `000014_receipt_inspection_idempotency` must precede deployment.
+Inspection now requires `Idempotency-Key` (16–128 visible ASCII characters), even
+on private HTTP calls. The signed inspector, receipt ID, key and normalized payload
+identify a replay. Inspection strings are trimmed and lines sorted by ID; decimal
+text remains significant. Same command returns the current receipt without another
+inspection, PO quantity update, history entry or outbox event. Different actor,
+key or payload after inspection returns 409; historical inspections without replay
+evidence are not backfilled or assumed equivalent. Evidence has no TTL and is
+stored atomically with all business/outbox writes. Validation/DB rollback consumes
+no key. Existing internal application calls can still use the non-HTTP inspection
+method, but cannot retroactively claim idempotent replay of historical inspections.
 
 - `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates. It requires an `Idempotency-Key` header (16–128 visible ASCII characters); retrying the same key and payload returns the original receipt, while reusing the key with changed data returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.

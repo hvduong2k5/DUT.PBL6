@@ -7,7 +7,7 @@ info:
     identifier: "LicenseRef-Proprietary"
   description: "Non-stable proposal for backend review. Every operation requires an explicit product/security decision before implementation compatibility is promised. Draft means a concrete proposal exists; planned means the capability is identified but policy or workflow remains incomplete."
   x-procurement-service-authorization:
-    status: "Six supplier/material/offer GET operations are stable in admin-stable 2.1.0 and allowlisted in Kong. All other Procurement routes remain private; Web/BFF integration is pending."
+    status: "Eleven operations are stable in admin-stable 2.2.0 and allowlisted in Kong: six supplier/material/offer reads, create/get PO, create/get receipt and receipt inspection. Other lifecycle, planning, contract and master-data mutations remain private; Web/BFF integration is pending."
     response-compatibility: "Procurement errors now use the shared flat Error envelope (code, message, requestId), including private operations; the legacy nested error object is removed. Internal callers must migrate. Empty supplier/material/offer collections return items: [], not null."
     identity-rollout:
       migration: "V28__seed_procurement_permissions.sql"
@@ -19,6 +19,7 @@ info:
       operation: "POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect"
       validation: "Physical quantity must be at least 0.01; KG must convert exactly to integer grams; G/GRAM/UNIT/PIECE must be integral; converted quantity cannot exceed 2147483647. Unsupported units fail 400 INVALID_ARGUMENT."
       transaction: "Validation failure rolls back inspection, PO changes and outbox; no partial acceptance is published."
+      idempotency: "Inspection now requires Idempotency-Key and migration 000014. Receipt ID + signed inspector + key and normalized payload identify replay; changed key/actor/payload or legacy inspection without evidence returns 409. Retry evidence commits atomically with receipt/PO/history/outbox and is retained with the receipt."
       inventory-policy: "quantity_received enters QUARANTINE under PR #118; accepted/rejected quantities and Procurement dates are evidence only, not Inventory QC authorization. No automatic sellable release or rejected-stock disposition is implemented here."
     token:
       type: "Bearer JWT"

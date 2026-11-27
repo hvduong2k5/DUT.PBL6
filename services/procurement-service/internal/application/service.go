@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -547,6 +548,9 @@ func (s *Service) CreateGoodsReceipt(ctx context.Context, request GoodsReceiptRe
 	if err != nil {
 		return domain.GoodsReceipt{}, err
 	}
+	if order.Status != domain.PurchaseOrderSent && order.Status != domain.PurchaseOrderAcknowledged && order.Status != domain.PurchaseOrderPartiallyReceived {
+		return domain.GoodsReceipt{}, domain.ErrInvalidState
+	}
 	lineByID := make(map[uuid.UUID]domain.PurchaseOrderLine, len(order.Lines))
 	for _, line := range order.Lines {
 		lineByID[line.ID] = line
@@ -581,10 +585,66 @@ func (s *Service) ResolveGoodsReceiptVariance(ctx context.Context, receiptID, va
 }
 
 func (s *Service) InspectGoodsReceipt(ctx context.Context, id uuid.UUID, actor string, inspections []domain.GoodsReceiptInspectionLine) (domain.GoodsReceipt, error) {
+	return s.inspectGoodsReceipt(ctx, id, actor, inspections, "", "")
+}
+
+// InspectGoodsReceiptWithIdempotency retains the retry evidence in the same
+// transaction as receipt, PO, history and outbox changes. Replays return the
+// current receipt; they do not run inspection or publish another event.
+func (s *Service) InspectGoodsReceiptWithIdempotency(ctx context.Context, id uuid.UUID, actor, key string, inspections []domain.GoodsReceiptInspectionLine) (domain.GoodsReceipt, error) {
+	actor, key = strings.TrimSpace(actor), strings.TrimSpace(key)
+	if actor == "" || !validIdempotencyKey(key) || len(inspections) == 0 {
+		return domain.GoodsReceipt{}, domain.ErrInvalidArgument
+	}
+	canonical := append([]domain.GoodsReceiptInspectionLine(nil), inspections...)
+	for i := range canonical {
+		canonical[i].QuantityAccepted = strings.TrimSpace(canonical[i].QuantityAccepted)
+		canonical[i].QuantityRejected = strings.TrimSpace(canonical[i].QuantityRejected)
+		canonical[i].HumidityPercent = strings.TrimSpace(canonical[i].HumidityPercent)
+		canonical[i].InspectionNotes = strings.TrimSpace(canonical[i].InspectionNotes)
+	}
+	sort.Slice(canonical, func(i, j int) bool {
+		return canonical[i].GoodsReceiptLineID.String() < canonical[j].GoodsReceiptLineID.String()
+	})
+	encoded, err := json.Marshal(canonical)
+	if err != nil {
+		return domain.GoodsReceipt{}, err
+	}
+	digest := sha256.Sum256(encoded)
+	hash := hex.EncodeToString(digest[:])
+	result, err := s.inspectGoodsReceipt(ctx, id, actor, canonical, key, hash)
+	if !errors.Is(err, domain.ErrConflict) {
+		return result, err
+	}
+	// A concurrent request may have committed after our initial read. Do not
+	// retry the business action; only replay matching durable evidence.
+	current, lookupErr := s.repo.GetGoodsReceipt(ctx, id)
+	if lookupErr != nil {
+		return domain.GoodsReceipt{}, lookupErr
+	}
+	if matchingInspection(current, actor, key, hash) {
+		return current, nil
+	}
+	return domain.GoodsReceipt{}, err
+}
+
+func matchingInspection(receipt domain.GoodsReceipt, actor, key, hash string) bool {
+	return receipt.Status == domain.GoodsReceiptInspected && receipt.InspectedBy == actor &&
+		receipt.InspectionIdempotencyKey == key && receipt.InspectionRequestHash == hash
+}
+
+func (s *Service) inspectGoodsReceipt(ctx context.Context, id uuid.UUID, actor string, inspections []domain.GoodsReceiptInspectionLine, key, hash string) (domain.GoodsReceipt, error) {
 	receipt, err := s.repo.GetGoodsReceipt(ctx, id)
 	if err != nil {
 		return domain.GoodsReceipt{}, err
 	}
+	if key != "" && receipt.Status != domain.GoodsReceiptDraft {
+		if matchingInspection(receipt, actor, key, hash) {
+			return receipt, nil
+		}
+		return domain.GoodsReceipt{}, domain.ErrConflict
+	}
+	receipt.InspectionIdempotencyKey, receipt.InspectionRequestHash = key, hash
 	expectedVersion := receipt.Version
 	if err := receipt.Inspect(actor, inspections); err != nil {
 		return domain.GoodsReceipt{}, err

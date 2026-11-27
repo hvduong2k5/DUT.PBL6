@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.1.0
+  version: 2.2.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -44,6 +44,164 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/procurement/purchase-orders:
+    post:
+      operationId: createProcurementPurchaseOrder
+      summary: Create an idempotent draft purchase order
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Snapshots active supplier/material
+        and currently effective offers into a DRAFT. Idempotency-Key is scoped to
+        the authenticated creator and this create operation; same key and decoded
+        payload returns the existing PO's current state with 201. Different payload
+        with the same key returns 409. Decimal text and line order are significant.
+        No supplier dispatch or approval is performed. Creation does not reserve stock.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPurchaseOrderCreate'}
+            example: {supplier_id: '10000000-0000-0000-0000-000000000001', lines: [{material_id: '20000000-0000-0000-0000-000000000001', quantity: '10'}]}
+      responses:
+        '201': {$ref: '#/components/responses/ProcurementPurchaseOrderResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: getProcurementPurchaseOrder
+      summary: Read a purchase order and its current lifecycle state
+      description: Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Does not expose approval or dispatch actions through this gateway slice.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, error, auth]
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementPurchaseOrderResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/goods-receipts:
+    post:
+      operationId: createProcurementGoodsReceipt
+      summary: Record a draft goods receipt against an issued PO
+      description: >-
+        Requires EMPLOYEE and PROCUREMENT_RECEIVE with matching WAREHOUSE#warehouse_code
+        or GLOBAL scope. PO must be SENT, ACKNOWLEDGED or PARTIALLY_RECEIVED. Each line
+        references a unique PO line. Dates are both present or both absent; manufacture
+        must precede expiry. Idempotency-Key is scoped to authenticated receiver and
+        this create operation. Same key/payload returns the receipt's current state
+        with 201; changed payload returns 409. Decimal text and line order are significant.
+        Recording a draft neither updates PO received quantities nor emits Inventory events.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants-any: [PROCUREMENT_RECEIVE#GLOBAL, 'PROCUREMENT_RECEIVE#WAREHOUSE#<warehouse_code>']
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementReceiptCreate'}
+            example: {purchase_order_id: '40000000-0000-0000-0000-000000000001', warehouse_code: WH-01, lines: [{purchase_order_line_id: '50000000-0000-0000-0000-000000000001', quantity_received: '2'}]}
+      responses:
+        '201': {$ref: '#/components/responses/ProcurementReceiptResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}:
+    parameters:
+    - name: goodsReceiptID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: getProcurementGoodsReceipt
+      summary: Read a receipt subject to warehouse scope
+      description: >-
+        EMPLOYEE with PROCUREMENT_VIEW#GLOBAL, or PROCUREMENT_RECEIVE with GLOBAL
+        or matching warehouse scope from the stored receipt. A warehouse-scoped VIEW
+        grant never bypasses the receipt warehouse check, including when combined
+        with RECEIVE for another warehouse. Unknown receipt returns 404.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants-any: [PROCUREMENT_VIEW#GLOBAL, PROCUREMENT_RECEIVE#GLOBAL, 'PROCUREMENT_RECEIVE#WAREHOUSE#<receiptWarehouse>']
+      x-ui-states: [success, loading, error, auth]
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementReceiptResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect:
+    parameters:
+    - name: goodsReceiptID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: inspectProcurementGoodsReceipt
+      summary: Inspect a receipt with durable idempotency and atomic Inventory outbox
+      description: >-
+        EMPLOYEE with PROCUREMENT_RECEIVE GLOBAL or matching warehouse from the stored
+        receipt. Migration 000014 is required. Key is scoped to this receipt and signed
+        inspector; same key and normalized inspection lines returns its current state
+        without another inspection, PO update, history entry or outbox event. Lines
+        are sorted by ID and strings trimmed for hashing; different decimal text,
+        key, inspector or evidence after inspection returns 409. Historical inspections
+        without replay evidence also return 409, never fabricate a match. Keys are
+        retained with the receipt without a cache TTL. Every receipt line must appear
+        exactly once; accepted+rejected must equal physical received quantity. Rejection
+        or over-receipt requires a note; humidity is 0..100. Physical quantity must be
+        at least 0.01, convert exactly to int32 grams/units using KG/G/GRAM/UNIT/PIECE.
+        Validation failures consume no key. Receipt/PO/history/retry evidence/outbox
+        commit atomically. Accepted/rejected values are evidence, not Inventory QC
+        release: all physical quantity enters QUARANTINE. No refund/stock release is implied.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants-any: [PROCUREMENT_RECEIVE#GLOBAL, 'PROCUREMENT_RECEIVE#WAREHOUSE#<receiptWarehouse>']
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementInspection'}
+            example: {lines: [{goods_receipt_line_id: '70000000-0000-0000-0000-000000000001', quantity_accepted: '1.5', quantity_rejected: '0.5', inspection_notes: Damaged portion}]}
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementReceiptResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/procurement/suppliers:
     get:
       operationId: listProcurementSuppliers
@@ -11666,6 +11824,13 @@ components:
       in: cookie
       name: admin_session
   parameters:
+    ProcurementIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Required for retryable creation/inspection; retain the same key when retrying an unchanged command. A successful replay returns the current resource, not a frozen HTTP snapshot.
+      schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
+      example: procurement-command-00001
     ProcurementLimit:
       name: limit
       in: query
@@ -11684,6 +11849,182 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementPurchaseOrderCreate:
+      type: object
+      additionalProperties: false
+      required: [supplier_id, lines]
+      properties:
+        supplier_id: {type: string, format: uuid}
+        expected_delivery_date: {type: string, format: date}
+        notes: {type: string}
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [material_id, quantity]
+            properties:
+              material_id: {type: string, format: uuid}
+              quantity: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$', description: Positive decimal quantity; must satisfy the effective supplier offer MOQ.}
+    ProcurementReceiptCreate:
+      type: object
+      additionalProperties: false
+      required: [purchase_order_id, warehouse_code, lines]
+      properties:
+        purchase_order_id: {type: string, format: uuid}
+        warehouse_code: {type: string, minLength: 1}
+        notes: {type: string}
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [purchase_order_line_id, quantity_received]
+            properties:
+              purchase_order_line_id: {type: string, format: uuid}
+              quantity_received: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$', description: Positive physical quantity; Inventory conversion bounds are checked at inspection.}
+              supplier_lot_code: {type: string}
+              manufactured_on: {type: string, format: date}
+              expires_on: {type: string, format: date}
+    ProcurementInspection:
+      type: object
+      additionalProperties: false
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [goods_receipt_line_id, quantity_accepted, quantity_rejected]
+            properties:
+              goods_receipt_line_id: {type: string, format: uuid}
+              quantity_accepted: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$'}
+              quantity_rejected: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$'}
+              humidity_percent: {type: string, description: Optional decimal percentage 0..100.}
+              inspection_notes: {type: string, description: Required for rejected or over-received quantities.}
+    ProcurementPurchaseOrder:
+      type: object
+      additionalProperties: false
+      required: [id, number, revision, supplier_id, supplier_name, status, currency, lines, total_amount_minor, created_by, created_at, updated_at, version]
+      properties:
+        id: {type: string, format: uuid}
+        number: {type: string}
+        revision: {type: integer}
+        supplier_id: {type: string, format: uuid}
+        supplier_name: {type: string}
+        status: {type: string, enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, SENT, ACKNOWLEDGED, CHANGE_REQUESTED, SUPPLIER_DECLINED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED, CLOSED]}
+        currency: {type: string}
+        lines:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, line_number, material_id, material_code, material_name, quantity, received_quantity, accepted_quantity, unit, unit_price_minor, line_amount_minor]
+            properties:
+              id: {type: string, format: uuid}
+              line_number: {type: integer}
+              material_id: {type: string, format: uuid}
+              material_code: {type: string}
+              material_name: {type: string}
+              quantity: {type: string}
+              received_quantity: {type: string}
+              accepted_quantity: {type: string}
+              unit: {type: string}
+              unit_price_minor: {type: integer, format: int64}
+              line_amount_minor: {type: integer, format: int64}
+        total_amount_minor: {type: integer, format: int64}
+        notes: {type: string}
+        expected_delivery_date: {type: string, format: date-time, description: Response is an RFC3339 instant; create input uses a calendar date.}
+        created_by: {type: string}
+        submitted_by: {type: string}
+        submitted_at: {type: string, format: date-time}
+        approved_by: {type: string}
+        approved_at: {type: string, format: date-time}
+        rejected_by: {type: string}
+        rejected_at: {type: string, format: date-time}
+        rejection_reason: {type: string}
+        sent_by: {type: string}
+        sent_at: {type: string, format: date-time}
+        supplier_response_note: {type: string}
+        supplier_responded_by: {type: string}
+        supplier_responded_at: {type: string, format: date-time}
+        cancelled_by: {type: string}
+        cancelled_at: {type: string, format: date-time}
+        cancellation_reason: {type: string}
+        closed_by: {type: string}
+        closed_at: {type: string, format: date-time}
+        close_reason: {type: string}
+        supply_plan_id: {type: string, format: uuid}
+        supply_plan_revision: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer, format: int64}
+    ProcurementReceipt:
+      type: object
+      additionalProperties: false
+      required: [id, number, purchase_order_id, purchase_order_number, supplier_id, supplier_name, warehouse_code, status, lines, variances, received_by, created_at, updated_at, version]
+      properties:
+        id: {type: string, format: uuid}
+        number: {type: string}
+        purchase_order_id: {type: string, format: uuid}
+        purchase_order_number: {type: string}
+        supplier_id: {type: string, format: uuid}
+        supplier_name: {type: string}
+        warehouse_code: {type: string}
+        status: {type: string, enum: [DRAFT, INSPECTED]}
+        lines:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, purchase_order_line_id, material_id, material_code, material_name, unit, expected_open_quantity, quantity_received, quantity_accepted, quantity_rejected, quality_status]
+            properties:
+              id: {type: string, format: uuid}
+              purchase_order_line_id: {type: string, format: uuid}
+              material_id: {type: string, format: uuid}
+              material_code: {type: string}
+              material_name: {type: string}
+              unit: {type: string}
+              expected_open_quantity: {type: string}
+              quantity_received: {type: string}
+              quantity_accepted: {type: string}
+              quantity_rejected: {type: string}
+              quality_status: {type: string, enum: [PENDING, ACCEPTED, PARTIALLY_ACCEPTED, REJECTED]}
+              supplier_lot_code: {type: string}
+              manufactured_on: {type: string, format: date-time}
+              expires_on: {type: string, format: date-time}
+              humidity_percent: {type: string}
+              inspection_notes: {type: string}
+        variances:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, goods_receipt_line_id, type, expected_quantity, actual_quantity, difference_quantity, reason, status]
+            properties:
+              id: {type: string, format: uuid}
+              goods_receipt_line_id: {type: string, format: uuid}
+              type: {type: string, enum: [OVER_RECEIVED, QUALITY_REJECTED]}
+              expected_quantity: {type: string}
+              actual_quantity: {type: string}
+              difference_quantity: {type: string}
+              reason: {type: string}
+              status: {type: string}
+              decision: {type: string}
+              resolved_by: {type: string}
+              resolved_at: {type: string, format: date-time}
+              resolution_note: {type: string}
+        received_by: {type: string}
+        inspected_by: {type: string}
+        inspected_at: {type: string, format: date-time}
+        notes: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        version: {type: integer, format: int64}
     ProcurementSupplier:
       type: object
       additionalProperties: false
@@ -12724,6 +13065,24 @@ components:
                   $ref: '#/components/schemas/CatalogAdminPriceRecord'
       additionalProperties: false
   responses:
+    ProcurementPurchaseOrderResult:
+      description: Current PO state, including price snapshots and lifecycle metadata. Retry keys/hashes are never serialized.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+          example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: DRAFT, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z', version: 1}
+    ProcurementReceiptResult:
+      description: Current receipt snapshot; inspection is not Inventory QC release. Retry keys/hashes are never serialized.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ProcurementReceipt'}
+          example: {id: '60000000-0000-0000-0000-000000000001', number: GR-DEMO, purchase_order_id: '40000000-0000-0000-0000-000000000001', purchase_order_number: PO-DEMO, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, warehouse_code: WH-01, status: DRAFT, lines: [{id: '70000000-0000-0000-0000-000000000001', purchase_order_line_id: '50000000-0000-0000-0000-000000000001', material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, unit: KG, expected_open_quantity: '10', quantity_received: '2', quantity_accepted: '0', quantity_rejected: '0', quality_status: PENDING}], variances: [], received_by: '80000000-0000-0000-0000-000000000001', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z', version: 1}
+    ProcurementConflict:
+      description: Idempotency key/payload conflict, concurrent update, already inspected without matching retry evidence, or operation invalid in the current lifecycle state. Codes CONFLICT or INVALID_STATE.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+          example: {code: CONFLICT, message: Request conflicts with current data., requestId: '40000000-0000-0000-0000-000000000001'}
     ProcurementOfferList:
       description: All supplier price versions; empty items for a known parent with no offers.
       content:
@@ -12735,7 +13094,7 @@ components:
             empty:
               value: {items: []}
     ProcurementBadRequest:
-      description: Malformed resource UUID or invalid limit/offset. Authentication and permission are checked first.
+      description: Malformed UUID, invalid limit/offset, missing or invalid Idempotency-Key, invalid JSON (INVALID_JSON), or invalid business fields/physical conversion (INVALID_ARGUMENT). Authentication and permission family are checked first.
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
@@ -12747,13 +13106,13 @@ components:
           schema: {$ref: '#/components/schemas/Error'}
           example: {code: UNAUTHENTICATED, message: A valid employee bearer token is required., requestId: '40000000-0000-0000-0000-000000000001'}
     ProcurementForbidden:
-      description: Authenticated non-employee, or employee without PROCUREMENT_VIEW#GLOBAL. A warehouse grant or ADMIN role alone does not authorize reads.
+      description: Authenticated non-employee or missing operation permission/scope. Management reads require VIEW GLOBAL, PO create MANAGE GLOBAL, receipt create/inspect matching RECEIVE; receipt reads permit VIEW GLOBAL or matching RECEIVE. ADMIN role alone never authorizes.
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}
           example: {code: FORBIDDEN, message: Required procurement permission or scope is missing., requestId: '40000000-0000-0000-0000-000000000001'}
     ProcurementNotFound:
-      description: Unknown supplier/material, including the parent of an offers collection.
+      description: Unknown supplier, material, PO, receipt or referenced resource, including the parent of an offers collection.
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Error'}

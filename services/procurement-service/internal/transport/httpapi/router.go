@@ -530,7 +530,7 @@ func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		h.writeServiceError(w, err)
 		return
 	}
-	if !hasWarehouseScope(r, "PROCUREMENT_RECEIVE", receipt.WarehouseCode) && !hasPermission(employeeFromRequest(r), "PROCUREMENT_VIEW") {
+	if !hasWarehouseScope(r, "PROCUREMENT_RECEIVE", receipt.WarehouseCode) && !employeeFromRequest(r).allows("PROCUREMENT_VIEW", "GLOBAL", "") {
 		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt is outside the employee warehouse scope")
 		return
 	}
@@ -571,6 +571,11 @@ func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Router) inspectGoodsReceipt(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	id, ok := pathUUID(w, chi.URLParam(r, "goodsReceiptID"))
 	if !ok {
 		return
@@ -605,7 +610,7 @@ func (h *Router) inspectGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 		}
 		lines = append(lines, domain.GoodsReceiptInspectionLine{GoodsReceiptLineID: lineID, QuantityAccepted: line.QuantityAccepted, QuantityRejected: line.QuantityRejected, HumidityPercent: line.HumidityPercent, InspectionNotes: line.InspectionNotes})
 	}
-	result, err := h.service.InspectGoodsReceipt(r.Context(), id, actorID(r), lines)
+	result, err := h.service.InspectGoodsReceiptWithIdempotency(r.Context(), id, actorID(r), key, lines)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return

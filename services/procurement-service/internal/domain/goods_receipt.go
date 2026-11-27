@@ -66,25 +66,27 @@ type GoodsReceiptLine struct {
 }
 
 type GoodsReceipt struct {
-	ID                  uuid.UUID              `json:"id"`
-	Number              string                 `json:"number"`
-	PurchaseOrderID     uuid.UUID              `json:"purchase_order_id"`
-	PurchaseOrderNumber string                 `json:"purchase_order_number"`
-	SupplierID          uuid.UUID              `json:"supplier_id"`
-	SupplierName        string                 `json:"supplier_name"`
-	WarehouseCode       string                 `json:"warehouse_code"`
-	Status              GoodsReceiptStatus     `json:"status"`
-	Lines               []GoodsReceiptLine     `json:"lines"`
-	Variances           []GoodsReceiptVariance `json:"variances"`
-	ReceivedBy          string                 `json:"received_by"`
-	IdempotencyKey      string                 `json:"-"`
-	RequestHash         string                 `json:"-"`
-	InspectedBy         string                 `json:"inspected_by,omitempty"`
-	InspectedAt         *time.Time             `json:"inspected_at,omitempty"`
-	Notes               string                 `json:"notes,omitempty"`
-	CreatedAt           time.Time              `json:"created_at"`
-	UpdatedAt           time.Time              `json:"updated_at"`
-	Version             int64                  `json:"version"`
+	ID                       uuid.UUID              `json:"id"`
+	Number                   string                 `json:"number"`
+	PurchaseOrderID          uuid.UUID              `json:"purchase_order_id"`
+	PurchaseOrderNumber      string                 `json:"purchase_order_number"`
+	SupplierID               uuid.UUID              `json:"supplier_id"`
+	SupplierName             string                 `json:"supplier_name"`
+	WarehouseCode            string                 `json:"warehouse_code"`
+	Status                   GoodsReceiptStatus     `json:"status"`
+	Lines                    []GoodsReceiptLine     `json:"lines"`
+	Variances                []GoodsReceiptVariance `json:"variances"`
+	ReceivedBy               string                 `json:"received_by"`
+	IdempotencyKey           string                 `json:"-"`
+	RequestHash              string                 `json:"-"`
+	InspectionIdempotencyKey string                 `json:"-"`
+	InspectionRequestHash    string                 `json:"-"`
+	InspectedBy              string                 `json:"inspected_by,omitempty"`
+	InspectedAt              *time.Time             `json:"inspected_at,omitempty"`
+	Notes                    string                 `json:"notes,omitempty"`
+	CreatedAt                time.Time              `json:"created_at"`
+	UpdatedAt                time.Time              `json:"updated_at"`
+	Version                  int64                  `json:"version"`
 }
 
 type GoodsReceiptLineInput struct {

@@ -46,29 +46,44 @@ def main():
     service = services[0]
     assert service["url"] == "http://procurement-service:8008"
     assert service["retries"] == 0, "Do not silently add transport replay"
-    assert len(service["routes"]) == 1
-    route = service["routes"][0]
-    assert route["strip_path"] is False
-    assert set(route["methods"]) == {"GET", "OPTIONS"}
-    assert "plugins" not in service and "plugins" not in route, "Do not inject user/internal credentials"
+    assert len(service["routes"]) == 4
+    assert "plugins" not in service, "Do not inject user/internal credentials"
     patterns = []
-    for path in route["paths"]:
-        assert path.startswith("~/") and path.endswith("$")
-        assert "(?" not in path, "Kong expression regex does not support look-around"
-        patterns.append(re.compile(path[1:]))
+    for route in service["routes"]:
+        assert route["strip_path"] is False and "plugins" not in route
+        assert set(route["methods"]) in ({"GET", "OPTIONS"}, {"POST", "OPTIONS"})
+        for path in route["paths"]:
+            assert path.startswith("~/") and path.endswith("$")
+            assert "(?" not in path, "Kong expression regex does not support look-around"
+            patterns.append((re.compile(path[1:]), route))
 
     def matches(path, method):
-        return method in route["methods"] and any(p.fullmatch(path) for p in patterns)
+        return [route["name"] for pattern, route in patterns if method in route["methods"] and pattern.fullmatch(path)]
 
-    operations = {path: item["get"] for path, item in spec["paths"].items() if path.startswith(PREFIX)}
-    assert len(operations) == 6, "Keep this first gateway surface read-only and explicit"
-    for path, operation in operations.items():
+    operations = {(path, method.upper()): operation for path, item in spec["paths"].items() if path.startswith(PREFIX)
+                  for method, operation in item.items() if method in ("get", "post")}
+    assert len(operations) == 11, "Keep the contracted gateway surface explicit"
+    for (path, method), operation in operations.items():
         assert operation["security"] == [{"bearerAuth": []}], "No implicit cookie authentication"
-        assert operation["x-required-grants"] == ["PROCUREMENT_VIEW#GLOBAL"]
+        if "/goods-receipts" in path:
+            scope = "warehouse_code" if path == PREFIX+"goods-receipts" else "receiptWarehouse"
+            expected = {"PROCUREMENT_RECEIVE#GLOBAL", "PROCUREMENT_RECEIVE#WAREHOUSE#<"+scope+">"}
+            if method == "GET":
+                expected.add("PROCUREMENT_VIEW#GLOBAL")
+            assert set(operation["x-required-grants-any"]) == expected
+        else:
+            permission = "PROCUREMENT_MANAGE#GLOBAL" if method == "POST" else "PROCUREMENT_VIEW#GLOBAL"
+            assert operation["x-required-grants"] == [permission]
         concrete = re.sub(r"\{[^}]+\}", "10000000-0000-0000-0000-000000000001", path)
-        assert matches(concrete, "GET") and matches(concrete, "OPTIONS")
-        for method in ("POST", "PUT", "PATCH", "DELETE", "HEAD"):
-            assert not matches(concrete, method), (concrete, method)
+        assert len(matches(concrete, method)) == 1 and matches(concrete, "OPTIONS")
+        for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - {method}:
+            assert not matches(concrete, denied), (concrete, denied)
+        if method == "POST":
+            key = next(resolve(spec, parameter) for parameter in operation["parameters"]
+                       if resolve(spec, parameter)["name"] == "Idempotency-Key")
+            assert key["required"] is True and key["schema"]["minLength"] == 16
+            request = operation["requestBody"]["content"]["application/json"]
+            validate(spec, request["schema"], request["example"])
         for response in operation["responses"].values():
             media = resolve(spec, response)["content"]["application/json"]
             examples = [e["value"] for e in media.get("examples", {}).values()]
@@ -93,33 +108,37 @@ def main():
     assert overlay["networks"]["gateway"]["external"] is True
 
     result = subprocess.run(["go", "test", "-p", "1", "./internal/transport/httpapi", "-run",
-                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced", "-count=1", "-v"],
+                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced|TestReceivingContractExamples", "-count=1", "-v"],
                             cwd=ROOT / "services/procurement-service", capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     fixtures = [json.loads(line.split("PROCUREMENT_HTTP=", 1)[1]) for line in result.stdout.splitlines()
                 if line.startswith("PROCUREMENT_HTTP=")]
-    assert len(fixtures) >= 50, "Missing runtime response evidence"
-    coverage = {path: set() for path in operations}
+    assert len(fixtures) >= 90, "Missing runtime response evidence"
+    coverage = {key: set() for key in operations}
     for fixture in fixtures:
         path = urlsplit(fixture["path"]).path
-        template = next((p for p in operations if re.fullmatch(re.sub(r"\{[^}]+\}", "[^/]+", p), path)), None)
+        template = next((key for key in operations if fixture["method"] == key[1] and re.fullmatch(re.sub(r"\{[^}]+\}", "[^/]+", key[0]), path)), None)
         status = str(fixture["status"])
-        if template and fixture["method"] == "GET":
-            assert matches(path, "GET")
+        if template:
+            assert matches(path, fixture["method"])
             response = resolve(spec, operations[template]["responses"][status])
             schema = response["content"]["application/json"]["schema"]
             coverage[template].add(status)
+            if fixture["method"] == "POST" and fixture["status"] < 300:
+                validate(spec, operations[template]["requestBody"]["content"]["application/json"]["schema"], fixture["request"])
         else:
             assert fixture["status"] in (404, 405)
             schema = {"$ref": "#/components/schemas/Error"}
         validate(spec, schema, fixture["body"])
-        expected_codes = {400: "INVALID_ARGUMENT", 401: "UNAUTHENTICATED", 403: "FORBIDDEN",
-                          404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED", 500: "INTERNAL"}
+        expected_codes = {400: {"INVALID_ARGUMENT", "INVALID_JSON"}, 401: {"UNAUTHENTICATED"}, 403: {"FORBIDDEN"},
+                          404: {"NOT_FOUND"}, 405: {"METHOD_NOT_ALLOWED"}, 409: {"CONFLICT", "INVALID_STATE"}, 500: {"INTERNAL"}}
         if fixture["status"] in expected_codes:
-            assert fixture["body"]["code"] == expected_codes[fixture["status"]]
-    for path, statuses in coverage.items():
-        assert {"200", "401", "403"} <= statuses, (path, statuses)
+            assert fixture["body"]["code"] in expected_codes[fixture["status"]]
+    for key, statuses in coverage.items():
+        assert {"401", "403"} <= statuses and {"200", "201"} & statuses, (key, statuses)
+        if key[1] == "POST":
+            assert {"400", "409"} <= statuses, (key, statuses)
     # Guard against weakening the Error contract or accepting null empty lists.
     invalid = {"code": "INTERNAL", "message": "Failed"}
     try:
@@ -138,7 +157,7 @@ def main():
             pass
         else:
             raise AssertionError("Null collection accepted: " + name)
-    print(f"PASS: {len(operations)} read operations, {len(fixtures)} real HTTP/JWT payloads, examples, Kong allowlist and private network guards")
+    print(f"PASS: {len(operations)} operations, {len(fixtures)} real HTTP/JWT payloads, examples, Kong allowlist and private network guards")
     if args.gateway_url:
         target = urlsplit(args.gateway_url)
         assert target.scheme == "http" and target.hostname == "127.0.0.1" and target.port
@@ -170,16 +189,18 @@ def main():
                 response.read()
                 return response.headers.get("Kong-Route-Name")
 
-        for path in operations:
+        for path, method in operations:
             concrete = re.sub(r"\{[^}]+\}", "10000000-0000-0000-0000-000000000001", path)
-            assert selected(concrete) == route["name"], ("Kong failed to select read route", concrete)
-            for method in ("POST", "PUT", "PATCH", "DELETE", "HEAD"):
-                assert selected(concrete, method) != route["name"], ("Kong exposed method", concrete, method)
+            assert selected(concrete, method) in matches(concrete, method), ("Kong failed to select contracted route", concrete)
+            for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - {method}:
+                assert selected(concrete, denied) not in {r["name"] for r in service["routes"]}, ("Kong exposed method", concrete, denied)
         for path in (PREFIX + "goods-receipts", PREFIX + "suppliers/x/contracts", "/health/ready",
                      PREFIX + "suppliers/", PREFIX + "suppliers-extra", PREFIX + "materials/x/offers/extra",
                      "/other" + PREFIX + "suppliers", PREFIX + "materials/x/preferred-supplier"):
-            assert selected(path) != route["name"], ("Kong selected unexpected path", path)
-        print("PASS: real Kong route selection: six GETs, thirty denied method combinations and eight denied paths (not service/deployment E2E)")
+            assert selected(path) not in {r["name"] for r in service["routes"]}, ("Kong selected unexpected path", path)
+        for path in (PREFIX+"purchase-orders/x/approve", PREFIX+"purchase-orders/x/send", PREFIX+"goods-receipts/x/variances/y/resolve"):
+            assert selected(path, "POST") not in {r["name"] for r in service["routes"]}, path
+        print("PASS: real Kong selection: 11 operations, 55 denied methods and 11 denied paths (not service/deployment E2E)")
 
 
 if __name__ == "__main__":

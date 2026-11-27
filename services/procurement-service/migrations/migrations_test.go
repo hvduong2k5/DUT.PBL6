@@ -16,7 +16,7 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 			names = append(names, entry.Name())
 		}
 	}
-	if len(names) != 13 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" || names[6] != "000007_goods_receipt_variances.up.sql" || names[7] != "000008_supply_plan_snapshots.up.sql" || names[8] != "000009_supply_plan_revision_immutability.up.sql" || names[9] != "000010_supply_plan_approval_workflow.up.sql" || names[10] != "000011_supply_plan_purchase_order_conversion.up.sql" || names[11] != "000012_purchase_order_idempotency.up.sql" || names[12] != "000013_goods_received_outbox.up.sql" {
+	if len(names) != 14 || names[0] != "000001_supplier_material_master.up.sql" || names[1] != "000002_purchase_orders.up.sql" || names[2] != "000003_goods_receipts.up.sql" || names[3] != "000004_supplier_agreements_and_price_versions.up.sql" || names[4] != "000005_purchase_order_supplier_response_and_revisions.up.sql" || names[5] != "000006_goods_receipt_idempotency.up.sql" || names[6] != "000007_goods_receipt_variances.up.sql" || names[7] != "000008_supply_plan_snapshots.up.sql" || names[8] != "000009_supply_plan_revision_immutability.up.sql" || names[9] != "000010_supply_plan_approval_workflow.up.sql" || names[10] != "000011_supply_plan_purchase_order_conversion.up.sql" || names[11] != "000012_purchase_order_idempotency.up.sql" || names[12] != "000013_goods_received_outbox.up.sql" || names[13] != "000014_receipt_inspection_idempotency.up.sql" {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
 	}
 	for _, name := range names {
@@ -35,6 +35,18 @@ func TestGoodsReceivedOutboxMigrationSupportsLeasedRetries(t *testing.T) {
 	for _, required := range []string{"goods_received_outbox", "event_id TEXT PRIMARY KEY", "next_attempt_at", "claimed_until", "attempts", "last_error", "published_at", "goods_received_outbox_pending_idx"} {
 		if !strings.Contains(sql, required) {
 			t.Errorf("goods received outbox migration missing %q", required)
+		}
+	}
+}
+
+func TestInspectionIdempotencyMigrationKeepsReplayEvidenceOnReceipt(t *testing.T) {
+	encoded, err := files.ReadFile("000014_receipt_inspection_idempotency.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"ALTER TABLE goods_receipts", "inspection_idempotency_key VARCHAR(128)", "inspection_request_hash VARCHAR(64)", "goods_receipts_inspection_idempotency_valid", "status = 'INSPECTED'", "inspected_by IS NOT NULL"} {
+		if !strings.Contains(string(encoded), required) {
+			t.Fatalf("missing migration guard: %s", required)
 		}
 	}
 }

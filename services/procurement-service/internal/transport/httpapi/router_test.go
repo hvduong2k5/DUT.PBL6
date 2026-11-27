@@ -386,6 +386,8 @@ func employeeToken(user, role string) string {
 		grants = []string{"PROCUREMENT_VIEW#GLOBAL"}
 	case "WAREHOUSE_VIEWER":
 		grants = []string{"PROCUREMENT_VIEW#WAREHOUSE#WH-01"}
+	case "WAREHOUSE_MIXED":
+		grants = []string{"PROCUREMENT_VIEW#WAREHOUSE#WH-02", "PROCUREMENT_RECEIVE#WAREHOUSE#WH-01"}
 	}
 	principalID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(user)).String()
 	claims := map[string]any{

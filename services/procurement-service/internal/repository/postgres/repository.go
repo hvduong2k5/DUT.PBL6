@@ -974,8 +974,8 @@ func (r *Repository) GetGoodsReceipt(ctx context.Context, id uuid.UUID) (domain.
 	var lines, variances []byte
 	var inspectedBy pgtype.Text
 	var inspectedAt pgtype.Timestamptz
-	err := r.pool.QueryRow(ctx, `SELECT id,receipt_number,purchase_order_id,purchase_order_number,supplier_id,supplier_name,warehouse_code,status,lines,variances,received_by,inspected_by,inspected_at,notes,created_at,updated_at,version FROM goods_receipts WHERE id=$1`, id).
-		Scan(&receipt.ID, &receipt.Number, &receipt.PurchaseOrderID, &receipt.PurchaseOrderNumber, &receipt.SupplierID, &receipt.SupplierName, &receipt.WarehouseCode, &status, &lines, &variances, &receipt.ReceivedBy, &inspectedBy, &inspectedAt, &receipt.Notes, &receipt.CreatedAt, &receipt.UpdatedAt, &receipt.Version)
+	err := r.pool.QueryRow(ctx, `SELECT id,receipt_number,purchase_order_id,purchase_order_number,supplier_id,supplier_name,warehouse_code,status,lines,variances,received_by,inspected_by,inspected_at,notes,created_at,updated_at,version,inspection_idempotency_key,inspection_request_hash FROM goods_receipts WHERE id=$1`, id).
+		Scan(&receipt.ID, &receipt.Number, &receipt.PurchaseOrderID, &receipt.PurchaseOrderNumber, &receipt.SupplierID, &receipt.SupplierName, &receipt.WarehouseCode, &status, &lines, &variances, &receipt.ReceivedBy, &inspectedBy, &inspectedAt, &receipt.Notes, &receipt.CreatedAt, &receipt.UpdatedAt, &receipt.Version, &receipt.InspectionIdempotencyKey, &receipt.InspectionRequestHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.GoodsReceipt{}, domain.ErrNotFound
 	}
@@ -1182,7 +1182,7 @@ func (r *Repository) InspectGoodsReceipt(ctx context.Context, receipt domain.Goo
 	if err != nil {
 		return domain.GoodsReceipt{}, err
 	}
-	err = tx.QueryRow(ctx, `UPDATE goods_receipts SET status=$3,lines=$4,variances=$5,inspected_by=$6,inspected_at=$7,updated_at=now(),version=version+1 WHERE id=$1 AND version=$2 RETURNING updated_at,version`, receipt.ID, expectedVersion, receipt.Status, encoded, variancesEncoded, receipt.InspectedBy, receipt.InspectedAt).Scan(&receipt.UpdatedAt, &receipt.Version)
+	err = tx.QueryRow(ctx, `UPDATE goods_receipts SET status=$3,lines=$4,variances=$5,inspected_by=$6,inspected_at=$7,inspection_idempotency_key=$8,inspection_request_hash=$9,updated_at=now(),version=version+1 WHERE id=$1 AND version=$2 RETURNING updated_at,version`, receipt.ID, expectedVersion, receipt.Status, encoded, variancesEncoded, receipt.InspectedBy, receipt.InspectedAt, receipt.InspectionIdempotencyKey, receipt.InspectionRequestHash).Scan(&receipt.UpdatedAt, &receipt.Version)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.GoodsReceipt{}, domain.ErrConflict
 	}
