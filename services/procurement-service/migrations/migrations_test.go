@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -32,6 +33,8 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 		"000013_goods_received_outbox.up.sql",
 		"000014_receipt_inspection_idempotency.up.sql",
 		"000015_purchase_order_action_idempotency.up.sql",
+		"000016_purchase_order_terminal_actions.up.sql",
+		"000017_purchase_order_revision_evidence.up.sql",
 	}
 	if strings.Join(names, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
@@ -52,6 +55,44 @@ func TestPOActionMigrationStoresCompletedSnapshotsWithActorScopedKeys(t *testing
 		if !strings.Contains(string(encoded), required) {
 			t.Fatalf("missing command evidence guard: %s", required)
 		}
+	}
+}
+
+func TestTerminalPOActionsExtendJournalWithoutDiscardingEvidence(t *testing.T) {
+	up, err := files.ReadFile("000016_purchase_order_terminal_actions.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, action := range []string{"'SUBMIT'", "'SEND'", "'ACKNOWLEDGE'", "'REQUEST_CHANGE'", "'DECLINE'", "'CANCEL'", "'CLOSE'"} {
+		if !strings.Contains(string(up), action) {
+			t.Fatalf("missing journal action: %s", action)
+		}
+	}
+	down, err := os.ReadFile("000016_purchase_order_terminal_actions.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") || strings.Contains(string(up), "DROP TABLE") {
+		t.Fatal("rollback must refuse incompatible completed evidence, never discard it")
+	}
+}
+
+func TestPORevisionMigrationProtectsArchivedEvidence(t *testing.T) {
+	up, err := files.ReadFile("000017_purchase_order_revision_evidence.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, guard := range []string{"'REVISION'", "BEFORE UPDATE OR DELETE ON purchase_order_revision_snapshots", "BEFORE TRUNCATE ON purchase_order_revision_snapshots", "RAISE EXCEPTION"} {
+		if !strings.Contains(string(up), guard) {
+			t.Fatalf("missing archive guard: %s", guard)
+		}
+	}
+	down, err := os.ReadFile("000017_purchase_order_revision_evidence.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") || strings.Contains(string(down), "DROP TABLE") {
+		t.Fatal("rollback must retain archives and completed commands")
 	}
 }
 

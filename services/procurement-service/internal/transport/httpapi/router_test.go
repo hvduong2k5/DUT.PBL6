@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -281,7 +282,16 @@ func (r *httpRepository) RevisePurchaseOrder(_ context.Context, order domain.Pur
 	return order, nil
 }
 func (r *httpRepository) ListPurchaseOrderRevisions(_ context.Context, id uuid.UUID, limit, offset int) ([]domain.PurchaseOrderRevision, error) {
-	return r.revisions[id], nil
+	items := append([]domain.PurchaseOrderRevision{}, r.revisions[id]...)
+	sort.Slice(items, func(i, j int) bool { return items[i].Revision > items[j].Revision })
+	if offset >= len(items) {
+		return []domain.PurchaseOrderRevision{}, nil
+	}
+	end := offset + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return items[offset:end], nil
 }
 func (r *httpRepository) CreateGoodsReceipt(_ context.Context, receipt domain.GoodsReceipt) (domain.GoodsReceipt, error) {
 	for _, existing := range r.receipts {
@@ -598,12 +608,12 @@ func TestPurchaseOrderSupplierResponseRevisionAndSendRetryHTTP(t *testing.T) {
 	if retry.Code != http.StatusOK || repo.orders[order.ID].Version != sentVersion {
 		t.Fatalf("send retry status=%d version=%d want %d", retry.Code, repo.orders[order.ID].Version, sentVersion)
 	}
-	response := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/supplier-response", `{"response":"CHANGE_REQUESTED","note":"Change delivery quantity"}`, "buyer", "SUPPLY_MANAGER")
+	response := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/supplier-response", fmt.Sprintf(`{"expected_version":%d,"response":"CHANGE_REQUESTED","note":"Change delivery quantity"}`, sentVersion), "buyer", "SUPPLY_MANAGER", "supplier-response-test-0001")
 	if response.Code != http.StatusOK {
 		t.Fatalf("supplier response status=%d body=%s", response.Code, response.Body.String())
 	}
-	revisionBody := `{"supplier_id":"` + supplier.ID.String() + `","notes":"revision 2","reason":"supplier requested quantity change","lines":[{"material_id":"` + material.ID.String() + `","quantity":"2"}]}`
-	revised := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/revisions", revisionBody, "buyer-2", "SUPPLY_MANAGER")
+	revisionBody := fmt.Sprintf(`{"expected_version":%d,"supplier_id":"%s","notes":"revision 2","reason":"supplier requested quantity change","lines":[{"material_id":"%s","quantity":"2"}]}`, repo.orders[order.ID].Version, supplier.ID, material.ID)
+	revised := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/revisions", revisionBody, "buyer-2", "SUPPLY_MANAGER", "po-revision-test-0001")
 	if revised.Code != http.StatusOK {
 		t.Fatalf("revision status=%d body=%s", revised.Code, revised.Body.String())
 	}

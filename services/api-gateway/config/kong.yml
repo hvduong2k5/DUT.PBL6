@@ -6,7 +6,7 @@ _transform: true
 # ==============================================================================
 services:
   # Procurement verifies employee JWT and operation/warehouse grants locally.
-  # Only contracted reads and idempotent create/inspect operations are exposed.
+  # Only contracted reads and durable versioned business operations are exposed.
   - name: procurement-service
     url: http://procurement-service:8008
     connect_timeout: 3000
@@ -24,6 +24,7 @@ services:
       - name: procurement-document-reads
         paths:
           - '~/api/v1/admin/procurement/(purchase-orders|goods-receipts)/[^/]+$'
+          - '~/api/v1/admin/procurement/purchase-orders/[^/]+/revisions$'
         strip_path: false
         methods: [GET, OPTIONS]
       - name: procurement-document-creates
@@ -38,7 +39,7 @@ services:
         methods: [POST, OPTIONS]
       - name: procurement-po-lifecycle
         paths:
-          - '~/api/v1/admin/procurement/purchase-orders/[^/]+/(submit|approve|reject|send)$'
+          - '~/api/v1/admin/procurement/purchase-orders/[^/]+/(submit|approve|reject|send|supplier-response|cancel|close|revisions)$'
         strip_path: false
         methods: [POST, OPTIONS]
   - name: traceability-public

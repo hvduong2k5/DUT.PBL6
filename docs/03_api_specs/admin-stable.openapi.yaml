@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.3.0
+  version: 2.5.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -56,8 +56,8 @@ paths:
       description: >-
         EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Requires DRAFT and matching
         expected_version. Idempotency-Key is scoped to the signed employee across
-        these four PO action endpoints. PO ID, action, expected version and trimmed
-        rejection reason are bound to the key. Same command replays its immutable
+          all contracted PO action endpoints. PO ID, action, expected version and trimmed
+          reason/note are bound to the key. Same command replays its immutable
         committed result with 200, even after the PO advances or is revised; it does
         not apply to the new version. Different resource/action/version/reason under
         the key returns 409. Failed validation and rolled-back transactions consume
@@ -84,6 +84,236 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
               example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: PENDING_APPROVAL, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', submitted_by: '80000000-0000-0000-0000-000000000001', submitted_at: '2026-11-27T00:01:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:01:00Z', version: 2}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: listProcurementPurchaseOrderRevisions
+      summary: Read immutable archived PO revisions, newest first
+      description: >-
+        EMPLOYEE with PROCUREMENT_VIEW#GLOBAL. Returns prior revisions archived
+        when the next draft was created, not the live current revision. Each entry
+        contains the prior PO terms plus the signed reviser and revision reason.
+        Ordered by revision descending; limit/offset apply, no global total is
+        claimed. Known PO with no archived revisions returns items empty, not null.
+        Unknown PO returns 404. No API can mutate these snapshots; migration 000017
+        blocks ordinary UPDATE/DELETE/TRUNCATE at the database boundary too.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementLimit'
+      - $ref: '#/components/parameters/ProcurementOffset'
+      responses:
+        '200':
+          description: Archived revisions only; use PO detail for current state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPORevisionPage'}
+              examples:
+                empty:
+                  value: {items: [], limit: 50, offset: 0}
+                success:
+                  value:
+                    limit: 50
+                    offset: 0
+                    items:
+                    - revision: 1
+                      changed_by: '80000000-0000-0000-0000-000000000002'
+                      change_reason: Supplier requested lower quantity
+                      created_at: '2026-11-28T00:01:00Z'
+                      snapshot: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: CHANGE_REQUESTED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:00:00Z', version: 5}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+    post:
+      operationId: reviseProcurementPurchaseOrder
+      summary: Archive issued terms and create the next draft atomically
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Requires CHANGE_REQUESTED,
+        matching expected_version, same supplier, nonblank reason and no receipt
+        at all for the PO. Uses currently effective offers for the revised lines;
+        all prior prices, quantities and lifecycle evidence remain in the archive.
+        Revision increments once, new line IDs are created, previous approval/send
+        metadata is cleared and signed reviser becomes creator of the new DRAFT,
+        so they cannot approve/reject it. Approval is required again before sending.
+        Requires migration 000017 after 000015/000016. Idempotency-Key shares the
+        signed actor namespace with all PO actions. Fingerprint binds PO, REVISION,
+        expected version, supplier, date, trimmed notes/reason and ordered lines.
+        Quantity text remains significant (2 versus 2.0 conflicts); line order is
+        significant. Matching replay returns the original frozen DRAFT snapshot
+        without rereading offers or repricing, even after later actions/revisions.
+        Different payload conflicts; failed transactions consume no key. Archive,
+        PO/lines, history and command result commit together. No TTL for evidence.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: REVISION
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPORevisionCreate'}
+            example: {expected_version: 5, supplier_id: '10000000-0000-0000-0000-000000000001', reason: Supplier requested lower quantity, notes: Revision two, lines: [{material_id: '20000000-0000-0000-0000-000000000001', quantity: '8'}]}
+      responses:
+        '200':
+          description: Committed DRAFT revision snapshot, frozen for identical retries; GET detail for current state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 2, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: DRAFT, currency: VND, notes: Revision two, lines: [{id: '50000000-0000-0000-0000-000000000002', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '8', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 200000}], total_amount_minor: 200000, created_by: '80000000-0000-0000-0000-000000000002', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:01:00Z', version: 6}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/supplier-response:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: recordProcurementSupplierResponse
+      summary: Record supplier confirmation, requested changes or decline
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL records evidence received from the
+        supplier; this is not supplier authentication or an automatic notification.
+        Requires SENT and matching expected_version. response is ACKNOWLEDGED,
+        CHANGE_REQUESTED or DECLINED; the latter two require a nonblank note.
+        Note is trimmed. Actor/key binds PO, response, version and note across all
+        PO actions. Matching retry returns the frozen committed result, including
+        after later revisions; changed command returns 409. Failed commands consume
+        no key. Requires migration 000016 after 000015; evidence has no TTL.
+          CHANGE_REQUESTED does not modify issued terms; creating a revision is a
+          separate operation. DECLINED cannot be treated as a cancellation of received goods.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: SUPPLIER_RESPONSE
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOSupplierResponse'}
+            example: {expected_version: 4, response: ACKNOWLEDGED, note: Confirmed by supplier}
+      responses:
+        '200':
+          description: Frozen supplier-response result; GET detail returns the latest state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: ACKNOWLEDGED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', supplier_responded_by: '80000000-0000-0000-0000-000000000001', supplier_response_note: Confirmed by supplier, supplier_responded_at: '2026-11-28T00:00:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:00:00Z', version: 5}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: cancelProcurementPurchaseOrder
+      summary: Cancel a pre-issue PO with durable retry evidence
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Only DRAFT, PENDING_APPROVAL,
+        APPROVED or REJECTED may be cancelled; sent/received POs return 409.
+        Requires expected_version and nonblank trimmed reason. Actor/key binds
+        PO/action/version/reason across all PO actions. Matching retries return the
+        frozen CANCELLED result; fresh keys on terminal state conflict. Does not
+        refund money or reverse Inventory. Requires migration 000016 after 000015.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: CANCEL
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOReject'}
+            example: {expected_version: 1, reason: No longer needed}
+      responses:
+        '200':
+          description: Frozen CANCELLED result, not necessarily latest PO state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: CANCELLED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', cancelled_by: '80000000-0000-0000-0000-000000000001', cancellation_reason: No longer needed, cancelled_at: '2026-11-28T00:00:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:00:00Z', version: 2}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/close:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: closeProcurementPurchaseOrder
+      summary: Close the unreceived remainder without reversing receipts
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Only SENT, ACKNOWLEDGED or
+        PARTIALLY_RECEIVED may close, with no unresolved receipt variances.
+        Requires expected_version and nonblank trimmed reason. Closure checks
+        variance evidence inside the PO transaction as well as before saving.
+        Keeps received/accepted quantities and receipt history; rejects later
+        receipt creation/inspection. Does not refund money or change Inventory.
+        Actor/key binds PO/action/version/reason; matching retry returns the frozen
+        CLOSED result. Requires migration 000016 after 000015. No TTL for evidence.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: CLOSE
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOReject'}
+            example: {expected_version: 6, reason: Supplier cannot deliver remainder}
+      responses:
+        '200':
+          description: Frozen CLOSED result with received quantities preserved.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: CLOSED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '2', accepted_quantity: '2', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', closed_by: '80000000-0000-0000-0000-000000000001', close_reason: Supplier cannot deliver remainder, closed_at: '2026-11-28T00:00:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:00:00Z', version: 7}
         '400': {$ref: '#/components/responses/ProcurementBadRequest'}
         '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
         '403': {$ref: '#/components/responses/ProcurementForbidden'}
@@ -12026,6 +12256,61 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementPORevisionPage:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [revision, snapshot, changed_by, change_reason, created_at]
+            properties:
+              revision: {type: integer, minimum: 1}
+              snapshot: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              changed_by: {type: string}
+              change_reason: {type: string}
+              created_at: {type: string, format: date-time}
+    ProcurementPORevisionCreate:
+      type: object
+      additionalProperties: false
+      required: [expected_version, supplier_id, lines, reason]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        supplier_id: {type: string, format: uuid, description: Must match the current PO supplier.}
+        expected_delivery_date: {type: string, format: date}
+        notes: {type: string}
+        reason: {type: string, minLength: 1, pattern: '\S'}
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [material_id, quantity]
+            properties:
+              material_id: {type: string, format: uuid}
+              quantity: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$'}
+    ProcurementPOSupplierResponse:
+      type: object
+      additionalProperties: false
+      required: [expected_version, response]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        response: {type: string, enum: [ACKNOWLEDGED, CHANGE_REQUESTED, DECLINED]}
+        note: {type: string}
+      allOf:
+      - if:
+          properties:
+            response: {enum: [CHANGE_REQUESTED, DECLINED]}
+        then:
+          required: [note]
+          properties:
+            note: {type: string, minLength: 1, pattern: '\S'}
     ProcurementPOAction:
       type: object
       additionalProperties: false

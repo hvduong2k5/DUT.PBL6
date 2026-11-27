@@ -773,7 +773,7 @@ func (h *Router) executePurchaseOrderAction(w http.ResponseWriter, r *http.Reque
 		ExpectedVersion int64  `json:"expected_version"`
 		Reason          string `json:"reason,omitempty"`
 	}
-	if action == "REJECT" {
+	if action == "REJECT" || action == "CANCEL" || action == "CLOSE" {
 		if !decodeJSON(w, r, &request) {
 			return
 		}
@@ -796,18 +796,29 @@ func (h *Router) executePurchaseOrderAction(w http.ResponseWriter, r *http.Reque
 
 func (h *Router) recordSupplierResponse(w http.ResponseWriter, r *http.Request) {
 	var request struct {
-		Response domain.SupplierPOResponse `json:"response"`
-		Note     string                    `json:"note,omitempty"`
+		ExpectedVersion int64                     `json:"expected_version"`
+		Response        domain.SupplierPOResponse `json:"response"`
+		Note            string                    `json:"note,omitempty"`
 	}
 	if !decodeJSON(w, r, &request) {
 		return
 	}
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
-		return h.service.RecordSupplierResponse(r.Context(), id, actor, request.Response, request.Note)
-	})
+	action := map[domain.SupplierPOResponse]string{domain.SupplierPOAcknowledged: "ACKNOWLEDGE", domain.SupplierPOChangeRequested: "REQUEST_CHANGE", domain.SupplierPODeclined: "DECLINE"}[request.Response]
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	order, err := h.service.ExecutePurchaseOrderAction(r.Context(), id, actorID(r), key, action, request.ExpectedVersion, request.Note)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, order)
 }
 
 type purchaseOrderRevisionRequest struct {
+	ExpectedVersion      int64                      `json:"expected_version"`
 	SupplierID           string                     `json:"supplier_id"`
 	ExpectedDeliveryDate string                     `json:"expected_delivery_date,omitempty"`
 	Notes                string                     `json:"notes,omitempty"`
@@ -816,6 +827,11 @@ type purchaseOrderRevisionRequest struct {
 }
 
 func (h *Router) revisePurchaseOrder(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
 	if !ok {
 		return
@@ -829,7 +845,7 @@ func (h *Router) revisePurchaseOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	updated, err := h.service.RevisePurchaseOrder(r.Context(), id, input, actorID(r), request.Reason)
+	updated, err := h.service.RevisePurchaseOrderWithIdempotency(r.Context(), id, input, actorID(r), key, request.ExpectedVersion, request.Reason)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -855,27 +871,11 @@ func (h *Router) listPurchaseOrderRevisions(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Router) cancelPurchaseOrder(w http.ResponseWriter, r *http.Request) {
-	var request struct {
-		Reason string `json:"reason"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, reason string) (any, error) {
-		return h.service.CancelPurchaseOrder(r.Context(), id, actor, reason)
-	}, request.Reason)
+	h.executePurchaseOrderAction(w, r, "CANCEL")
 }
 
 func (h *Router) closePurchaseOrder(w http.ResponseWriter, r *http.Request) {
-	var request struct {
-		Reason string `json:"reason"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, reason string) (any, error) {
-		return h.service.CloseRemainingPurchaseOrder(r.Context(), id, actor, reason)
-	}, request.Reason)
+	h.executePurchaseOrderAction(w, r, "CLOSE")
 }
 
 type purchaseOrderTransition func(uuid.UUID, string, string) (any, error)

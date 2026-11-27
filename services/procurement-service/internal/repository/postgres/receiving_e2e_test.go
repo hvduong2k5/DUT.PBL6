@@ -150,7 +150,7 @@ CREATE TRIGGER reject_test_po_action BEFORE INSERT ON purchase_order_action_resu
 		if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_action_results WHERE actor_id=$1 AND idempotency_key=$2`, actor, key).Scan(&commands); err != nil || commands != 1 {
 			t.Fatalf("PO command duplicate: %v count=%d", err, commands)
 		}
-		historyAction := map[string]string{"SUBMIT": "SUBMITTED", "APPROVE": "APPROVED", "REJECT": "REJECTED", "SEND": "SENT"}[action]
+		historyAction := map[string]string{"SUBMIT": "SUBMITTED", "APPROVE": "APPROVED", "REJECT": "REJECTED", "SEND": "SENT", "ACKNOWLEDGE": "SUPPLIER_ACKNOWLEDGED", "REQUEST_CHANGE": "SUPPLIER_CHANGE_REQUESTED", "DECLINE": "SUPPLIER_DECLINED", "CANCEL": "CANCELLED", "CLOSE": "CLOSED"}[action]
 		if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_status_history WHERE purchase_order_id=$1 AND action=$2`, current.ID, historyAction).Scan(&commands); err != nil || commands != 1 {
 			t.Fatalf("PO command history duplicate: %v count=%d", err, commands)
 		}
@@ -222,6 +222,44 @@ CREATE TRIGGER reject_test_po_action BEFORE INSERT ON purchase_order_action_resu
 	if changed != 1 {
 		t.Fatal("cross-resource race mutated both POs")
 	}
+	// Every new command must roll back business state if its journal insert fails,
+	// then allow the same key to succeed concurrently after the fault is removed.
+	for _, action := range []string{"ACKNOWLEDGE", "REQUEST_CHANGE", "DECLINE", "CANCEL", "CLOSE"} {
+		p, err := service.CreatePurchaseOrder(ctx, poRequest, "terminal-buyer")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if action != "CANCEL" {
+			if p, err = service.SubmitPurchaseOrder(ctx, p.ID, "terminal-buyer"); err != nil {
+				t.Fatal(err)
+			}
+			if p, err = service.ApprovePurchaseOrder(ctx, p.ID, "checker"); err != nil {
+				t.Fatal(err)
+			}
+			if p, err = service.MarkPurchaseOrderSent(ctx, p.ID, "terminal-buyer"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := db.Exec(ctx, `CREATE FUNCTION reject_test_po_action() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected PO action failure'; END $$;
+CREATE TRIGGER reject_test_po_action BEFORE INSERT ON purchase_order_action_results FOR EACH ROW EXECUTE FUNCTION reject_test_po_action()`); err != nil {
+			t.Fatal(err)
+		}
+		key := "terminal-rollback-" + action + "-0001"
+		if _, err := service.ExecutePurchaseOrderAction(ctx, p.ID, "terminal-buyer", key, action, p.Version, "Synthetic evidence"); err == nil || !strings.Contains(err.Error(), "injected PO action failure") {
+			t.Fatalf("%s journal fault: %v", action, err)
+		}
+		stored, err := repo.GetPurchaseOrder(ctx, p.ID)
+		if err != nil || stored.Status != p.Status || stored.Version != p.Version {
+			t.Fatalf("%s leaked PO state: %v", action, err)
+		}
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_action_results WHERE actor_id='terminal-buyer' AND idempotency_key=$1`, key).Scan(&commands); err != nil || commands != 0 {
+			t.Fatal("failed command consumed key")
+		}
+		if _, err := db.Exec(ctx, `DROP TRIGGER reject_test_po_action ON purchase_order_action_results; DROP FUNCTION reject_test_po_action()`); err != nil {
+			t.Fatal(err)
+		}
+		concurrentAction(p, "terminal-buyer", key, action, "Synthetic evidence")
+	}
 	// The loser is still a draft; prove concurrent rejection on another submitted PO.
 	for _, order := range racing {
 		current, err := repo.GetPurchaseOrder(ctx, order.ID)
@@ -232,6 +270,7 @@ CREATE TRIGGER reject_test_po_action BEFORE INSERT ON purchase_order_action_resu
 			concurrentAction(current, "rejector", "e2e-po-reject-0001", "REJECT", "Synthetic rejection")
 		}
 	}
+	assertPORevisionE2E(t, ctx, db, repo, service, supplier.ID, material.ID, offer.ID)
 	create := func(quantity, key string) domain.GoodsReceipt {
 		t.Helper()
 		request := application.GoodsReceiptRequest{PurchaseOrderID: po.ID, WarehouseCode: "WH-HUE",
@@ -314,6 +353,61 @@ CREATE TRIGGER reject_test_outbox BEFORE INSERT ON goods_received_outbox FOR EAC
 	}
 	if _, err := db.Exec(ctx, "DROP TRIGGER reject_test_outbox ON goods_received_outbox; DROP FUNCTION reject_test_outbox()"); err != nil {
 		t.Fatal(err)
+	}
+	// Bypass the application preflight to reproduce a stale close decision: the
+	// repository must still reject open receipt variances under the PO row lock.
+	current, err := repo.GetPurchaseOrder(ctx, po.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closing := current
+	if err := closing.CloseRemaining("buyer", "Close remainder"); err != nil {
+		t.Fatal(err)
+	}
+	cmd := domain.PurchaseOrderActionCommand{Kind: "CLOSE", HistoryAction: "CLOSED", Actor: "buyer", Key: "close-open-variance-0001", ExpectedVersion: current.Version, Reason: "Close remainder", RequestHash: strings.Repeat("a", 64)}
+	if _, err := repo.SavePurchaseOrderAction(ctx, closing, current.Status, cmd); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("repository closed over open variance: %v", err)
+	}
+	if got, err := repo.GetPurchaseOrder(ctx, po.ID); err != nil || got.Status != current.Status || got.Version != current.Version {
+		t.Fatal("blocked close changed PO")
+	}
+	receiptRows, err := db.Query(ctx, `SELECT id FROM goods_receipts WHERE purchase_order_id=$1 AND status='INSPECTED'`, po.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var receiptIDs []uuid.UUID
+	for receiptRows.Next() {
+		var id uuid.UUID
+		if err := receiptRows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		receiptIDs = append(receiptIDs, id)
+	}
+	if err := receiptRows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	receiptRows.Close()
+	for _, id := range receiptIDs {
+		receipt, err := repo.GetGoodsReceipt(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, variance := range receipt.Variances {
+			if _, err := service.ResolveGoodsReceiptVariance(ctx, id, variance.ID, "REJECT_VARIANCE", "variance-operator", "Keep rejected stock quarantined"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	current, err = repo.GetPurchaseOrder(ctx, po.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closed := concurrentAction(current, "buyer", "close-remainder-e2e-0001", "CLOSE", "Close remainder")
+	if closed.Lines[0].ReceivedQuantity != current.Lines[0].ReceivedQuantity || closed.Lines[0].AcceptedQuantity != current.Lines[0].AcceptedQuantity {
+		t.Fatal("close rewrote receiving quantities")
+	}
+	if _, err := service.CreateGoodsReceipt(ctx, application.GoodsReceiptRequest{PurchaseOrderID: po.ID, WarehouseCode: "WH-HUE", Lines: []application.GoodsReceiptLineRequest{{PurchaseOrderLineID: po.Lines[0].ID, QuantityReceived: "1"}}}, "receiver", "receipt-after-close-0001"); !errors.Is(err, domain.ErrInvalidState) {
+		t.Fatalf("receipt after close: %v", err)
 	}
 	pub, err := producer.NewProducer(strings.Split(broker, ","))
 	if err != nil {

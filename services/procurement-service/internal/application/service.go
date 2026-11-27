@@ -44,6 +44,7 @@ type Repository interface {
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
 	SavePurchaseOrder(context.Context, domain.PurchaseOrder, int64, domain.PurchaseOrderStatus, string, string, string) (domain.PurchaseOrder, error)
 	RevisePurchaseOrder(context.Context, domain.PurchaseOrder, int64, string, string) (domain.PurchaseOrder, error)
+	RevisePurchaseOrderAction(context.Context, domain.PurchaseOrder, domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error)
 	ListPurchaseOrderRevisions(context.Context, uuid.UUID, int, int) ([]domain.PurchaseOrderRevision, error)
 	CreateGoodsReceipt(context.Context, domain.GoodsReceipt) (domain.GoodsReceipt, error)
 	GetGoodsReceiptByIdempotency(context.Context, string, string) (domain.GoodsReceipt, error)
@@ -481,7 +482,11 @@ func (s *Service) ListPurchaseOrderRevisions(ctx context.Context, id uuid.UUID, 
 	if _, err := s.repo.GetPurchaseOrder(ctx, id); err != nil {
 		return nil, err
 	}
-	return s.repo.ListPurchaseOrderRevisions(ctx, id, limit, offset)
+	items, err := s.repo.ListPurchaseOrderRevisions(ctx, id, limit, offset)
+	if items == nil && err == nil {
+		items = []domain.PurchaseOrderRevision{}
+	}
+	return items, err
 }
 
 func (s *Service) CloseRemainingPurchaseOrder(ctx context.Context, id uuid.UUID, actor, reason string) (domain.PurchaseOrder, error) {

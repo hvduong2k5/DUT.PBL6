@@ -62,7 +62,7 @@ def main():
 
     operations = {(path, method.upper()): operation for path, item in spec["paths"].items() if path.startswith(PREFIX)
                   for method, operation in item.items() if method in ("get", "post")}
-    assert len(operations) == 15, "Keep the contracted gateway surface explicit"
+    assert len(operations) == 20, "Keep the contracted gateway surface explicit"
     for (path, method), operation in operations.items():
         assert operation["security"] == [{"bearerAuth": []}], "No implicit cookie authentication"
         if "/goods-receipts" in path:
@@ -78,7 +78,8 @@ def main():
             assert operation["x-required-grants"] == [permission]
         concrete = re.sub(r"\{[^}]+\}", "10000000-0000-0000-0000-000000000001", path)
         assert len(matches(concrete, method)) == 1 and matches(concrete, "OPTIONS")
-        for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - {method}:
+        allowed_methods = {m for p, m in operations if p == path}
+        for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - allowed_methods:
             assert not matches(concrete, denied), (concrete, denied)
         if method == "POST":
             key = next(resolve(spec, parameter) for parameter in operation["parameters"]
@@ -110,13 +111,13 @@ def main():
     assert overlay["networks"]["gateway"]["external"] is True
 
     result = subprocess.run(["go", "test", "-p", "1", "./internal/transport/httpapi", "-run",
-                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced|TestReceivingContractExamples|TestPOActionsContractExamples", "-count=1", "-v"],
+                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced|TestReceivingContractExamples|TestPOActionsContractExamples|TestPORevisionContractExamples", "-count=1", "-v"],
                             cwd=ROOT / "services/procurement-service", capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     fixtures = [json.loads(line.split("PROCUREMENT_HTTP=", 1)[1]) for line in result.stdout.splitlines()
                 if line.startswith("PROCUREMENT_HTTP=")]
-    assert len(fixtures) >= 130, "Missing runtime response evidence"
+    assert len(fixtures) >= 215, "Missing runtime response evidence"
     coverage = {key: set() for key in operations}
     for fixture in fixtures:
         path = urlsplit(fixture["path"]).path
@@ -149,7 +150,7 @@ def main():
         pass
     else:
         raise AssertionError("Error.requestId is no longer required")
-    for name in ("ProcurementSupplierPage", "ProcurementMaterialPage", "ProcurementOffers"):
+    for name in ("ProcurementSupplierPage", "ProcurementMaterialPage", "ProcurementOffers", "ProcurementPORevisionPage"):
         invalid = {"items": None}
         if name.endswith("Page"):
             invalid.update(limit=50, offset=0)
@@ -194,15 +195,16 @@ def main():
         for path, method in operations:
             concrete = re.sub(r"\{[^}]+\}", "10000000-0000-0000-0000-000000000001", path)
             assert selected(concrete, method) in matches(concrete, method), ("Kong failed to select contracted route", concrete)
-            for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - {method}:
+            allowed_methods = {m for p, m in operations if p == path}
+            for denied in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"} - allowed_methods:
                 assert selected(concrete, denied) not in {r["name"] for r in service["routes"]}, ("Kong exposed method", concrete, denied)
         for path in (PREFIX + "goods-receipts", PREFIX + "suppliers/x/contracts", "/health/ready",
                      PREFIX + "suppliers/", PREFIX + "suppliers-extra", PREFIX + "materials/x/offers/extra",
                      "/other" + PREFIX + "suppliers", PREFIX + "materials/x/preferred-supplier"):
             assert selected(path) not in {r["name"] for r in service["routes"]}, ("Kong selected unexpected path", path)
-        for path in (PREFIX+"purchase-orders/x/cancel", PREFIX+"purchase-orders/x/close", PREFIX+"goods-receipts/x/variances/y/resolve"):
+        for path in (PREFIX+"purchase-orders/x/revisions/extra", PREFIX+"purchase-orders/x/supplier-response/extra", PREFIX+"goods-receipts/x/variances/y/resolve"):
             assert selected(path, "POST") not in {r["name"] for r in service["routes"]}, path
-        print("PASS: real Kong selection: 15 operations, 75 denied methods and 11 denied paths (not service/deployment E2E)")
+        print("PASS: real Kong selection: 20 operations, 98 denied methods and 11 denied paths (not service/deployment E2E)")
 
 
 if __name__ == "__main__":

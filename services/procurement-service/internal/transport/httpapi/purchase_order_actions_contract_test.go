@@ -131,9 +131,94 @@ func TestPOActionsContractExamples(t *testing.T) {
 		t.Fatal("reject replay changed snapshot")
 	}
 	check(rejectPath, strings.Replace(body, "Needs correction", "Different reason", 1), "checker", "PO_APPROVER", key, 409)
+	// New terminal and supplier-evidence endpoints use the same durable namespace.
+	sentPO := func() domain.PurchaseOrder {
+		t.Helper()
+		p := create()
+		var err error
+		if p, err = service.SubmitPurchaseOrder(context.Background(), p.ID, actor); err != nil {
+			t.Fatal(err)
+		}
+		if p, err = service.ApprovePurchaseOrder(context.Background(), p.ID, "checker"); err != nil {
+			t.Fatal(err)
+		}
+		if p, err = service.MarkPurchaseOrderSent(context.Background(), p.ID, actor); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	for _, action := range []string{"supplier-response", "cancel", "close"} {
+		p := create()
+		if action != "cancel" {
+			p = sentPO()
+		}
+		path, key := base+p.ID.String()+"/"+action, "terminal-po-"+action+"-0001"
+		body := fmt.Sprintf(`{"expected_version":%d,"reason":"No more required"}`, p.Version)
+		if action == "supplier-response" {
+			body = fmt.Sprintf(`{"expected_version":%d,"response":"ACKNOWLEDGED","note":"Confirmed"}`, p.Version)
+		}
+		check(path, body, "buyer", "", key, 401)
+		check(path, body, "buyer", "PO_APPROVER", key, 403)
+		check(path, body, "buyer", "SUPPLY_MANAGER", "", 400)
+		check(path, `{}`, "buyer", "SUPPLY_MANAGER", key, 400)
+		check(base+"bad-id/"+action, body, "buyer", "SUPPLY_MANAGER", key, 400)
+		check(base+uuid.NewString()+"/"+action, body, "buyer", "SUPPLY_MANAGER", key+"-missing", 404)
+		first := check(path, body, "buyer", "SUPPLY_MANAGER", key, 200)
+		retry := check(path, body, "buyer", "SUPPLY_MANAGER", key, 200)
+		if !reflect.DeepEqual(first, retry) || repo.orders[p.ID].Version != p.Version+1 {
+			t.Fatal("terminal replay changed state")
+		}
+		check(path, strings.Replace(body, "No more required", "Changed", 1)+" ", "buyer", "SUPPLY_MANAGER", key+"-stale", 409)
+		changed := strings.Replace(body, fmt.Sprintf(`"expected_version":%d`, p.Version), fmt.Sprintf(`"expected_version":%d`, p.Version+1), 1)
+		check(path, changed, "buyer", "SUPPLY_MANAGER", key, 409)
+		if action == "supplier-response" {
+			_, err := service.ExecutePurchaseOrderAction(context.Background(), p.ID, actor, "close-after-ack-0001", "CLOSE", p.Version+1, "Stop remaining")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := check(path, body, "buyer", "SUPPLY_MANAGER", key, 200); !reflect.DeepEqual(first, got) {
+				t.Fatal("old acknowledgement was not frozen")
+			}
+		}
+	}
+	for _, response := range []string{"CHANGE_REQUESTED", "DECLINED"} {
+		p := sentPO()
+		path, key := base+p.ID.String()+"/supplier-response", "supplier-"+response+"-0001"
+		check(path, fmt.Sprintf(`{"expected_version":%d,"response":%q}`, p.Version, response), "buyer", "SUPPLY_MANAGER", key, 400)
+		check(path, fmt.Sprintf(`{"expected_version":%d,"response":"UNKNOWN"}`, p.Version), "buyer", "SUPPLY_MANAGER", key, 400)
+		body := fmt.Sprintf(`{"expected_version":%d,"response":%q,"note":" Delivery changed "}`, p.Version, response)
+		first := check(path, body, "buyer", "SUPPLY_MANAGER", key, 200)
+		if got := check(path, strings.Replace(body, " Delivery changed ", "Delivery changed", 1), "buyer", "SUPPLY_MANAGER", key, 200); !reflect.DeepEqual(first, got) {
+			t.Fatal("normalized note did not replay")
+		}
+		check(path, strings.Replace(body, " Delivery changed ", "Other note", 1), "buyer", "SUPPLY_MANAGER", key, 409)
+	}
+	partial := sentPO()
+	if err := partial.RecordReceived(partial.Lines[0].ID, "2"); err != nil {
+		t.Fatal(err)
+	}
+	repo.orders[partial.ID] = partial
+	varianceReceiptID := uuid.New()
+	repo.receipts[varianceReceiptID] = domain.GoodsReceipt{ID: varianceReceiptID, PurchaseOrderID: partial.ID, Variances: []domain.GoodsReceiptVariance{{Status: "OPEN"}}}
+	path := base + partial.ID.String() + "/close"
+	body = fmt.Sprintf(`{"expected_version":%d,"reason":"Stop remainder"}`, partial.Version)
+	check(path, body, "buyer", "SUPPLY_MANAGER", "partial-close-evidence-0001", 409)
+	delete(repo.receipts, varianceReceiptID)
+	closed := check(path, body, "buyer", "SUPPLY_MANAGER", "partial-close-evidence-0001", 200)
+	if closed["lines"].([]any)[0].(map[string]any)["received_quantity"] != partial.Lines[0].ReceivedQuantity {
+		t.Fatal("close erased received quantity")
+	}
+	check(base+partial.ID.String()+"/cancel", fmt.Sprintf(`{"expected_version":%d,"reason":"Invalid"}`, partial.Version+1), "buyer", "SUPPLY_MANAGER", "cancel-closed-po-0001", 409)
 	handler, err = httpapi.NewRouter(application.NewService(failedPOActionLookup{repo}), testIdentityConfig(), repo.Ping)
 	if err != nil {
 		t.Fatal(err)
 	}
 	check(base+other.ID.String()+"/submit", `{"expected_version":1}`, "buyer", "SUPPLY_MANAGER", "po-command-db-failure-0001", 500)
+	for _, action := range []string{"cancel", "close", "supplier-response"} {
+		body := `{"expected_version":1,"reason":"Failure"}`
+		if action == "supplier-response" {
+			body = `{"expected_version":1,"response":"ACKNOWLEDGED"}`
+		}
+		check(base+other.ID.String()+"/"+action, body, "buyer", "SUPPLY_MANAGER", "po-dependency-failure-"+action, 500)
+	}
 }

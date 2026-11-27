@@ -26,6 +26,21 @@ func (r *fakeRepository) SavePurchaseOrderAction(ctx context.Context, order doma
 	if err != nil {
 		return result, err
 	}
+	return r.rememberPOActionResult(result, cmd)
+}
+
+func (r *fakeRepository) RevisePurchaseOrderAction(ctx context.Context, order domain.PurchaseOrder, cmd domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
+	if _, ok := r.actionResults[cmd.Actor+"\x00"+cmd.Key]; ok {
+		return domain.PurchaseOrder{}, domain.ErrConflict
+	}
+	result, err := r.RevisePurchaseOrder(ctx, order, cmd.ExpectedVersion, cmd.Actor, cmd.Reason)
+	if err != nil {
+		return result, err
+	}
+	return r.rememberPOActionResult(result, cmd)
+}
+
+func (r *fakeRepository) rememberPOActionResult(result domain.PurchaseOrder, cmd domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
 	encoded, _ := json.Marshal(result)
 	var snapshot domain.PurchaseOrder
 	if err := json.Unmarshal(encoded, &snapshot); err != nil {

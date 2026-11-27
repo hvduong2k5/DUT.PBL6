@@ -596,6 +596,21 @@ func (r *Repository) savePurchaseOrder(ctx context.Context, order domain.Purchas
 	if err != nil {
 		return domain.PurchaseOrder{}, mapError(err)
 	}
+	// UPDATE holds the same PO lock used by receipt inspection. Recheck variance
+	// evidence inside this transaction, not only in the application preflight.
+	if action == "CLOSED" {
+		var open bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (
+			SELECT 1 FROM goods_receipts AS receipt
+			CROSS JOIN LATERAL jsonb_array_elements(receipt.variances) AS variance(item)
+			WHERE receipt.purchase_order_id=$1 AND variance.item->>'status'='OPEN'
+		)`, order.ID).Scan(&open); err != nil {
+			return domain.PurchaseOrder{}, err
+		}
+		if open {
+			return domain.PurchaseOrder{}, domain.ErrInvalidState
+		}
+	}
 	if _, err := tx.Exec(ctx, `DELETE FROM purchase_order_lines WHERE purchase_order_id=$1`, order.ID); err != nil {
 		return domain.PurchaseOrder{}, err
 	}
@@ -621,6 +636,14 @@ func (r *Repository) savePurchaseOrder(ctx context.Context, order domain.Purchas
 }
 
 func (r *Repository) RevisePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, actor, reason string) (domain.PurchaseOrder, error) {
+	return r.revisePurchaseOrder(ctx, order, expectedVersion, actor, reason, nil)
+}
+
+func (r *Repository) RevisePurchaseOrderAction(ctx context.Context, order domain.PurchaseOrder, command domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
+	return r.revisePurchaseOrder(ctx, order, command.ExpectedVersion, command.Actor, command.Reason, &command)
+}
+
+func (r *Repository) revisePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, actor, reason string, command *domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
 	previous, err := r.GetPurchaseOrder(ctx, order.ID)
 	if err != nil {
 		return domain.PurchaseOrder{}, err
@@ -685,6 +708,15 @@ func (r *Repository) RevisePurchaseOrder(ctx context.Context, order domain.Purch
 	}
 	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, string(currentStatus), string(order.Status), "REVISION_CREATED", actor, reason); err != nil {
 		return domain.PurchaseOrder{}, err
+	}
+	if command != nil {
+		snapshot, err := json.Marshal(order)
+		if err != nil {
+			return domain.PurchaseOrder{}, err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO purchase_order_action_results (actor_id,idempotency_key,purchase_order_id,revision,action,expected_version,request_hash,result_snapshot) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, command.Actor, command.Key, order.ID, order.Revision, command.Kind, command.ExpectedVersion, command.RequestHash, snapshot); err != nil {
+			return domain.PurchaseOrder{}, mapError(err)
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PurchaseOrder{}, err
