@@ -452,4 +452,5 @@ CREATE TRIGGER reject_test_outbox BEFORE INSERT ON goods_received_outbox FOR EAC
 	if _, err := service.InspectGoodsReceipt(ctx, r.ID, "inspector", nil); err == nil {
 		t.Fatalf("invalid inspection accepted: %v", err)
 	}
+	assertVarianceResolutionE2E(t, ctx, db, repo, service, supplier.ID, material.ID)
 }

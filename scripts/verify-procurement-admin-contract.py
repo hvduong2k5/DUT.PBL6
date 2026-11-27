@@ -46,7 +46,7 @@ def main():
     service = services[0]
     assert service["url"] == "http://procurement-service:8008"
     assert service["retries"] == 0, "Do not silently add transport replay"
-    assert len(service["routes"]) == 6
+    assert len(service["routes"]) == 7
     assert "plugins" not in service, "Do not inject user/internal credentials"
     patterns = []
     for route in service["routes"]:
@@ -62,7 +62,7 @@ def main():
 
     operations = {(path, method.upper()): operation for path, item in spec["paths"].items() if path.startswith(PREFIX)
                   for method, operation in item.items() if method in ("get", "post", "put")}
-    assert len(operations) == 22, "Keep the contracted gateway surface explicit"
+    assert len(operations) == 23, "Keep the contracted gateway surface explicit"
     for (path, method), operation in operations.items():
         assert operation["security"] == [{"bearerAuth": []}], "No implicit cookie authentication"
         if "/goods-receipts" in path:
@@ -70,6 +70,8 @@ def main():
             expected = {"PROCUREMENT_RECEIVE#GLOBAL", "PROCUREMENT_RECEIVE#WAREHOUSE#<"+scope+">"}
             if method == "GET":
                 expected.add("PROCUREMENT_VIEW#GLOBAL")
+            if "/variances/" in path:
+                expected = {"PROCUREMENT_VARIANCE_RESOLVE#GLOBAL", "PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#<receiptWarehouse>"}
             assert set(operation["x-required-grants-any"]) == expected
         else:
             permission = "PROCUREMENT_VIEW#GLOBAL"
@@ -111,13 +113,13 @@ def main():
     assert overlay["networks"]["gateway"]["external"] is True
 
     result = subprocess.run(["go", "test", "-p", "1", "./internal/transport/httpapi", "-run",
-                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced|TestReceivingContractExamples|TestPOActionsContractExamples|TestPORevisionContractExamples|TestPODraftAndListContractExamples", "-count=1", "-v"],
+                             "TestAdminReadContractExamples|TestInvalidCorrelationIDIsReplaced|TestReceivingContractExamples|TestPOActionsContractExamples|TestPORevisionContractExamples|TestPODraftAndListContractExamples|TestVarianceResolutionContractExamples", "-count=1", "-v"],
                             cwd=ROOT / "services/procurement-service", capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     fixtures = [json.loads(line.split("PROCUREMENT_HTTP=", 1)[1]) for line in result.stdout.splitlines()
                 if line.startswith("PROCUREMENT_HTTP=")]
-    assert len(fixtures) >= 240, "Missing runtime response evidence"
+    assert len(fixtures) >= 275, "Missing runtime response evidence"
     coverage = {key: set() for key in operations}
     for fixture in fixtures:
         path = urlsplit(fixture["path"]).path
@@ -202,9 +204,9 @@ def main():
                      PREFIX + "suppliers/", PREFIX + "suppliers-extra", PREFIX + "materials/x/offers/extra",
                      "/other" + PREFIX + "suppliers", PREFIX + "materials/x/preferred-supplier"):
             assert selected(path) not in {r["name"] for r in service["routes"]}, ("Kong selected unexpected path", path)
-        for path in (PREFIX+"purchase-orders/x/revisions/extra", PREFIX+"purchase-orders/x/supplier-response/extra", PREFIX+"goods-receipts/x/variances/y/resolve"):
+        for path in (PREFIX+"purchase-orders/x/revisions/extra", PREFIX+"purchase-orders/x/supplier-response/extra", PREFIX+"goods-receipts/x/variances/y/resolve/extra"):
             assert selected(path, "POST") not in {r["name"] for r in service["routes"]}, path
-        print("PASS: real Kong selection: 22 operations, 104 denied methods and 11 denied paths (not service/deployment E2E)")
+        print("PASS: real Kong selection: 23 operations, 109 denied methods and 11 denied paths (not service/deployment E2E)")
 
 
 if __name__ == "__main__":

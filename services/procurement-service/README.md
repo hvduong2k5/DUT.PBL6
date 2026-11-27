@@ -62,16 +62,16 @@ variable is absent; a unit-only green result is not migration execution evidence
 
 ### Kong integration: management reads, PO actions and idempotent receiving
 
-The shared `admin-stable.openapi.yaml` version 2.6.0 documents twenty-two operations:
+The shared `admin-stable.openapi.yaml` version 2.7.0 documents twenty-three operations:
 six supplier/material/offer GETs, PO create/detail, receipt create/detail and receipt
-inspection, PO list/create/detail/draft edit, lifecycle actions and revision create/history. Kong routes the exact contracted GET/POST/PUT/OPTIONS path shapes to
+inspection/variance resolution, PO list/create/detail/draft edit, lifecycle actions and revision create/history. Kong routes the exact contracted GET/POST/PUT/OPTIONS path shapes to
 `http://procurement-service:8008`, without stripping the path, retrying business
 requests or injecting credentials. Procurement verifies the employee bearer JWT
 and operation permission/scope; the gateway does
 not exchange a cookie for a token. A browser's Identity session alone is not enough
 until the separate BFF relay is implemented.
 
-Variance resolution, plan/contract APIs and
+Plan/contract APIs and
 master-data mutations are **not** exposed. Their implementation remains private;
 full contracts and retry/idempotency acceptance are needed before gateway expansion.
 In particular, creating a PO does not yet provide the whole approval/dispatch UI.
@@ -103,7 +103,7 @@ none of these commands has been run against a shared/live deployment here.
 
 From the repository root, run `python scripts/verify-procurement-admin-contract.py`
 with the MVP Python dependencies. It validates actual Go HTTP/JWT response fixtures,
-all twenty-two operation examples, denied methods/paths and network wiring. Separately
+all twenty-three operation examples, denied methods/paths and network wiring. Separately
 validate the real Kong 3.9.3 parser with:
 
 ```powershell
@@ -114,7 +114,7 @@ For real router-selection coverage, CI also starts a disposable Kong with debug
 headers enabled **only in that test**, admin listener off, and the Procurement
 hostname mapped to the container's loopback (no application or live upstream).
 `verify-procurement-admin-contract.py --gateway-url http://127.0.0.1:<test-port>`
-checks the selected route for twenty-two operations, 104 rejected method combinations and eleven
+checks the selected route for twenty-three operations, 109 rejected method combinations and eleven
 non-allowlisted paths. Expected upstream connection failures are not service
 failures in this routing-only test. Never enable Kong debug headers on the live
 gateway for this purpose. See `.github/workflows/contracts.yml` for the test setup.
@@ -263,7 +263,31 @@ method, but cannot retroactively claim idempotent replay of historical inspectio
 - `POST /api/v1/admin/procurement/goods-receipts` creates a draft receipt against a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO. Each line references a PO line and records received quantity plus optional supplier lot and paired manufacture/expiry dates. It requires an `Idempotency-Key` header (16–128 visible ASCII characters); retrying the same key and payload returns the original receipt, while reusing the key with changed data returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}` returns the receipt snapshot.
 - `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/inspect` records accepted/rejected quantities, optional humidity percentage, and inspection notes for every receipt line.
-- `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve` requires `PROCUREMENT_VARIANCE_RESOLVE` with matching WAREHOUSE or GLOBAL scope to resolve an open variance using `ACCEPT_VARIANCE` or `REJECT_VARIANCE` and a required note.
+- `POST /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve` requires `PROCUREMENT_VARIANCE_RESOLVE` with matching stored WAREHOUSE or GLOBAL scope, Idempotency-Key and `{expected_version, decision, note}`. Version is the receipt's, not the PO's. A nonblank note and OPEN variance on an INSPECTED receipt are required; decision is `ACCEPT_VARIANCE` or `REJECT_VARIANCE`.
+
+### Variance decision rollout and retry semantics
+
+Apply `000019_receipt_variance_resolution_results` before this binary. Existing
+private resolve clients must add the key and receipt expected_version. Signed
+actor/key is unique across variance resolutions (separate from PO/create/inspect
+keys); fingerprint binds receipt, variance, version, uppercased trimmed decision
+and trimmed note. Same command replays the frozen receipt snapshot, including
+after later resolutions/PO closure. GET receipt for current state. Current JWT
+permission/warehouse checks still apply before replay. Changed command conflicts;
+historically resolved variances without a matching journal cannot claim replay.
+Failed transactions consume no key. Receipt/PO/history/result commit together;
+evidence has no TTL. Down migration refuses rollback while evidence exists; never
+delete completed decisions to bypass it.
+
+The transaction locks receipt then PO, as inspection does, serializing decisions
+across different receipts for the same PO. The final decision recomputes PO status
+from existing accepted quantities only after all variances are resolved. New
+commands cannot reopen CLOSED/cancelled POs. Neither decision changes physical,
+accepted or rejected quantities, emits another GoodsReceivedEvent, releases
+Inventory quarantine nor refunds money. It records a business decision only;
+physical disposition/Inventory QC and finance actions remain separate workflows.
+VARIANCE_RESOLVE alone does not grant receipt-read access: the UI also needs the
+existing VIEW GLOBAL or matching RECEIVE grant to load receipt detail/version.
 
 Accepted plus rejected quantity must equal the physical quantity received. Inspection is versioned and updates the receipt, PO received/accepted quantities, PO lifecycle, histories, and one `GoodsReceivedEvent` per receipt line in a transactional outbox. Event rows commit atomically with inspection, so a failed database transaction cannot publish stock that Procurement did not accept. Outbox delivery is at-least-once; consumers must deduplicate by stable CloudEvent ID. Inventory PR #118 receives `quantity_received` as physical QUARANTINE stock, including fully rejected lines; accepted/rejected quantities are Procurement evidence and do not authorize Inventory QC release. It records open `OVER_RECEIVED` variances when physical quantity exceeds a PO line's remaining open quantity, and `QUALITY_REJECTED` variances for rejected quantities; the reason comes from required inspection notes. An under-delivery remains a valid partial receipt because the service has no supplier shipment notice proving that the delivery was complete. An open variance keeps the PO in `PARTIALLY_RECEIVED` and prevents closing the remaining quantity. Resolving the last variance recalculates the PO status; it reaches `RECEIVED` only when every line's accepted quantity meets the ordered quantity. Accepted quantity cannot exceed the PO quantity; rejected goods can be replaced under the same PO.
 
@@ -316,6 +340,8 @@ cross-PO revision races, replay without offers, immutable archive guards,
 two revision generations, pagination and receipt-based revision denial;
 draft edit journal rollback, duplicate and competing commands, revision-preserving
 edit/replay after submit, combined list filters and deterministic pagination;
+variance journal fault rollback, duplicate/restart/frozen replay, concurrent
+decisions across receipts with correct final PO status and no quantity/event changes;
 receipt-create idempotency, partial and fully rejected receipts,
 injected outbox failure with receipt/PO/history rollback, real broker acknowledgement, receipt
 provenance, exact 3500-gram physical stock in two undated QUARANTINE batches, zero sellable stock,

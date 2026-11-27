@@ -32,17 +32,18 @@ var (
 
 type httpRepository struct {
 	application.Repository
-	suppliers     map[uuid.UUID]domain.Supplier
-	materials     map[uuid.UUID]domain.RawMaterial
-	offers        map[uuid.UUID][]domain.SupplierMaterialOffer
-	orders        map[uuid.UUID]domain.PurchaseOrder
-	receipts      map[uuid.UUID]domain.GoodsReceipt
-	contracts     map[uuid.UUID]domain.SupplierContract
-	revisions     map[uuid.UUID][]domain.PurchaseOrderRevision
-	plans         map[uuid.UUID]domain.SupplyPlan
-	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
-	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
-	actionResults map[string]domain.PurchaseOrderActionResult
+	suppliers         map[uuid.UUID]domain.Supplier
+	materials         map[uuid.UUID]domain.RawMaterial
+	offers            map[uuid.UUID][]domain.SupplierMaterialOffer
+	orders            map[uuid.UUID]domain.PurchaseOrder
+	receipts          map[uuid.UUID]domain.GoodsReceipt
+	contracts         map[uuid.UUID]domain.SupplierContract
+	revisions         map[uuid.UUID][]domain.PurchaseOrderRevision
+	plans             map[uuid.UUID]domain.SupplyPlan
+	planRevisions     map[uuid.UUID][]domain.SupplyPlanRevision
+	planHistory       map[uuid.UUID][]domain.SupplyPlanStatusEvent
+	actionResults     map[string]domain.PurchaseOrderActionResult
+	resolutionResults map[string]domain.VarianceResolutionResult
 }
 
 func newHTTPRepository() *httpRepository {
@@ -404,6 +405,10 @@ func employeeToken(user, role string) string {
 		grants = []string{"PROCUREMENT_APPROVE#GLOBAL"}
 	case "PO_EDITOR":
 		grants = []string{"PROCUREMENT_MANAGE#GLOBAL"}
+	case "VARIANCE_STAFF":
+		grants = []string{"PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#WH-01"}
+	case "VARIANCE_FOREIGN":
+		grants = []string{"PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#WH-02"}
 	}
 	principalID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(user)).String()
 	claims := map[string]any{
@@ -691,15 +696,15 @@ func TestGoodsReceiptIdempotencyReplaysAndRejectsChangedPayload(t *testing.T) {
 func TestResolvingGoodsReceiptVarianceRequiresSensitiveRole(t *testing.T) {
 	repo := newHTTPRepository()
 	receiptID, varianceID := uuid.New(), uuid.New()
-	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, WarehouseCode: "WH-01", Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Type: domain.GoodsReceiptVarianceOverReceived, Status: "OPEN"}}}
+	repo.receipts[receiptID] = domain.GoodsReceipt{ID: receiptID, Version: 1, WarehouseCode: "WH-01", Status: domain.GoodsReceiptInspected, Variances: []domain.GoodsReceiptVariance{{ID: varianceID, Type: domain.GoodsReceiptVarianceOverReceived, Status: "OPEN"}}}
 	handler := newHandler(repo)
 	path := "/api/v1/admin/procurement/goods-receipts/" + receiptID.String() + "/variances/" + varianceID.String() + "/resolve"
-	body := `{"decision":"ACCEPT_VARIANCE","note":"approved as documented exception"}`
+	body := `{"expected_version":1,"decision":"ACCEPT_VARIANCE","note":"approved as documented exception"}`
 	denied := performRequest(handler, http.MethodPost, path, body, "supply", "SUPPLY_MANAGER")
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("supply manager resolve status = %d, want 403", denied.Code)
 	}
-	resolved := performRequest(handler, http.MethodPost, path, body, "procurement", "PROCUREMENT_MANAGER")
+	resolved := performRequestWithIdempotency(handler, http.MethodPost, path, body, "procurement", "PROCUREMENT_MANAGER", "variance-private-client-0001")
 	if resolved.Code != http.StatusOK || !strings.Contains(resolved.Body.String(), `"status":"RESOLVED"`) {
 		t.Fatalf("procurement manager resolve status=%d body=%s", resolved.Code, resolved.Body.String())
 	}

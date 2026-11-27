@@ -48,6 +48,11 @@ services:
           - '~/api/v1/admin/procurement/purchase-orders/[^/]+$'
         strip_path: false
         methods: [PUT, OPTIONS]
+      - name: procurement-variance-resolution
+        paths:
+          - '~/api/v1/admin/procurement/goods-receipts/[^/]+/variances/[^/]+/resolve$'
+        strip_path: false
+        methods: [POST, OPTIONS]
   - name: traceability-public
     url: http://traceability-service:8003/api/v1/trace
     routes:

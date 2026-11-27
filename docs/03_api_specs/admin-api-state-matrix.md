@@ -52,7 +52,7 @@ capability, never invented dates, revision, impact or status. Existing CRUD APIs
 are not silently aliased to the new projections. Role mutations remain owned by
 task 2. Common BFF errors include code, safe message, requestId and errors.
 
-## Procurement service authorization, PO actions and receiving gateway (2.6.0)
+## Procurement service authorization, PO actions and receiving gateway (2.7.0)
 
 Identity migration `V28__seed_procurement_permissions.sql` adds the five permissions
 below to existing enabled, non-archived ADMIN roles. It creates no account, role or
@@ -63,11 +63,11 @@ employees (`forceRelogin=false`) and refresh/login: an existing token is unchang
 During rollout an employee with a stale token still receives 403, not a role-based
 bypass. This seed alone does not deploy a gateway route, BFF relay or Web screen.
 
-Kong configuration now allowlists twenty-two operations in `admin-stable.openapi.yaml`:
+Kong configuration now allowlists twenty-three operations in `admin-stable.openapi.yaml`:
 six supplier/material/offer GETs, PO create/detail, receipt create/detail and inspection.
 PO submit/approve/reject/send/supplier-response/cancel/close are also exposed.
 Revision create/history are exposed too. OPTIONS is preflight only.
-PO list/draft editing are exposed too. Receipt variance resolution,
+PO list/draft editing and receipt variance resolution are exposed too. Other
 plan/contract paths, master-data mutations, health probes and arbitrary suffixes are
 not exposed by these routes. Authorization is Bearer
 JWT only; the contract's global cookie alternative does not apply to these operations.
@@ -94,6 +94,7 @@ Web session relay/UI is not implemented by this change.
 | POST goods-receipts | 201 draft/current receipt for same receiver/key/payload; draft has no Inventory effect | Retain key and user-entered data on retry | RECEIVE GLOBAL or matching request warehouse | 400 invalid JSON/key/fields; 403 foreign warehouse; 404 missing PO; 409 changed payload/state conflict; 500 dependency failure |
 | GET goods-receipts/{id} | 200 snapshot, including inspection/variance evidence | Detail pending | VIEW GLOBAL or RECEIVE GLOBAL/matching stored warehouse; warehouse VIEW never bypasses | 400 invalid UUID; 403 foreign receipt; 404 unknown receipt; 500 dependency failure |
 | POST goods-receipts/{id}/inspect | 200 inspection/current receipt; identical retry does not update PO/history/outbox again; physical stock remains Inventory QUARANTINE | Retain same key/payload; disable duplicate action | RECEIVE GLOBAL or matching stored warehouse; signed employee is inspector | 400 invalid key/JSON/quantity; 403 wrong warehouse; 404 missing receipt; 409 changed key/actor/payload or historical inspection without evidence; 500 dependency failure, safe retry with unchanged key |
+| POST goods-receipts/{id}/variances/{varianceID}/resolve | 200 frozen committed receipt result; records decision only, no quantity/Inventory/finance effect | Retain key, receipt expected_version, decision and note; GET current detail after replay | VARIANCE_RESOLVE GLOBAL or matching stored receipt warehouse, rechecked for replay; separately needs existing VIEW/RECEIVE grant to load receipt detail | 400 invalid key/version/body/decision/note or uninspected receipt; 401 invalid JWT; 403 wrong permission/warehouse; 404 receipt/variance absent; 409 stale version, already resolved without matching evidence, changed command or terminal PO; 500 dependency failure with atomic rollback |
 
 Receipt inspection requires schema migration 000014 before deploying the new binary.
 Idempotency evidence is stored in the same PostgreSQL transaction as receipt, PO,
@@ -138,6 +139,18 @@ creator/supply-plan linkage are preserved. No new editor-exclusion approval poli
 is introduced. Existing private PUT callers must add key/version. Previously lost
 revision numbering is not reconstructed; no live data repair is performed.
 
+Variance resolution requires migration 000019, mandatory key/receipt version,
+normalized decision and note. Its signed actor/key namespace is separate from PO,
+receipt creation and inspection. Matching replay returns the original frozen
+receipt snapshot even after later decisions/closure; permissions remain mandatory.
+Receipt/PO/history/result commit atomically and evidence has no TTL. Receipt -> PO
+locking serializes decisions across receipts so the last resolution sees all
+others. PO completion derives from accepted quantities without changing any
+quantity or emitting another receipt event. No Inventory QC release or refund is
+performed. No fresh resolution may reopen a closed PO. Rollback cannot discard
+completed decisions; historical items without evidence return 409 rather than
+fabricating replay results. Physical disposition remains separate.
+
 All Procurement HTTP errors, including private operations, now use the shared flat
 `Error` envelope (`code`, safe `message`, `requestId`), replacing the unpublished
 legacy `{error:{code,message}}` shape. Internal consumers must migrate. Admin
@@ -161,7 +174,7 @@ is configurable; align it with Identity (currently expected to be `omama-api`).
 
 Missing/invalid credentials produce 401. A valid employee token missing the
 required permission or matching warehouse scope produces 403. These operations
-other than the twenty-two operations above remain absent from frontend OpenAPI paths
+other than the twenty-three operations above remain absent from frontend OpenAPI paths
 and the Procurement Kong allowlist. The policy summary for those private operations
 is retained in the draft OpenAPI metadata. A gateway read route does not create a
 Web session adapter or make private mutations a stable frontend contract.

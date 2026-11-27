@@ -13,16 +13,17 @@ import (
 
 type fakeRepository struct {
 	application.Repository
-	suppliers     map[uuid.UUID]domain.Supplier
-	materials     map[uuid.UUID]domain.RawMaterial
-	offers        map[uuid.UUID][]domain.SupplierMaterialOffer
-	orders        map[uuid.UUID]domain.PurchaseOrder
-	receipts      map[uuid.UUID]domain.GoodsReceipt
-	contracts     map[uuid.UUID]domain.SupplierContract
-	plans         map[uuid.UUID]domain.SupplyPlan
-	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
-	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
-	actionResults map[string]domain.PurchaseOrderActionResult
+	suppliers         map[uuid.UUID]domain.Supplier
+	materials         map[uuid.UUID]domain.RawMaterial
+	offers            map[uuid.UUID][]domain.SupplierMaterialOffer
+	orders            map[uuid.UUID]domain.PurchaseOrder
+	receipts          map[uuid.UUID]domain.GoodsReceipt
+	contracts         map[uuid.UUID]domain.SupplierContract
+	plans             map[uuid.UUID]domain.SupplyPlan
+	planRevisions     map[uuid.UUID][]domain.SupplyPlanRevision
+	planHistory       map[uuid.UUID][]domain.SupplyPlanStatusEvent
+	actionResults     map[string]domain.PurchaseOrderActionResult
+	resolutionResults map[string]domain.VarianceResolutionResult
 }
 
 type inspectionWriteSpy struct {

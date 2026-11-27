@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.6.0
+  version: 2.7.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -44,6 +44,66 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/procurement/goods-receipts/{goodsReceiptID}/variances/{varianceID}/resolve:
+    parameters:
+    - name: goodsReceiptID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    - name: varianceID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: resolveProcurementReceiptVariance
+      summary: Record an audited variance decision with durable retry protection
+      description: >-
+        EMPLOYEE with PROCUREMENT_VARIANCE_RESOLVE#GLOBAL or matching
+        WAREHOUSE#receiptWarehouse, checked against the stored receipt even for
+        replay. Does not implicitly grant receipt-read access; the UI also needs
+        existing VIEW GLOBAL or scoped RECEIVE access to fetch receipt detail/version.
+        Requires INSPECTED receipt, OPEN variance and expected_version from the
+        receipt (not PO). PO must remain SENT, ACKNOWLEDGED, PARTIALLY_RECEIVED or
+        RECEIVED; CLOSED/other terminal states cannot be reopened by a fresh decision.
+        decision is ACCEPT_VARIANCE or REJECT_VARIANCE; nonblank note is required.
+        Runtime trims/uppercases decision and trims note. These are evidence-only
+        decisions: neither changes physical/accepted/rejected quantities, emits a
+        new GoodsReceivedEvent, releases Inventory quarantine nor refunds money.
+        Receipt lock then PO lock serializes decisions across receipts. When no
+        open variance remains, PO status derives from existing accepted quantities.
+        Requires migration 000019. Idempotency-Key is scoped to signed actor across
+        all variance resolutions, separately from PO/create/inspection keys.
+        Fingerprint binds receipt, variance, expected version, normalized decision
+        and note. Matching retry returns its original frozen receipt snapshot, even
+        after later resolutions or PO closure; GET detail for current state. Changed
+        commands conflict; legacy resolved items without evidence cannot be replayed.
+        Receipt/PO/history/result commit atomically; failures consume no key. No TTL.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants-any: [PROCUREMENT_VARIANCE_RESOLVE#GLOBAL, 'PROCUREMENT_VARIANCE_RESOLVE#WAREHOUSE#<receiptWarehouse>']
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementVarianceResolution'}
+            example: {expected_version: 2, decision: REJECT_VARIANCE, note: Rejected stock remains quarantined}
+      responses:
+        '200':
+          description: Frozen committed receipt result; not necessarily current state, never Inventory QC authorization.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementReceipt'}
+              example: {id: '60000000-0000-0000-0000-000000000001', number: GR-DEMO, purchase_order_id: '40000000-0000-0000-0000-000000000001', purchase_order_number: PO-DEMO, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, warehouse_code: WH-01, status: INSPECTED, lines: [{id: '70000000-0000-0000-0000-000000000001', purchase_order_line_id: '50000000-0000-0000-0000-000000000001', material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, unit: KG, expected_open_quantity: '10', quantity_received: '2', quantity_accepted: '1', quantity_rejected: '1', quality_status: PARTIALLY_ACCEPTED}], variances: [{id: '90000000-0000-0000-0000-000000000001', goods_receipt_line_id: '70000000-0000-0000-0000-000000000001', type: QUALITY_REJECTED, expected_quantity: '2', actual_quantity: '1', difference_quantity: '1', reason: Quality rejection, status: RESOLVED, decision: REJECT_VARIANCE, resolved_by: '80000000-0000-0000-0000-000000000001', resolved_at: '2026-11-28T00:01:00Z', resolution_note: Rejected stock remains quarantined}], received_by: '80000000-0000-0000-0000-000000000001', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-28T00:01:00Z', version: 3}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit:
     parameters:
     - name: purchaseOrderID
@@ -12338,6 +12398,14 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementVarianceResolution:
+      type: object
+      additionalProperties: false
+      required: [expected_version, decision, note]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        decision: {type: string, enum: [ACCEPT_VARIANCE, REJECT_VARIANCE]}
+        note: {type: string, minLength: 1, pattern: '\S'}
     ProcurementPOPage:
       type: object
       additionalProperties: false

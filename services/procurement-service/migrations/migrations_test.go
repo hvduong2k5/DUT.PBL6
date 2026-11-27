@@ -36,6 +36,7 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 		"000016_purchase_order_terminal_actions.up.sql",
 		"000017_purchase_order_revision_evidence.up.sql",
 		"000018_purchase_order_draft_edit_commands.up.sql",
+		"000019_receipt_variance_resolution_results.up.sql",
 	}
 	if strings.Join(names, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
@@ -111,6 +112,25 @@ func TestDraftEditMigrationRetainsPriorCommands(t *testing.T) {
 	}
 	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
 		t.Fatal("rollback must refuse completed edits, not erase evidence")
+	}
+}
+
+func TestVarianceResolutionMigrationRetainsActorScopedEvidence(t *testing.T) {
+	up, err := files.ReadFile("000019_receipt_variance_resolution_results.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, guard := range []string{"PRIMARY KEY(actor_id,idempotency_key)", "REFERENCES goods_receipts(id) ON DELETE RESTRICT", "variance_id UUID NOT NULL", "expected_version BIGINT", "result_snapshot JSONB NOT NULL", "request_hash VARCHAR(64)"} {
+		if !strings.Contains(string(up), guard) {
+			t.Fatalf("missing variance evidence guard: %s", guard)
+		}
+	}
+	down, err := os.ReadFile("000019_receipt_variance_resolution_results.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
+		t.Fatal("rollback must not erase completed variance decisions")
 	}
 }
 

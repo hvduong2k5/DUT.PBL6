@@ -50,6 +50,8 @@ type Repository interface {
 	GetGoodsReceiptByIdempotency(context.Context, string, string) (domain.GoodsReceipt, error)
 	GetGoodsReceipt(context.Context, uuid.UUID) (domain.GoodsReceipt, error)
 	ResolveGoodsReceiptVariance(context.Context, uuid.UUID, uuid.UUID, string, string, string) (domain.GoodsReceipt, error)
+	GetGoodsReceiptResolutionResult(context.Context, string, string) (domain.VarianceResolutionResult, error)
+	ResolveGoodsReceiptVarianceAction(context.Context, uuid.UUID, domain.VarianceResolutionCommand) (domain.GoodsReceipt, error)
 	HasUnresolvedGoodsReceiptVariances(context.Context, uuid.UUID) (bool, error)
 	InspectGoodsReceipt(context.Context, domain.GoodsReceipt, int64, string) (domain.GoodsReceipt, error)
 	CreateSupplyPlan(context.Context, domain.SupplyPlan) (domain.SupplyPlan, error)

@@ -538,6 +538,11 @@ func (h *Router) getGoodsReceipt(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	receiptID, ok := pathUUID(w, chi.URLParam(r, "goodsReceiptID"))
 	if !ok {
 		return
@@ -547,8 +552,9 @@ func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	var request struct {
-		Decision string `json:"decision"`
-		Note     string `json:"note"`
+		ExpectedVersion int64  `json:"expected_version"`
+		Decision        string `json:"decision"`
+		Note            string `json:"note"`
 	}
 	if !decodeJSON(w, r, &request) {
 		return
@@ -562,7 +568,7 @@ func (h *Router) resolveGoodsReceiptVariance(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusForbidden, "FORBIDDEN", "goods receipt variance is outside the employee warehouse scope")
 		return
 	}
-	receipt, err := h.service.ResolveGoodsReceiptVariance(r.Context(), receiptID, varianceID, request.Decision, actorID(r), request.Note)
+	receipt, err := h.service.ResolveGoodsReceiptVarianceWithIdempotency(r.Context(), receiptID, varianceID, request.Decision, actorID(r), request.Note, key, request.ExpectedVersion)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
