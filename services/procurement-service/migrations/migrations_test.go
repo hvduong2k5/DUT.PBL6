@@ -37,6 +37,9 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 		"000017_purchase_order_revision_evidence.up.sql",
 		"000018_purchase_order_draft_edit_commands.up.sql",
 		"000019_receipt_variance_resolution_results.up.sql",
+		"000020_master_data_create_results.up.sql",
+		"000021_master_data_mutation_results.up.sql",
+		"000022_supplier_contract_commands.up.sql",
 	}
 	if strings.Join(names, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
@@ -131,6 +134,63 @@ func TestVarianceResolutionMigrationRetainsActorScopedEvidence(t *testing.T) {
 	}
 	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
 		t.Fatal("rollback must not erase completed variance decisions")
+	}
+}
+
+func TestMasterCreateMigrationRetainsActorScopedResults(t *testing.T) {
+	up, err := files.ReadFile("000020_master_data_create_results.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, guard := range []string{"PRIMARY KEY(actor_id,idempotency_key)", "'SUPPLIER','MATERIAL','OFFER'", "resource_id UUID NOT NULL", "request_hash VARCHAR(64)", "result_snapshot JSONB NOT NULL"} {
+		if !strings.Contains(string(up), guard) {
+			t.Fatalf("missing master create guard: %s", guard)
+		}
+	}
+	down, err := os.ReadFile("000020_master_data_create_results.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
+		t.Fatal("rollback must refuse completed create evidence")
+	}
+}
+
+func TestMasterMutationMigrationProtectsTokensAndCompletedResults(t *testing.T) {
+	up, err := files.ReadFile("000021_master_data_mutation_results.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, guard := range []string{"PRIMARY KEY(actor_id,idempotency_key)", "expected_updated_at TIMESTAMPTZ NOT NULL", "'EDIT_SUPPLIER'", "'PREFERRED_SUPPLIER'", "OLD.updated_at+interval '1 microsecond'", "BEFORE UPDATE ON suppliers", "BEFORE UPDATE ON raw_materials", "BEFORE UPDATE ON supplier_material_offers"} {
+		if !strings.Contains(string(up), guard) {
+			t.Fatalf("missing master mutation guard: %s", guard)
+		}
+	}
+	down, err := os.ReadFile("000021_master_data_mutation_results.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
+		t.Fatal("rollback must refuse completed mutations")
+	}
+}
+
+func TestContractCommandsPreserveAuditedImmutableRevisions(t *testing.T) {
+	up, err := files.ReadFile("000022_supplier_contract_commands.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, guard := range []string{"PRIMARY KEY(actor_id,idempotency_key)", "'CREATE','ACTIVATE','TERMINATE'", "note TEXT NOT NULL", "REFERENCES supplier_contracts(id) ON DELETE RESTRICT", "BEFORE UPDATE OR DELETE ON supplier_contracts", "BEFORE TRUNCATE ON supplier_contracts", "advance_master_data_updated_at()"} {
+		if !strings.Contains(string(up), guard) {
+			t.Fatalf("missing contract evidence guard: %s", guard)
+		}
+	}
+	down, err := os.ReadFile("000022_supplier_contract_commands.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
+		t.Fatal("rollback must refuse completed contract evidence")
 	}
 }
 

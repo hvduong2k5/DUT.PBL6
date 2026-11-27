@@ -21,6 +21,36 @@ services:
           - '~/api/v1/admin/procurement/(suppliers|materials)/[^/]+/offers$'
         strip_path: false
         methods: [GET, OPTIONS]
+      - name: procurement-master-creates
+        paths:
+          - '~/api/v1/admin/procurement/(suppliers|materials)$'
+          - '~/api/v1/admin/procurement/suppliers/[^/]+/offers$'
+        strip_path: false
+        methods: [POST, OPTIONS]
+      - name: procurement-master-edits
+        paths:
+          - '~/api/v1/admin/procurement/(suppliers|materials)/[^/]+$'
+          - '~/api/v1/admin/procurement/materials/[^/]+/preferred-supplier$'
+        strip_path: false
+        methods: [PUT, OPTIONS]
+      - name: procurement-master-status
+        paths:
+          - '~/api/v1/admin/procurement/(suppliers|materials)/[^/]+/status$'
+          - '~/api/v1/admin/procurement/suppliers/[^/]+/offers/[^/]+/status$'
+        strip_path: false
+        methods: [PATCH, OPTIONS]
+      - name: procurement-contract-reads
+        paths:
+          - '~/api/v1/admin/procurement/suppliers/[^/]+/contracts$'
+          - '~/api/v1/admin/procurement/contracts/[^/]+$'
+        strip_path: false
+        methods: [GET, OPTIONS]
+      - name: procurement-contract-commands
+        paths:
+          - '~/api/v1/admin/procurement/suppliers/[^/]+/contracts$'
+          - '~/api/v1/admin/procurement/contracts/[^/]+/(activate|terminate)$'
+        strip_path: false
+        methods: [POST, OPTIONS]
       - name: procurement-document-reads
         paths:
           - '~/api/v1/admin/procurement/purchase-orders$'

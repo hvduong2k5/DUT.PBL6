@@ -15,7 +15,7 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
 
-Procurement receiving handoff (contracted gateway operation; Web/BFF pending): receipt inspection
+Procurement receiving handoff (contracted gateway, authenticated BFF and inspection form): receipt inspection
 returns 400 INVALID_ARGUMENT for unsupported/inexact physical quantities (minimum 0.01, exact KG-to-gram
 or integral G/GRAM/UNIT/PIECE, int32 bound). The transaction must leave receipt/PO/outbox unchanged on
 failure. UI must preserve the entered inspection and show the validation error, not report success.
@@ -23,6 +23,50 @@ On success, Procurement inspection is recorded, but Inventory stock remains QUAR
 own QC/disposition acceptance. Procurement acceptance does not imply sellable stock or finance settlement.
 
 The Order principal-kind gate retains Employee access to direct admin detail and cancellation-request routes; permission and warehouse checks remain mandatory. Guest, payment-grant and Customer principals cannot access the admin detail projection.
+
+## Procurement Web integration — 2026-11-28
+
+Contract version 2.11.0 adds explicit Web `/api/admin/procurement/*` and Identity
+`/api/v1/admin/procurement-api/*` facades for the same 37 approved upstream operations.
+Both are disabled by default. Web supports OIDC HttpOnly cookies and existing Identity
+BFF sessions, not legacy/mock authentication. Browser bearer/role/internal-token headers
+are ignored; Identity binds the verified token to an active employee in its DB and relays
+that JWT, never a shared internal token. Procurement remains responsible for signed
+permission-and-scope checks, receipt warehouse ownership and no-self-approval.
+
+| UI surface | Success / empty | Loading | Error / auth |
+| --- | --- | --- | --- |
+| `/admin/procurement` supplier/material/PO tabs | Real 20-row offset page; detail on explicit selection. Empty page shows no-data state, not an invented global total. | Pending list/detail states; stale requests aborted when selection changes. | 401 asks for sign-in, 403 shows missing permission/scope, other failures offer reload with requestId. No mock fallback. |
+| Receipt lookup | Explicit receipt UUID; no fabricated receipt-list endpoint. | Pending lookup; a newer lookup cancels the old one. | Warehouse access denied remains 403; 404 is not empty success. |
+| Supplier/material/offer forms | Create/edit/status/preference and offer-version/toggle forms use real API results. Immutable supplier/material code and base unit are read-only. | Submission disables controls/double-submit. | Client field errors preserve values; backend 400/401/403 remain actionable; 409 requires closing/reloading current data, never automatically overwrites a version. |
+| Contract forms | Create a new metadata revision, activate DRAFT or terminate ACTIVE with a reason; MANAGE GLOBAL even for reads. No file URL/upload/signature. | Related contract pagination/detail and command pending states. | Exact updated_at retained; overlap/stale 409 preserves input. No silent activation or changing issued terms. |
+| PO workflow forms | Create/draft edit, submit, independent approve/reject, record send/supplier response, new revision, cancellation and close-remainder. Archived revisions are read-only. | Submission pending, no automatic retries; GET current PO after success before showing subsequent controls. | Creator cannot approve/reject own PO. Changing issued terms uses revision. Preserve version/reason; stale/invalid-state 409 needs reload. Send action records an operator action, not an automated email. |
+| Receiving/variance forms | Explicit PO-line quantities and optional verified lot dates; inspection requires exact accepted+rejected sum, notes for rejection/over-receipt. Resolve only OPEN variances with the receipt version and note. | Submission locks inputs; inspection does not assume full acceptance. | Signed warehouse scope checked upstream. Procurement acceptance does not release Inventory QUARANTINE or imply financial settlement. |
+| Mutation retry and failure | Original upstream result/status, unchanged Idempotency-Key/JSON. Only synchronous 200/201 with a resource UUID completes the client command. | No automatic retry; uncertain attempts retain key+hash in employee/method/path-scoped session storage, not payload or token. | Same-origin checks; absent key 400, non-JSON 415, >64 KiB 413. Unknown outcome/5xx/malformed success keeps the old key; changed payload is blocked until the original command is reconciled. Storage failure is fail-closed before sending. |
+| Disabled / unavailable integration | No fabricated empty dataset. | Not applicable when disabled. | Authenticated disabled route 404; absent configuration/timeout 503; invalid/oversized (>1 MiB)/redirect response 502. |
+
+Menu visibility uses the existing employee permission projection only as a UI hint; it
+does not replace the signed token snapshot. Backend denials always win. Contract reads
+still require PROCUREMENT_MANAGE#GLOBAL, not ordinary VIEW. Receiving-only employees
+can look up receipts without being granted supplier or PO list access.
+
+Forecast/replenishment planning is excluded: no Web/Identity/Kong supply-plan route
+was added. Legacy private code is not a newly supported product surface. Supplier
+contract files remain deferred until a verified immutable-file storage flow is agreed;
+no binary upload, arbitrary document URL or unsigned download was introduced.
+These tests are not browser/service E2E, deployment approval, Inventory QC release or
+finance settlement evidence. All 25 existing write operations now have business forms;
+there are no new REST shapes or added business permissions in this UI change.
+
+Forms use exact decimal text (not binary floating point), safe-integer money/version
+inputs and at most 100 lines within the 64 KiB facade cap. The browser retry journal
+stores only a key/hash, not enough to reconstruct form contents. Keep an uncertain
+form open. After reload, re-enter exactly the original inputs/version to retry; if
+unavailable, seek operator reconciliation instead of clearing storage or creating again.
+Different tabs/devices are not a global dedupe journal. Late responses cannot erase
+another command's retry evidence. GET/refetch failure after a committed write disables
+subsequent actions and must not prompt a new create. These constraints do not replace
+the owning service's durable idempotency or authorization checks.
 
 Analytics MVP scoped mode: Dashboard and metric series require `ANALYTICS_DASHBOARD_VIEW#GLOBAL`; all Supply reads require `ANALYTICS_SUPPLY_VIEW#GLOBAL`. Bearer JWT takes the grant from `permission_grants`; Identity session takes structured `permissionGrants`. Flat `permissions`, role `ADMIN`, and WAREHOUSE/DEPARTMENT grants do not authorize these routes. Missing token/session → 401; authenticated actor without matching grant or ACTIVE EMPLOYEE state → 403. Pilot UUID allowlist mode remains dev-only.
 
@@ -52,7 +96,7 @@ capability, never invented dates, revision, impact or status. Existing CRUD APIs
 are not silently aliased to the new projections. Role mutations remain owned by
 task 2. Common BFF errors include code, safe message, requestId and errors.
 
-## Procurement service authorization, PO actions and receiving gateway (2.7.0)
+## Procurement service authorization, PO actions and receiving gateway (2.10.0)
 
 Identity migration `V28__seed_procurement_permissions.sql` adds the five permissions
 below to existing enabled, non-archived ADMIN roles. It creates no account, role or
@@ -63,18 +107,28 @@ employees (`forceRelogin=false`) and refresh/login: an existing token is unchang
 During rollout an employee with a stale token still receives 403, not a role-based
 bypass. This seed alone does not deploy a gateway route, BFF relay or Web screen.
 
-Kong configuration now allowlists twenty-three operations in `admin-stable.openapi.yaml`:
+Kong configuration now allowlists thirty-seven operations in `admin-stable.openapi.yaml`:
 six supplier/material/offer GETs, PO create/detail, receipt create/detail and inspection.
 PO submit/approve/reject/send/supplier-response/cancel/close are also exposed.
 Revision create/history are exposed too. OPTIONS is preflight only.
 PO list/draft editing and receipt variance resolution are exposed too. Other
-plan/contract paths, master-data mutations, health probes and arbitrary suffixes are
+supply-plan paths, health probes and arbitrary suffixes are
 not exposed by these routes. Authorization is Bearer
 JWT only; the contract's global cookie alternative does not apply to these operations.
 Web session relay/UI is not implemented by this change.
 
 | Read flow | Success / empty | Loading | Authentication / scope | Error |
 |---|---|---|---|---|
+| GET supplier contracts/detail | 200 contract/page, every revision/status; known supplier with none gives items []; limit/offset without total; legacy file reference is unverified metadata, no download capability | Detail/history skeleton; preserve pagination; no cross-page snapshot guarantee | EMPLOYEE with MANAGE GLOBAL even for reads of commercial terms; VIEW-only/warehouse grants and roles insufficient | 400 malformed UUID/page; 401 invalid JWT; 403 missing MANAGE GLOBAL; 404 absent supplier/contract; 500 safe dependency error, never fabricated empty page |
+| POST supplier contracts | 201 frozen DRAFT revision; fresh key deliberately creates next revision for same supplier/number; metadata only, document_file_id omitted/empty | Retain key/normalized terms on retry; GET current state after replay | Same MANAGE GLOBAL gate; creator from signed identity, no client actor override | 400 invalid fields/dates/key or unsupported file/link; 401/403 auth; 404 missing supplier; 409 inactive supplier or changed actor/key command; 500 rolls back revision/history/result |
+| POST contract activate | 200 frozen ACTIVE result; terms preserved; future start allowed, ACTIVE does not imply effective now; no new maker-checker policy | Retain key/exact contract expected_updated_at; refresh controls after replay | Same MANAGE GLOBAL gate, rechecked on replay | 400 invalid JSON/key/timestamp; 401/403; 404 missing contract; 409 stale state/timestamp, inactive supplier, expired end, overlapping ACTIVE supplier/scope interval across any numbers, or changed command; 500 atomic status/history/result rollback |
+| POST contract terminate | 200 frozen TERMINATED result; trimmed reason and actor audited; terms/effective range preserved; no PO/finance/stock effect | Retain key/timestamp/reason; terminal contract cannot reactivate, new terms need new revision | Same MANAGE GLOBAL gate | 400 missing/invalid reason/key/timestamp; 401/403; 404 missing contract; 409 non-ACTIVE/stale/reused key; 500 atomic rollback, safe retry |
+| PUT supplier/material detail | 200 frozen committed full edit; preserve status, creation and preference; omitted optional fields clear; codes/base_unit immutable | Retain key/body/exact expected_updated_at including fractions; disable duplicate save; GET current state after replay | EMPLOYEE with MANAGE GLOBAL; current auth required on replay, no role bypass | 400 invalid key/timestamp/body; 401/403 auth; 404 missing record; 409 stale timestamp, immutable field or changed actor/key command, duplicate supplier legal ID; 500 atomic rollback, safe retry |
+| PATCH supplier/material status | 200 frozen result; suspension clears all supplier preferences, material inactivity clears its preference; reactivation never restores; affected material timestamps advance | Same retry policy; reload affected materials after cleanup, no optimistic success before response | Same MANAGE GLOBAL gate | 400 invalid state/timestamp/key/JSON; 401/403 auth; 404 absent; 409 stale/reused key; 500 rolls back status, preference cleanup and result |
+| PUT material preferred-supplier | 200 frozen material; required supplier_id is nonzero UUID to select or empty string to clear; clearing inactive material allowed | Retain selection/key/material timestamp; refresh current material after replay | Same MANAGE GLOBAL gate | 400 missing/null/invalid supplier_id or timestamp/key; 401/403; 404 missing material/supplier; 409 stale/reused key, inactive parent or no active effective matching-unit price; 500 no partial selection |
+| PATCH supplier offer status | 200 frozen offer; price terms/version unchanged; deactivating last eligible price clears matching preference; active does not imply currently effective | Use offer timestamp, not price version or parent timestamp; refresh current versions/material after completion | Same MANAGE GLOBAL gate | 400 missing active/key/timestamp; 401/403; 404 absent parent/offer; 409 stale/reused key, inactive parent/unit mismatch or overlap when enabling; 500 rolls back toggle/cleanup/result |
+| POST suppliers/materials | 201 original committed resource, initially ACTIVE; matching retry returns frozen result even after later changes; GET current detail | Retain entered fields and same key on retry; disable duplicate submit | Signed EMPLOYEE with MANAGE GLOBAL; VIEW/warehouse grants and role alone do not authorize; auth rechecked on replay | 400 missing/invalid key, JSON or fields; 401 invalid JWT; 403 missing grant; 409 duplicate code/legal identifier or actor/key reused for another kind/payload; 500 dependency failure, no partial resource or consumed key |
+| POST suppliers/{id}/offers | 201 immutable create result with version/effective range; closes earlier open-ended active version atomically; existing PO snapshots unchanged | Retain key and explicit start date; reload versions after replay | Same MANAGE GLOBAL gate | 400 invalid UUID/key/body/date/price/quantity; 401/403 auth; 404 missing parent; 409 inactive parent, unit mismatch, overlapping active range or changed key payload; 500 rollback includes previous window closing |
 | GET suppliers/materials | 200 page with items, limit, offset; empty items array, never null; no global total is claimed | Retain filters; disable duplicate pagination requests | 401 invalid/missing JWT; 403 known non-employee or missing PROCUREMENT_VIEW#GLOBAL, including warehouse-only grants | 400 invalid limit/offset; 500 safe dependency error, not a fabricated empty result |
 | GET supplier/material detail | 200 domain record; omitted optional fields remain absent | Detail skeleton | Same JWT/GLOBAL gate; ADMIN role alone is insufficient | 400 malformed UUID; 404 unknown record; 500 dependency failure |
 | GET supplier/material offers | 200 items array; known parent without offers returns []; all price versions included, no pagination/effective filter | Price comparison pending | Same JWT/GLOBAL gate | 400 malformed UUID; 404 unknown parent; 500 dependency failure |
@@ -174,7 +228,7 @@ is configurable; align it with Identity (currently expected to be `omama-api`).
 
 Missing/invalid credentials produce 401. A valid employee token missing the
 required permission or matching warehouse scope produces 403. These operations
-other than the twenty-three operations above remain absent from frontend OpenAPI paths
+other than the thirty-seven operations above remain absent from frontend OpenAPI paths
 and the Procurement Kong allowlist. The policy summary for those private operations
 is retained in the draft OpenAPI metadata. A gateway read route does not create a
 Web session adapter or make private mutations a stable frontend contract.

@@ -24,10 +24,18 @@ func New(pool *pgxpool.Pool) *Repository { return &Repository{pool: pool} }
 func (r *Repository) Ping(ctx context.Context) error { return r.pool.Ping(ctx) }
 
 func (r *Repository) CreateSupplier(ctx context.Context, supplier domain.Supplier) (domain.Supplier, error) {
+	return createSupplier(ctx, r.pool, supplier)
+}
+
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func createSupplier(ctx context.Context, queryer rowQuerier, supplier domain.Supplier) (domain.Supplier, error) {
 	const query = `INSERT INTO suppliers (id, code, name, supplier_type, contact_name, phone, email, address, legal_identifier, status)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		RETURNING created_at, updated_at`
-	err := r.pool.QueryRow(ctx, query, supplier.ID, supplier.Code, supplier.Name, supplier.SupplierType,
+	err := queryer.QueryRow(ctx, query, supplier.ID, supplier.Code, supplier.Name, supplier.SupplierType,
 		supplier.ContactName, supplier.Phone, supplier.Email, supplier.Address, supplier.LegalIdentifier, supplier.Status).
 		Scan(&supplier.CreatedAt, &supplier.UpdatedAt)
 	if err != nil {
@@ -76,6 +84,9 @@ func (r *Repository) SetSupplierStatus(ctx context.Context, id uuid.UUID, status
 		return domain.Supplier{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockMasterData(ctx, tx); err != nil {
+		return domain.Supplier{}, err
+	}
 	item, err := scanSupplier(tx.QueryRow(ctx, query, id, status))
 	if err != nil {
 		return domain.Supplier{}, err
@@ -92,9 +103,13 @@ func (r *Repository) SetSupplierStatus(ctx context.Context, id uuid.UUID, status
 }
 
 func (r *Repository) CreateMaterial(ctx context.Context, material domain.RawMaterial) (domain.RawMaterial, error) {
+	return createMaterial(ctx, r.pool, material)
+}
+
+func createMaterial(ctx context.Context, queryer rowQuerier, material domain.RawMaterial) (domain.RawMaterial, error) {
 	const query = `INSERT INTO raw_materials (id, code, name, base_unit, description, status)
 		VALUES ($1,$2,$3,$4,$5,$6) RETURNING created_at, updated_at`
-	err := r.pool.QueryRow(ctx, query, material.ID, material.Code, material.Name, material.BaseUnit, material.Description, material.Status).
+	err := queryer.QueryRow(ctx, query, material.ID, material.Code, material.Name, material.BaseUnit, material.Description, material.Status).
 		Scan(&material.CreatedAt, &material.UpdatedAt)
 	if err != nil {
 		return domain.RawMaterial{}, mapError(err)
@@ -150,19 +165,40 @@ func (r *Repository) CreateOffer(ctx context.Context, offer domain.SupplierMater
 		return domain.SupplierMaterialOffer{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var lockedSupplier uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE id=$1 AND status='ACTIVE' FOR UPDATE`, offer.SupplierID).Scan(&lockedSupplier); err != nil {
+	created, err := createOffer(ctx, tx, offer)
+	if err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	return created, nil
+}
+
+func createOffer(ctx context.Context, tx pgx.Tx, offer domain.SupplierMaterialOffer) (domain.SupplierMaterialOffer, error) {
+	if err := lockMasterData(ctx, tx); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
+	var supplierStatus domain.SupplierStatus
+	if err := tx.QueryRow(ctx, `SELECT status FROM suppliers WHERE id=$1 FOR UPDATE`, offer.SupplierID).Scan(&supplierStatus); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
+			return domain.SupplierMaterialOffer{}, domain.ErrNotFound
 		}
 		return domain.SupplierMaterialOffer{}, err
 	}
-	var lockedMaterial uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM raw_materials WHERE id=$1 AND status='ACTIVE' AND base_unit=$2 FOR UPDATE`, offer.MaterialID, offer.Unit).Scan(&lockedMaterial); err != nil {
+	if supplierStatus != domain.SupplierActive {
+		return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
+	}
+	var materialStatus domain.MaterialStatus
+	var baseUnit string
+	if err := tx.QueryRow(ctx, `SELECT status,base_unit FROM raw_materials WHERE id=$1 FOR UPDATE`, offer.MaterialID).Scan(&materialStatus, &baseUnit); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
+			return domain.SupplierMaterialOffer{}, domain.ErrNotFound
 		}
 		return domain.SupplierMaterialOffer{}, err
+	}
+	if materialStatus != domain.MaterialActive || baseUnit != offer.Unit {
+		return domain.SupplierMaterialOffer{}, domain.ErrInvalidState
 	}
 	if _, err := tx.Exec(ctx, `UPDATE supplier_material_offers SET effective_to=$3,updated_at=now() WHERE supplier_id=$1 AND material_id=$2 AND active AND effective_to IS NULL AND effective_from<$3`, offer.SupplierID, offer.MaterialID, offer.EffectiveFrom); err != nil {
 		return domain.SupplierMaterialOffer{}, err
@@ -177,12 +213,9 @@ func (r *Repository) CreateOffer(ctx context.Context, offer domain.SupplierMater
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(version),0)+1 FROM supplier_material_offers WHERE supplier_id=$1 AND material_id=$2`, offer.SupplierID, offer.MaterialID).Scan(&offer.Version); err != nil {
 		return domain.SupplierMaterialOffer{}, err
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO supplier_material_offers (id,supplier_id,material_id,supplier_sku,unit,unit_price_minor,currency,minimum_quantity,lead_time_days,active,version,effective_from,effective_to) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING created_at,updated_at`, offer.ID, offer.SupplierID, offer.MaterialID, offer.SupplierSKU, offer.Unit, offer.UnitPriceMinor, offer.Currency, offer.MinimumQty, offer.LeadTimeDays, offer.Active, offer.Version, offer.EffectiveFrom, offer.EffectiveTo).Scan(&offer.CreatedAt, &offer.UpdatedAt)
+	err := tx.QueryRow(ctx, `INSERT INTO supplier_material_offers (id,supplier_id,material_id,supplier_sku,unit,unit_price_minor,currency,minimum_quantity,lead_time_days,active,version,effective_from,effective_to) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING created_at,updated_at`, offer.ID, offer.SupplierID, offer.MaterialID, offer.SupplierSKU, offer.Unit, offer.UnitPriceMinor, offer.Currency, offer.MinimumQty, offer.LeadTimeDays, offer.Active, offer.Version, offer.EffectiveFrom, offer.EffectiveTo).Scan(&offer.CreatedAt, &offer.UpdatedAt)
 	if err != nil {
 		return domain.SupplierMaterialOffer{}, mapError(err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.SupplierMaterialOffer{}, err
 	}
 	return offer, nil
 }
@@ -193,6 +226,9 @@ func (r *Repository) SetOfferActive(ctx context.Context, supplierID, offerID uui
 		return domain.SupplierMaterialOffer{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err := lockMasterData(ctx, tx); err != nil {
+		return domain.SupplierMaterialOffer{}, err
+	}
 	var item domain.SupplierMaterialOffer
 	var effectiveTo pgtype.Timestamptz
 	err = tx.QueryRow(ctx, `UPDATE supplier_material_offers SET active=$3,updated_at=now() WHERE supplier_id=$1 AND id=$2 RETURNING id,supplier_id,material_id,supplier_sku,unit,unit_price_minor,currency,minimum_quantity::text,lead_time_days,active,version,effective_from,effective_to,created_at,updated_at`, supplierID, offerID, active).
@@ -262,24 +298,38 @@ func (r *Repository) CreateSupplierContract(ctx context.Context, contract domain
 		return domain.SupplierContract{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var supplierID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM suppliers WHERE id=$1 AND status='ACTIVE' FOR UPDATE`, contract.SupplierID).Scan(&supplierID); err != nil {
+	if err = lockMasterData(ctx, tx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	result, err := createSupplierContract(ctx, tx, contract)
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	return result, nil
+}
+
+func createSupplierContract(ctx context.Context, tx pgx.Tx, contract domain.SupplierContract) (domain.SupplierContract, error) {
+	var supplierStatus domain.SupplierStatus
+	if err := tx.QueryRow(ctx, `SELECT status FROM suppliers WHERE id=$1 FOR UPDATE`, contract.SupplierID).Scan(&supplierStatus); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.SupplierContract{}, domain.ErrInvalidState
+			return domain.SupplierContract{}, domain.ErrNotFound
 		}
 		return domain.SupplierContract{}, err
+	}
+	if supplierStatus != domain.SupplierActive {
+		return domain.SupplierContract{}, domain.ErrInvalidState
 	}
 	if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(revision),0)+1 FROM supplier_contracts WHERE supplier_id=$1 AND contract_number=$2`, contract.SupplierID, contract.ContractNumber).Scan(&contract.Revision); err != nil {
 		return domain.SupplierContract{}, err
 	}
-	err = tx.QueryRow(ctx, `INSERT INTO supplier_contracts(id,supplier_id,contract_number,revision,scope,payment_terms,document_file_id,effective_from,effective_to,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING created_at,updated_at`, contract.ID, contract.SupplierID, contract.ContractNumber, contract.Revision, contract.Scope, contract.PaymentTerms, contract.DocumentFileID, contract.EffectiveFrom, contract.EffectiveTo, contract.Status, contract.CreatedBy).Scan(&contract.CreatedAt, &contract.UpdatedAt)
+	err := tx.QueryRow(ctx, `INSERT INTO supplier_contracts(id,supplier_id,contract_number,revision,scope,payment_terms,document_file_id,effective_from,effective_to,status,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING created_at,updated_at`, contract.ID, contract.SupplierID, contract.ContractNumber, contract.Revision, contract.Scope, contract.PaymentTerms, contract.DocumentFileID, contract.EffectiveFrom, contract.EffectiveTo, contract.Status, contract.CreatedBy).Scan(&contract.CreatedAt, &contract.UpdatedAt)
 	if err != nil {
 		return domain.SupplierContract{}, mapError(err)
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO supplier_contract_status_history(id,supplier_contract_id,to_status,action,actor_id) VALUES($1,$2,$3,'CREATED',$4)`, uuid.New(), contract.ID, contract.Status, contract.CreatedBy); err != nil {
-		return domain.SupplierContract{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return domain.SupplierContract{}, err
 	}
 	return contract, nil
@@ -327,6 +377,20 @@ func (r *Repository) SetSupplierContractStatus(ctx context.Context, id uuid.UUID
 		return domain.SupplierContract{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err = lockMasterData(ctx, tx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	result, err := changeSupplierContractStatus(ctx, tx, id, status, actor, "")
+	if err != nil {
+		return domain.SupplierContract{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return domain.SupplierContract{}, err
+	}
+	return result, nil
+}
+
+func changeSupplierContractStatus(ctx context.Context, tx pgx.Tx, id uuid.UUID, status domain.SupplierContractStatus, actor, reason string) (domain.SupplierContract, error) {
 	current, err := scanSupplierContract(tx.QueryRow(ctx, supplierContractSelect+` WHERE id=$1 FOR UPDATE`, id))
 	if err != nil {
 		return domain.SupplierContract{}, err
@@ -364,10 +428,7 @@ func (r *Repository) SetSupplierContractStatus(ctx context.Context, id uuid.UUID
 	if err := tx.QueryRow(ctx, `UPDATE supplier_contracts SET status=$2,updated_at=now() WHERE id=$1 RETURNING updated_at`, id, status).Scan(&current.UpdatedAt); err != nil {
 		return domain.SupplierContract{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO supplier_contract_status_history(id,supplier_contract_id,from_status,to_status,action,actor_id) VALUES($1,$2,$3,$4,$5,$6)`, uuid.New(), id, previous, status, string(status), actor); err != nil {
-		return domain.SupplierContract{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO supplier_contract_status_history(id,supplier_contract_id,from_status,to_status,action,actor_id,note) VALUES($1,$2,$3,$4,$5,$6,$7)`, uuid.New(), id, previous, status, string(status), actor, reason); err != nil {
 		return domain.SupplierContract{}, err
 	}
 	return current, nil

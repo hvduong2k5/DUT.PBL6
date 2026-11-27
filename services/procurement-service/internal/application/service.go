@@ -16,6 +16,12 @@ import (
 )
 
 type Repository interface {
+	GetSupplierContractCommandResult(context.Context, string, string) (domain.SupplierContractCommandResult, error)
+	ExecuteSupplierContractCommand(context.Context, domain.SupplierContractCommand) (domain.SupplierContractCommandResult, error)
+	GetMasterDataMutationResult(context.Context, string, string) (domain.MasterDataMutationResult, error)
+	MutateMasterData(context.Context, domain.MasterDataMutation) (domain.MasterDataMutationResult, error)
+	GetMasterDataCreateResult(context.Context, string, string) (domain.MasterDataCreateResult, error)
+	CreateMasterDataCommand(context.Context, domain.MasterDataCreateCommand) (domain.MasterDataCreateResult, error)
 	CreateSupplier(context.Context, domain.Supplier) (domain.Supplier, error)
 	UpdateSupplier(context.Context, uuid.UUID, domain.Supplier) (domain.Supplier, error)
 	GetSupplier(context.Context, uuid.UUID) (domain.Supplier, error)

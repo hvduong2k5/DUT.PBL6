@@ -1,0 +1,21 @@
+.procurement-workspace { max-width: 1440px; margin: 0 auto; padding: 24px; }
+.procurement-workspace .proc-card { background: var(--white, #fff); border: 1px solid var(--border, #ded8cc); border-radius: 8px; padding: 20px; margin: 18px 0; min-width: 0; }
+.procurement-workspace .proc-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 16px 0; }
+.procurement-workspace button { padding: 9px 14px; border: 1px solid var(--border, #ded8cc); border-radius: 5px; background: var(--surface-low, #f6f3ee); color: var(--ink, #2f241c); cursor: pointer; }
+.procurement-workspace button[type=submit] { background: var(--primary, #563a26); color: white; }
+.procurement-workspace button:disabled { opacity: .5; cursor: not-allowed; }
+.procurement-workspace .proc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.procurement-workspace label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.procurement-workspace input, .procurement-workspace select, .procurement-workspace textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--border, #ded8cc); border-radius: 5px; background: white; color: var(--ink, #2f241c); }
+.procurement-workspace input[readonly] { background: var(--surface-low, #f6f3ee); }
+.procurement-workspace small { color: var(--muted, #6b5a4a); }
+.procurement-workspace .proc-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; }
+.procurement-workspace .proc-details div { min-width: 0; }
+.procurement-workspace dt { font-size: .85rem; color: var(--muted, #6b5a4a); }
+.procurement-workspace dd { margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.procurement-workspace .proc-record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 14px; }
+.procurement-workspace .proc-line { border: 1px solid var(--border, #ded8cc); margin: 14px 0; padding: 16px; border-radius: 6px; }
+.procurement-workspace table { width: 100%; border-collapse: collapse; margin: 18px 0; table-layout: fixed; }
+.procurement-workspace th, .procurement-workspace td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border, #ded8cc); overflow-wrap: anywhere; }
+.procurement-workspace [role=alert] { padding: 12px; background: var(--error-pale, #ffdad6); color: var(--error, #ba1a1a); border-radius: 5px; }
+@media (max-width: 640px) { .procurement-workspace { padding: 10px; } .procurement-workspace .proc-card { padding: 12px; } .procurement-workspace th, .procurement-workspace td { padding: 7px; } }

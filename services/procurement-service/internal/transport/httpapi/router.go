@@ -926,6 +926,9 @@ type supplierRequest struct {
 }
 
 func (h *Router) createSupplier(w http.ResponseWriter, r *http.Request) {
+	if !requireMasterCreateKey(w, r) {
+		return
+	}
 	var request supplierRequest
 	if !decodeJSON(w, r, &request) {
 		return
@@ -935,7 +938,7 @@ func (h *Router) createSupplier(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and a supported supplier_type are required")
 		return
 	}
-	created, err := h.service.CreateSupplier(r.Context(), supplier)
+	created, err := h.service.CreateMasterDataWithIdempotency(r.Context(), domain.MasterDataCreateCommand{Kind: "SUPPLIER", Actor: actorID(r), Key: r.Header.Get("Idempotency-Key"), Supplier: &supplier})
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -973,48 +976,11 @@ func (h *Router) getSupplier(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) updateSupplier(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
-	if !ok {
-		return
-	}
-	var request supplierRequest
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	supplier, err := domain.NewSupplierWithLegalIdentifier(request.Code, request.Name, request.SupplierType, request.ContactName, request.Phone, request.Email, request.Address, request.LegalIdentifier)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and a supported supplier_type are required")
-		return
-	}
-	updated, err := h.service.UpdateSupplier(r.Context(), id, supplier)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, updated)
+	h.masterMutation("EDIT_SUPPLIER")(w, r)
 }
 
 func (h *Router) setSupplierStatus(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
-	if !ok {
-		return
-	}
-	var request struct {
-		Status domain.SupplierStatus `json:"status"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	if request.Status != domain.SupplierActive && request.Status != domain.SupplierSuspended {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "status must be ACTIVE or SUSPENDED")
-		return
-	}
-	item, err := h.service.SetSupplierStatus(r.Context(), id, request.Status)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, item)
+	h.masterMutation("SUPPLIER_STATUS")(w, r)
 }
 
 type materialRequest struct {
@@ -1025,6 +991,9 @@ type materialRequest struct {
 }
 
 func (h *Router) createMaterial(w http.ResponseWriter, r *http.Request) {
+	if !requireMasterCreateKey(w, r) {
+		return
+	}
 	var request materialRequest
 	if !decodeJSON(w, r, &request) {
 		return
@@ -1034,7 +1003,7 @@ func (h *Router) createMaterial(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and base_unit are required")
 		return
 	}
-	created, err := h.service.CreateMaterial(r.Context(), material)
+	created, err := h.service.CreateMasterDataWithIdempotency(r.Context(), domain.MasterDataCreateCommand{Kind: "MATERIAL", Actor: actorID(r), Key: r.Header.Get("Idempotency-Key"), Material: &material})
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -1043,53 +1012,11 @@ func (h *Router) createMaterial(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) updateMaterial(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, chi.URLParam(r, "materialID"))
-	if !ok {
-		return
-	}
-	var request materialRequest
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	material, err := domain.NewRawMaterial(request.Code, request.Name, request.BaseUnit, request.Description)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "code, name and base_unit are required")
-		return
-	}
-	updated, err := h.service.UpdateMaterial(r.Context(), id, material)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, updated)
+	h.masterMutation("EDIT_MATERIAL")(w, r)
 }
 
 func (h *Router) setPreferredSupplier(w http.ResponseWriter, r *http.Request) {
-	materialID, ok := pathUUID(w, chi.URLParam(r, "materialID"))
-	if !ok {
-		return
-	}
-	var request struct {
-		SupplierID string `json:"supplier_id"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	var supplierID uuid.UUID
-	if value := strings.TrimSpace(request.SupplierID); value != "" {
-		var err error
-		supplierID, err = uuid.Parse(value)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a UUID or empty to clear preference")
-			return
-		}
-	}
-	material, err := h.service.SetPreferredSupplier(r.Context(), materialID, supplierID)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, material)
+	h.masterMutation("PREFERRED_SUPPLIER")(w, r)
 }
 
 func (h *Router) listMaterials(w http.ResponseWriter, r *http.Request) {
@@ -1122,26 +1049,7 @@ func (h *Router) getMaterial(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) setMaterialStatus(w http.ResponseWriter, r *http.Request) {
-	id, ok := pathUUID(w, chi.URLParam(r, "materialID"))
-	if !ok {
-		return
-	}
-	var request struct {
-		Status domain.MaterialStatus `json:"status"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	if request.Status != domain.MaterialActive && request.Status != domain.MaterialInactive {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "status must be ACTIVE or INACTIVE")
-		return
-	}
-	item, err := h.service.SetMaterialStatus(r.Context(), id, request.Status)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, item)
+	h.masterMutation("MATERIAL_STATUS")(w, r)
 }
 
 type offerRequest struct {
@@ -1157,6 +1065,9 @@ type offerRequest struct {
 }
 
 func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
+	if !requireMasterCreateKey(w, r) {
+		return
+	}
 	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
 	if !ok {
 		return
@@ -1170,14 +1081,10 @@ func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "material_id must be a UUID")
 		return
 	}
-	effectiveFrom := time.Now().UTC()
-	if value := strings.TrimSpace(request.EffectiveFrom); value != "" {
-		date, parseErr := time.Parse("2006-01-02", value)
-		if parseErr != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_from must use YYYY-MM-DD")
-			return
-		}
-		effectiveFrom = date.UTC()
+	effectiveFrom, parseErr := time.Parse("2006-01-02", strings.TrimSpace(request.EffectiveFrom))
+	if parseErr != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "effective_from is required and must use YYYY-MM-DD")
+		return
 	}
 	var effectiveTo *time.Time
 	if value := strings.TrimSpace(request.EffectiveTo); value != "" {
@@ -1194,7 +1101,7 @@ func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "offer fields are invalid")
 		return
 	}
-	created, err := h.service.CreateOffer(r.Context(), offer)
+	created, err := h.service.CreateMasterDataWithIdempotency(r.Context(), domain.MasterDataCreateCommand{Kind: "OFFER", Actor: actorID(r), Key: r.Header.Get("Idempotency-Key"), Offer: &offer})
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -1202,31 +1109,23 @@ func (h *Router) createSupplierOffer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, created)
 }
 
+func requireMasterCreateKey(w http.ResponseWriter, r *http.Request) bool {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if len(key) < 16 || len(key) > 128 {
+		writeError(w, 400, "INVALID_ARGUMENT", "Idempotency-Key must contain 16 to 128 visible ASCII characters")
+		return false
+	}
+	for _, ch := range key {
+		if ch < 33 || ch > 126 {
+			writeError(w, 400, "INVALID_ARGUMENT", "Idempotency-Key must contain 16 to 128 visible ASCII characters")
+			return false
+		}
+	}
+	return true
+}
+
 func (h *Router) setSupplierOfferStatus(w http.ResponseWriter, r *http.Request) {
-	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
-	if !ok {
-		return
-	}
-	offerID, ok := pathUUID(w, chi.URLParam(r, "offerID"))
-	if !ok {
-		return
-	}
-	var request struct {
-		Active *bool `json:"active"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	if request.Active == nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "active is required")
-		return
-	}
-	item, err := h.service.SetOfferActive(r.Context(), supplierID, offerID, *request.Active)
-	if err != nil {
-		h.writeServiceError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, item)
+	h.masterMutation("OFFER_STATUS")(w, r)
 }
 
 func (h *Router) listSupplierOffers(w http.ResponseWriter, r *http.Request) {
@@ -1271,6 +1170,9 @@ type supplierContractRequest struct {
 }
 
 func (h *Router) createSupplierContract(w http.ResponseWriter, r *http.Request) {
+	if !requireMasterCreateKey(w, r) {
+		return
+	}
 	supplierID, ok := pathUUID(w, chi.URLParam(r, "supplierID"))
 	if !ok {
 		return
@@ -1299,7 +1201,7 @@ func (h *Router) createSupplierContract(w http.ResponseWriter, r *http.Request) 
 		h.writeServiceError(w, err)
 		return
 	}
-	created, err := h.service.CreateSupplierContract(r.Context(), contract)
+	created, err := h.service.ExecuteSupplierContractCommand(r.Context(), domain.SupplierContractCommand{Action: "CREATE", Actor: actorID(r), Key: r.Header.Get("Idempotency-Key"), Contract: &contract})
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -1320,6 +1222,9 @@ func (h *Router) listSupplierContracts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
+	}
+	if items == nil {
+		items = []domain.SupplierContract{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "limit": limit, "offset": offset})
 }
@@ -1344,11 +1249,43 @@ func (h *Router) terminateSupplierContract(w http.ResponseWriter, r *http.Reques
 	h.changeSupplierContractStatus(w, r, domain.SupplierContractTerminated)
 }
 func (h *Router) changeSupplierContractStatus(w http.ResponseWriter, r *http.Request, status domain.SupplierContractStatus) {
+	if !requireMasterCreateKey(w, r) {
+		return
+	}
 	id, ok := pathUUID(w, chi.URLParam(r, "contractID"))
 	if !ok {
 		return
 	}
-	item, err := h.service.SetSupplierContractStatus(r.Context(), id, status, actorID(r))
+	c := domain.SupplierContractCommand{Actor: actorID(r), Key: r.Header.Get("Idempotency-Key"), ContractID: id}
+	var expected string
+	if status == domain.SupplierContractActive {
+		var input struct {
+			Expected string `json:"expected_updated_at"`
+		}
+		if !decodeJSON(w, r, &input) {
+			return
+		}
+		expected = input.Expected
+		c.Action = "ACTIVATE"
+	} else {
+		var input struct {
+			Expected string `json:"expected_updated_at"`
+			Reason   string `json:"reason"`
+		}
+		if !decodeJSON(w, r, &input) {
+			return
+		}
+		expected = input.Expected
+		c.Action = "TERMINATE"
+		c.Reason = input.Reason
+	}
+	stamp, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(expected))
+	if err != nil || stamp.IsZero() {
+		writeError(w, 400, "INVALID_ARGUMENT", "expected_updated_at must be the current contract timestamp")
+		return
+	}
+	c.ExpectedUpdatedAt = stamp
+	item, err := h.service.ExecuteSupplierContractCommand(r.Context(), c)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return

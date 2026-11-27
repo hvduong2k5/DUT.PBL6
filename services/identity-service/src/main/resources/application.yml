@@ -2,6 +2,10 @@ server:
   port: 8016
 
 app:
+  procurement-api:
+    enabled: ${IDENTITY_PROCUREMENT_API_ENABLED:false}
+    url: ${IDENTITY_PROCUREMENT_API_URL:}
+    allow-insecure-http: ${IDENTITY_PROCUREMENT_API_ALLOW_INSECURE_HTTP:false}
   auth:
     jwt-clock-skew: 30s
   customer-api:

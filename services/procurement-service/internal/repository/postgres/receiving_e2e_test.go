@@ -453,4 +453,7 @@ CREATE TRIGGER reject_test_outbox BEFORE INSERT ON goods_received_outbox FOR EAC
 		t.Fatalf("invalid inspection accepted: %v", err)
 	}
 	assertVarianceResolutionE2E(t, ctx, db, repo, service, supplier.ID, material.ID)
+	assertMasterDataCreateE2E(t, ctx, db)
+	assertMasterDataMutationE2E(t, ctx, db)
+	assertSupplierContractE2E(t, ctx, db)
 }

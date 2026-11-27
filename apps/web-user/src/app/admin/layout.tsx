@@ -8,5 +8,5 @@ import "@/styles/heritage-admin.css";
 
 export default async function EmployeeLayout({ children }: { children: ReactNode }) {
   await connection();
-  return <EmployeeAccessBoundary><EmployeeSessionProvider><EmployeeShell analyticsEnabled={!!process.env.ANALYTICS_ADMIN_UPSTREAM_URL} fulfillmentEnabled>{children}</EmployeeShell></EmployeeSessionProvider></EmployeeAccessBoundary>;
+  return <EmployeeAccessBoundary><EmployeeSessionProvider><EmployeeShell analyticsEnabled={!!process.env.ANALYTICS_ADMIN_UPSTREAM_URL} fulfillmentEnabled procurementEnabled={process.env.ADMIN_PROCUREMENT_ENABLED === "true"}>{children}</EmployeeShell></EmployeeSessionProvider></EmployeeAccessBoundary>;
 }

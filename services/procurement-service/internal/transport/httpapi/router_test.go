@@ -44,6 +44,9 @@ type httpRepository struct {
 	planHistory       map[uuid.UUID][]domain.SupplyPlanStatusEvent
 	actionResults     map[string]domain.PurchaseOrderActionResult
 	resolutionResults map[string]domain.VarianceResolutionResult
+	masterResults     map[string]domain.MasterDataCreateResult
+	masterMutations   map[string]domain.MasterDataMutationResult
+	contractCommands  map[string]domain.SupplierContractCommandResult
 }
 
 func newHTTPRepository() *httpRepository {
@@ -480,7 +483,7 @@ func TestWarehouseReceiptGrantCannotCrossWarehouseScope(t *testing.T) {
 func TestCreateSupplierAndStrictJSONValidation(t *testing.T) {
 	repo := newHTTPRepository()
 	handler := newHandler(repo)
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY","legal_identifier":" ab-123 "}`, "staff", "SUPPLY_MANAGER")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-1","name":"Supplier","supplier_type":"COMPANY","legal_identifier":" ab-123 "}`, "staff", "SUPPLY_MANAGER", "supplier-http-create-0001")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, body=%s", created.Code, created.Body.String())
 	}
@@ -491,7 +494,7 @@ func TestCreateSupplierAndStrictJSONValidation(t *testing.T) {
 	if supplier.Code != "SUP-1" || supplier.Status != domain.SupplierActive || supplier.LegalIdentifier != "AB-123" {
 		t.Fatalf("unexpected response: %+v", supplier)
 	}
-	invalid := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-2","name":"Supplier","supplier_type":"COMPANY","unexpected":true}`, "staff", "SUPPLY_MANAGER")
+	invalid := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers", `{"code":"SUP-2","name":"Supplier","supplier_type":"COMPANY","unexpected":true}`, "staff", "SUPPLY_MANAGER", "supplier-http-invalid-0001")
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("unknown field status = %d, want 400", invalid.Code)
 	}
@@ -838,12 +841,12 @@ func TestSupplierContractsRequireManagePermissionAndCreateDraftRevision(t *testi
 	supplier, _ := domain.NewSupplier("SUP-CON", "Supplier", "COMPANY", "", "", "", "")
 	repo.suppliers[supplier.ID] = supplier
 	handler := newHandler(repo)
-	body := `{"contract_number":"AGR-01","scope":"RAW_MATERIALS","payment_terms":"NET 30","document_file_id":"file-abc","effective_from":"2026-11-01"}`
+	body := `{"contract_number":"AGR-01","scope":"RAW_MATERIALS","payment_terms":"NET 30","effective_from":"2026-11-01"}`
 	denied := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "warehouse", "WAREHOUSE_STAFF")
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("warehouse staff contract status=%d, want 403", denied.Code)
 	}
-	created := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "procurement", "PROCUREMENT_MANAGER")
+	created := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/suppliers/"+supplier.ID.String()+"/contracts", body, "procurement", "PROCUREMENT_MANAGER", "contract-create-test-0001")
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create contract status=%d body=%s", created.Code, created.Body.String())
 	}
@@ -851,7 +854,7 @@ func TestSupplierContractsRequireManagePermissionAndCreateDraftRevision(t *testi
 	if err := json.Unmarshal(created.Body.Bytes(), &contract); err != nil {
 		t.Fatal(err)
 	}
-	if contract.Status != domain.SupplierContractDraft || contract.Revision != 1 || contract.DocumentFileID != "file-abc" {
+	if contract.Status != domain.SupplierContractDraft || contract.Revision != 1 || contract.DocumentFileID != "" {
 		t.Fatalf("unexpected contract response: %+v", contract)
 	}
 }
@@ -860,9 +863,11 @@ func TestUpdateMaterialRoutePreservesStatus(t *testing.T) {
 	repo := newHTTPRepository()
 	material, _ := domain.NewRawMaterial("SESAME", "Sesame", "KG", "")
 	material.Status = domain.MaterialInactive
+	material.CreatedAt = time.Now().UTC()
+	material.UpdatedAt = material.CreatedAt
 	repo.materials[material.ID] = material
 	handler := newHandler(repo)
-	updated := performRequest(handler, http.MethodPut, "/api/v1/admin/procurement/materials/"+material.ID.String(), `{"code":"SESAME-2","name":"Sesame updated","base_unit":"KG","description":"new"}`, "staff", "SUPPLY_MANAGER")
+	updated := performRequestWithIdempotency(handler, http.MethodPut, "/api/v1/admin/procurement/materials/"+material.ID.String(), fmt.Sprintf(`{"code":"SESAME","name":"Sesame updated","base_unit":"KG","description":"new","expected_updated_at":%q}`, material.UpdatedAt.Format(time.RFC3339Nano)), "staff", "SUPPLY_MANAGER", "material-edit-test-0001")
 	if updated.Code != http.StatusOK {
 		t.Fatalf("update material status=%d body=%s", updated.Code, updated.Body.String())
 	}
@@ -870,7 +875,7 @@ func TestUpdateMaterialRoutePreservesStatus(t *testing.T) {
 	if err := json.Unmarshal(updated.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Code != "SESAME-2" || result.Status != domain.MaterialInactive {
+	if result.Code != "SESAME" || result.Status != domain.MaterialInactive {
 		t.Fatalf("unexpected updated material: %+v", result)
 	}
 }
