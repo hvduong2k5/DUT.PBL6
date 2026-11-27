@@ -45,7 +45,7 @@ def build():
         'D2C': 'openapi_d2c.yaml',
     }.items()}
     spec = {'openapi': '3.0.3', 'info': {
-        'title': 'MVP Customer API - integration target', 'version': '1.0.0-integration',
+        'title': 'MVP Customer API - integration target', 'version': '1.1.0-integration',
         'description': 'Git integration target mvp-2026-10-26. Provider and consumer implementation remains gated by packages/contracts/mvp/registry.yaml. Async checkout uses quote/revision and CheckoutOperation. Monetary values in the Order flow are integer VND. Original provider specs and frontend references are preserved.'},
         'servers': [{'url': 'https://api.omama.example', 'description': 'Contract placeholder; no live deployment claimed'}],
         'security': [{'bearerAuth': []}], 'paths': {}, 'components': {

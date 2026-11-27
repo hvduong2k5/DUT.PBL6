@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OwnedOrder } from "@/lib/api-contract";
-import { mapMvpOrderDetail, mapMvpOrderListResponse } from "./mvp";
+import { isOwnedOrdersResponse, mapMvpOrderDetail, mapMvpOrderListResponse } from "./mvp";
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const DIGEST = "a".repeat(64);
@@ -52,9 +52,9 @@ function ownedOrder(overrides: Partial<OwnedOrder> = {}): OwnedOrder {
         recipient_name: "Golden Audit",
         phone: "0900000333",
         street: "2 Le Loi",
-        ward_code: "WARD-PN-016",
-        ward_name: "Phường Phú Nhuận",
-        province_code: "75",
+        ward_code: "19753",
+        ward_name: "Phường Phú Xuân",
+        province_code: "46",
         province_name: "Thành phố Huế"
       },
       subtotal: 255000,
@@ -80,7 +80,7 @@ describe("MVP order mappers (F-36)", () => {
 
   it("detail renders the recipient address with ward/province names when present", () => {
     const detail = mapMvpOrderDetail(ownedOrder());
-    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Nhuận, Thành phố Huế");
+    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, Phường Phú Xuân, Thành phố Huế");
   });
 
   it("renders a province once when a historical snapshot has the same suffix on the ward", () => {
@@ -103,7 +103,7 @@ describe("MVP order mappers (F-36)", () => {
       }
     };
     const detail = mapMvpOrderDetail(order);
-    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, WARD-PN-016, 75");
+    expect(detail.recipient?.addressDisplay).toBe("2 Le Loi, 19753, 46");
   });
 
   it("cancellation block exposes customer labels instead of raw codes", () => {
@@ -123,5 +123,21 @@ describe("MVP order mappers (F-36)", () => {
     const paid = mapMvpOrderDetail(ownedOrder({ allowed_actions: ["REQUEST_CANCELLATION", "CONTACT_SUPPORT"] }));
     expect(paid.cancellation.message).toContain("đội chăm sóc");
     expect(paid.cancellation.message).not.toMatch(/backend|capability/i);
+  });
+
+  it("accepts a COD order whose payment_expires_at is null (F-52)", () => {
+    const base = ownedOrder();
+    const cod = ownedOrder({
+      payment_method: "COD",
+      status: "CONFIRMED_COD",
+      payment_status: "UNPAID",
+      payment_reference: "",
+      payment_expires_at: null,
+      snapshot: { ...base.snapshot!, payment_method: "COD" }
+    });
+    expect(isOwnedOrdersResponse({ items: [cod], next_cursor: "" })).toBe(true);
+    const list = mapMvpOrderListResponse({ items: [cod], next_cursor: "" });
+    expect(list.items).toHaveLength(1);
+    expect(mapMvpOrderDetail(cod).payment.expiresAt).toBeNull();
   });
 });

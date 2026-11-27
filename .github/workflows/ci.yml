@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [feature/catalog-service, dev, main]
   pull_request:

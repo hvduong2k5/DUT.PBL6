@@ -19,8 +19,8 @@ func f36CoreSnapshot() core.SnapshotInput {
 		},
 		Address: core.ShippingAddress{
 			RecipientName: "Golden Audit", PhoneE164: "+84900000333", Street: "2 Le Loi",
-			ProvinceCode: "75", ProvinceName: "Thành phố Huế",
-			WardCode: "WARD-PN-016", WardName: "Phường Phú Nhuận",
+			ProvinceCode: "46", ProvinceName: "Thành phố Huế",
+			WardCode: "19753", WardName: "Phường Phú Xuân",
 		},
 		Shipping: core.ShippingTerms{QuoteReference: "ship-1", ValidUntil: time.Now().Add(2 * time.Hour)},
 		Money:    core.SnapshotMoney{Currency: "VND", Subtotal: 170000, ShippingFee: 27000, FinalAmount: 197000},
@@ -57,10 +57,10 @@ func TestCustomerOrderEmitsCoreSnapshotInListMode(t *testing.T) {
 	if len(q.Items) != 1 || q.Items[0].SKU != "SKU-002-200" || q.Items[0].Name != "Mè Xửng Dẻo Ngự Trà" || q.Items[0].Quantity != 2 {
 		t.Fatalf("snapshot items wrong: %+v", q.Items)
 	}
-	if q.Address.WardName != "Phường Phú Nhuận" || q.Address.ProvinceName != "Thành phố Huế" {
+	if q.Address.WardName != "Phường Phú Xuân" || q.Address.ProvinceName != "Thành phố Huế" {
 		t.Fatalf("snapshot address names wrong: %+v", q.Address)
 	}
-	if q.Address.Ward != "WARD-PN-016" || q.Address.Province != "75" {
+	if q.Address.Ward != "19753" || q.Address.Province != "46" {
 		t.Fatalf("snapshot address codes wrong: %+v", q.Address)
 	}
 }
@@ -88,15 +88,15 @@ func TestCustomerOrderOmitsSnapshotWhenNotLoaded(t *testing.T) {
 // Address names ride along in JSON only when set, so older payloads and
 // consumers that ignore them are unaffected.
 func TestAddressNamesJSON(t *testing.T) {
-	withNames, _ := json.Marshal(domain.Address{Ward: "WARD-PN-016", WardName: "Phường Phú Nhuận", Province: "75", ProvinceName: "Thành phố Huế"})
+	withNames, _ := json.Marshal(domain.Address{Ward: "19753", WardName: "Phường Phú Xuân", Province: "46", ProvinceName: "Thành phố Huế"})
 	var decoded map[string]any
 	if err := json.Unmarshal(withNames, &decoded); err != nil {
 		t.Fatal(err)
 	}
-	if decoded["ward_name"] != "Phường Phú Nhuận" || decoded["province_name"] != "Thành phố Huế" {
+	if decoded["ward_name"] != "Phường Phú Xuân" || decoded["province_name"] != "Thành phố Huế" {
 		t.Fatalf("names missing from address JSON: %s", withNames)
 	}
-	withoutNames, _ := json.Marshal(domain.Address{Ward: "WARD-PN-016", Province: "75"})
+	withoutNames, _ := json.Marshal(domain.Address{Ward: "19753", Province: "46"})
 	decoded = map[string]any{}
 	if err := json.Unmarshal(withoutNames, &decoded); err != nil {
 		t.Fatal(err)
@@ -107,10 +107,10 @@ func TestAddressNamesJSON(t *testing.T) {
 }
 
 func TestAddressNameOrCode(t *testing.T) {
-	if got := addressNameOrCode("Phường Phú Nhuận", "WARD-PN-016"); got != "Phường Phú Nhuận" {
+	if got := addressNameOrCode("Phường Phú Xuân", "19753"); got != "Phường Phú Xuân" {
 		t.Fatalf("want name, got %q", got)
 	}
-	if got := addressNameOrCode("", "WARD-PN-016"); got != "WARD-PN-016" {
+	if got := addressNameOrCode("", "19753"); got != "19753" {
 		t.Fatalf("want code fallback, got %q", got)
 	}
 }

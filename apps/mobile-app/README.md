@@ -107,6 +107,29 @@ flutter run \
   --dart-define=API_BASE_URL=<REAL_API_GATEWAY>
 ```
 
+Build dùng API thật (gateway production theo `docs/06_operations/mvp_delivery.md`, đăng nhập Keycloak qua Identity):
+
+```bash
+flutter build apk --release --dart-define-from-file=config/real-api.json
+```
+
+`config/real-api.json` bật `DATA_SOURCE=backend`, `AUTH_MODE=identity` và URL Gateway/Identity. Mock (`config/mock.json`, mặc định khi không truyền define) chỉ dùng cho test và làm UI local.
+
+#### Tính năng theo contract API thật
+
+Contract công khai chuẩn là `docs/03_api_specs/mvp-customer.openapi.yaml` (xem `packages/contracts/mvp/README.md`); route thật nằm trong `services/api-gateway/config/kong.yml`.
+
+| Tính năng | API thật | Ở chế độ backend |
+|---|---|---|
+| Danh mục, sản phẩm, tìm kiếm | `/categories`, `/products`, `/products/search`, `/products/{id}`; `/products/variants/{sku}` (catalog có, runbook ghi) | Bật |
+| Đăng nhập, tài khoản | Identity `/public/auth/*`, `/users/me`, `/profile`, `/customer/capabilities` | Bật (`AUTH_MODE=identity`) |
+| Giỏ, báo giá, đặt đơn, thanh toán, đơn hàng, hủy | `/cart`, `/checkout/quote`, `/checkout`, `/checkout-operations/{id}`, `/orders/*` | Bật |
+| Địa chỉ | `/profile/addresses`, `/profile/addresses/{id}/default` | Bật |
+| Thông báo | Chưa có contract | Danh sách trống, không dùng dữ liệu mẫu |
+| Ưu đãi, ví điểm, đổi trả, đánh giá, hỗ trợ, truy xuất, B2B, tra cứu đơn khách | Chỉ có trong contract stable, Gateway chưa route | Tắt: ẩn lối vào, link trực tiếp mở màn "Tính năng chưa khả dụng" |
+
+Khi backend mở một tính năng, bật bằng define tương ứng (không cần sửa code): `FEATURE_PROMOTIONS`, `FEATURE_LOYALTY`, `FEATURE_RETURNS`, `FEATURE_REVIEWS`, `FEATURE_SUPPORT`, `FEATURE_TRACE`, `FEATURE_B2B`, `FEATURE_GUEST_ORDER_LOOKUP`, ví dụ `--dart-define=FEATURE_SUPPORT=true`. Danh sách nằm ở `lib/core/config/app_features.dart`.
+
 Có thể dùng `--dart-define` trực tiếp thay cho file. `API_BASE_URL` luôn có ưu tiên cao nhất. Nếu không ghi đè, cấu hình mặc định nhận biết platform mà không dùng `dart:io`: Android Emulator dùng `10.0.2.2`; web/desktop dùng `localhost`. Mockoon dùng cổng `4010`, backend development dùng cổng `8000`, và backend production mặc định dùng `https://api.omama.vn`.
 
 `RepositoryFactory` trong `lib/app/app_dependencies.dart` là điểm duy nhất lựa chọn repository. `mockoon` và `backend` dùng cùng các lớp REST; chỉ URL/môi trường khác nhau.

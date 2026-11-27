@@ -11,8 +11,7 @@
   "verifyEmail": false,
   "internationalizationEnabled": true,
   "supportedLocales": [
-    "vi",
-    "en"
+    "vi"
   ],
   "defaultLocale": "vi",
   "accessTokenLifespan": 900,
@@ -342,30 +341,45 @@
       }
     },
     {
+      "id": "a0000000-0000-0000-0000-000000000002",
       "username": "admin",
       "enabled": true,
       "email": "admin@omama.vn",
-      "firstName": "System",
+      "emailVerified": true,
+      "firstName": "Super",
       "lastName": "Admin",
       "credentials": [
         {
           "type": "password",
           "value": "admin",
-          "temporary": true
+          "temporary": false
         }
       ],
       "attributes": {
         "app_user_id": [
-          "a0000000-0000-0000-0000-000000000001"
+          "a0000000-0000-0000-0000-000000000002"
         ],
         "principal_type": [
           "EMPLOYEE"
+        ]
+      },
+      "realmRoles": [
+        "ADMIN"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "realm-admin"
         ]
       }
     }
   ],
   "roles": {
-    "realm": []
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Quản trị viên toàn hệ thống (Super Admin)"
+      }
+    ]
   },
   "components":   {
     "org.keycloak.userprofile.UserProfileProvider": [

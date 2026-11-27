@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/omamx/order-service/internal/domain"
+	"github.com/omamx/order-service/internal/persistence"
 	"github.com/redis/go-redis/v9"
 	"net/http"
 	"sort"
@@ -15,6 +16,19 @@ import (
 )
 
 func (s *Service) Cart(ctx context.Context, p domain.Principal) (domain.Cart, error) {
+	if s.sqlCarts() {
+		cart, _, err := readSQLCart(ctx, s.DB, p.Scope())
+		if err == nil {
+			s.enrichCart(ctx, &cart)
+			return cart, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return domain.Cart{}, domain.E("CART_UNAVAILABLE", 503)
+		}
+	}
+	return s.redisCart(ctx, p)
+}
+func (s *Service) redisCart(ctx context.Context, p domain.Principal) (domain.Cart, error) {
 	v, e := s.Redis.Get(ctx, "cart:"+p.Scope()).Bytes()
 	if errors.Is(e, redis.Nil) {
 		return domain.Cart{Items: []domain.Item{}}, nil
@@ -62,6 +76,15 @@ func (s *Service) enrichCart(ctx context.Context, c *domain.Cart) {
 	}
 }
 func (s *Service) MutateCart(ctx context.Context, p domain.Principal, sku string, qty int, revision int64, add bool) (domain.Cart, error) {
+	if len(sku) == 0 || len(sku) > 64 || qty < 0 || qty > 999 || revision < 0 {
+		return domain.Cart{}, domain.E("INVALID_CART_INPUT", 400)
+	}
+	if s.sqlCarts() {
+		return s.mutateStorefrontCart(ctx, p, sku, qty, revision, add)
+	}
+	return s.mutateRedisCart(ctx, p, sku, qty, revision, add)
+}
+func (s *Service) mutateRedisCart(ctx context.Context, p domain.Principal, sku string, qty int, revision int64, add bool) (domain.Cart, error) {
 	if len(sku) == 0 || len(sku) > 64 || qty < 0 || qty > 999 || revision < 0 {
 		return domain.Cart{}, domain.E("INVALID_CART_INPUT", 400)
 	}
@@ -242,6 +265,9 @@ func (s *Service) Canonical(ctx context.Context, q domain.Quote) (domain.Quote, 
 	return q, nil
 }
 func (s *Service) CreateQuote(ctx context.Context, p domain.Principal, in domain.QuoteInput) (domain.Quote, error) {
+	if e := s.GuestPaymentMethodAllowed(p, in.Method); e != nil {
+		return domain.Quote{}, e
+	}
 	if p.Role != "CUSTOMER" && p.Role != "GUEST" {
 		return domain.Quote{}, domain.E("PERMISSION_DENIED", 403)
 	}
@@ -368,6 +394,9 @@ func (s *Service) replay(ctx context.Context, p domain.Principal, key, hash stri
 	return o, 202, nil
 }
 func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in domain.CheckoutInput) (domain.Operation, int, error) {
+	if e := s.GuestPaymentMethodAllowed(p, in.Method); e != nil {
+		return domain.Operation{}, 403, e
+	}
 	if s.CoreCheckout != nil {
 		return s.acceptCore(ctx, p, key, in)
 	}
@@ -417,6 +446,20 @@ func (s *Service) Accept(ctx context.Context, p domain.Principal, key string, in
 		return domain.Operation{}, 503, e
 	}
 	defer tx.Rollback(ctx)
+	if s.C.AuthMode == "keycloak" && p.PrincipalKind() == domain.Guest {
+		if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "CHECKOUT:"+p.Scope()+":"+key); e != nil {
+			return domain.Operation{}, 503, e
+		}
+		if prior, code, err := s.replay(ctx, p, key, hash); !errors.Is(err, pgx.ErrNoRows) {
+			return prior, code, err
+		}
+		if e = persistence.GuardGuestPending(ctx, tx, p.ID, 3); e != nil {
+			if errors.Is(e, persistence.ErrGuestPendingLimit) {
+				return domain.Operation{}, 429, domain.E("GUEST_PENDING_ORDER_LIMIT", 429)
+			}
+			return domain.Operation{}, 401, domain.E("UNAUTHENTICATED", 401)
+		}
+	}
 	var now time.Time
 	if e = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); e != nil {
 		return domain.Operation{}, 503, e

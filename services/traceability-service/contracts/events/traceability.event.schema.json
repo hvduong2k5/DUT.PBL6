@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:omama:traceability:events:v1:draft",
+  "title": "Traceability business event — draft, consumer agreement pending",
+  "description": "Service-local outbox payload, not a claim of shared registry or peer compatibility. Free-text operator reasons, evidence and actor identities are intentionally absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "properties": {
+    "specversion": {"const": "1.0"},
+    "id": {"type": "string", "format": "uuid"},
+    "source": {"const": "https://omama.vn/services/traceability-service"},
+    "type": {"enum": ["vn.omama.traceability.profile.published.v1", "vn.omama.traceability.profile.suspended.v1", "vn.omama.traceability.profile.archived.v1", "vn.omama.traceability.certification.status.changed.v1"]},
+    "subject": {"type": "string", "pattern": "^profile:[0-9a-f-]{36}$"},
+    "time": {"type": "string", "format": "date-time"},
+    "datacontenttype": {"const": "application/json"},
+    "traceparent": {"type": "string", "pattern": "^00-(?!0{32}-)[0-9a-f]{32}-(?!0{16}-)[0-9a-f]{16}-0[01]$"},
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "aggregate_version", "revision", "mode", "status"],
+      "properties": {
+        "profile_id": {"type": "string", "format": "uuid"},
+        "aggregate_version": {"type": "integer", "minimum": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "mode": {"enum": ["sandbox", "integration"]},
+        "status": {"enum": ["ACTIVE", "SUSPENDED", "ARCHIVED"]},
+        "eligible": {"type": "boolean"},
+        "reason_code": {"type": "string"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"type": {"const": "vn.omama.traceability.profile.published.v1"}}}, "then": {"properties": {"data": {"properties": {"status": {"const": "ACTIVE"}}}}}},
+    {"if": {"properties": {"type": {"const": "vn.omama.traceability.profile.suspended.v1"}}}, "then": {"properties": {"data": {"properties": {"status": {"const": "SUSPENDED"}}}}}},
+    {"if": {"properties": {"type": {"const": "vn.omama.traceability.profile.archived.v1"}}}, "then": {"properties": {"data": {"properties": {"status": {"const": "ARCHIVED"}}}}}},
+    {
+      "if": {"properties": {"type": {"const": "vn.omama.traceability.certification.status.changed.v1"}}},
+      "then": {"properties": {"data": {"required": ["eligible", "reason_code"], "properties": {"status": {"const": "ACTIVE"}, "eligible": {"const": false}, "reason_code": {"enum": ["CERTIFICATE_EXPIRED", "CERTIFICATE_REVIEW_DUE"]}}}}},
+      "else": {"properties": {"data": {"not": {"anyOf": [{"required": ["eligible"]}, {"required": ["reason_code"]}]}}}}
+    }
+  ]
+}

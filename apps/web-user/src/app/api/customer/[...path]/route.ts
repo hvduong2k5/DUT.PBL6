@@ -14,6 +14,7 @@ import { authorizeCustomerCapability, customerAccessFailure } from "@/lib/auth/c
 import { credentialHeaders } from "@/lib/auth/server-credential";
 import { withCustomerAuth } from "@/lib/auth/customer-auth";
 import { parseCheckoutLocations } from "@/lib/checkout/locations";
+import { MVP_FEATURE_GATES } from "@/lib/mvp-feature-gates";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +91,26 @@ async function locationUpstream(request: NextRequest, credential: string | undef
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
   return { response, payload };
+}
+
+async function guestLocationUpstream(request: NextRequest) {
+  const base = (process.env.GUEST_ORDER_UPSTREAM_URL ?? process.env.CUSTOMER_EXTENSIONS_UPSTREAM_URL ?? "http://127.0.0.1:4020/api/v1").replace(/\/$/u, "");
+  const response = await fetch(`${base}/locations/checkout`, {
+    method: "GET",
+    headers: headersFor(request, undefined),
+    cache: "no-store",
+    redirect: "manual"
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  return { response, payload };
+}
+
+function locationsResponse(result: { response: Response; payload: unknown }): Response {
+  if (!result.response.ok) return relayError(result.payload, result.response);
+  const locations = parseCheckoutLocations(result.payload);
+  if (!locations) return publicErrorResponse(502, "CUSTOMER_LOCATIONS_INVALID", "Danh mục Tỉnh/Thành phố và Phường/Xã không hợp lệ.", "BFF-CUSTOMER-LOCATIONS");
+  return Response.json({ provinces: locations });
 }
 
 function responseHeaders(response: Response, version?: number): Headers {
@@ -243,6 +264,22 @@ async function proxyWithCredential(request: NextRequest, context: { params: Prom
     return publicErrorResponse(403, "ORIGIN_NOT_ALLOWED", "Request origin is not allowed.", "BFF-CUSTOMER-ORIGIN");
   }
 
+  // The checkout locations catalogue is public reference data (province and
+  // ward names/codes from administrative_units) and the checkout page loads
+  // it before any sign-in. A request that reaches this handler with no
+  // customer credential is anonymous by construction: withCustomerAuth has
+  // already failed closed for expired or invalid session material, so there
+  // is no session to fall back from. Serve the catalogue through the public
+  // gateway base the guest flow already uses; the identity-proxied customer
+  // upstream requires a customer JWT and cannot serve guests.
+  if (method === "GET" && path === "locations" && credential === undefined && MVP_FEATURE_GATES.guestOrder) {
+    try {
+      return locationsResponse(await guestLocationUpstream(request));
+    } catch {
+      return publicErrorResponse(503, "CUSTOMER_UPSTREAM_UNAVAILABLE", "Không thể kết nối dịch vụ hồ sơ. Hãy kiểm tra API Gateway hoặc Mockoon.", "BFF-CUSTOMER-UPSTREAM");
+    }
+  }
+
   const requiredCapability: CustomerCapability = path === "profile" ? "PROFILE_MANAGE" : "ADDRESS_MANAGE";
   try {
     await authorizeCustomerCapability(credential, requiredCapability);
@@ -253,11 +290,7 @@ async function proxyWithCredential(request: NextRequest, context: { params: Prom
 
   try {
     if (path === "locations") {
-      const result = await locationUpstream(request, credential);
-      if (!result.response.ok) return relayError(result.payload, result.response);
-      const locations = parseCheckoutLocations(result.payload);
-      if (!locations) return publicErrorResponse(502, "CUSTOMER_LOCATIONS_INVALID", "Danh mục Tỉnh/Thành phố và Phường/Xã không hợp lệ.", "BFF-CUSTOMER-LOCATIONS");
-      return Response.json({ provinces: locations });
+      return locationsResponse(await locationUpstream(request, credential));
     }
 
     if (path === "profile") {

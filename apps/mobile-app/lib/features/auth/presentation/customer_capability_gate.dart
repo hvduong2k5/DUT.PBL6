@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_app/core/widgets/heritage/heritage_surface.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mobile_app/core/widgets/app_empty_view.dart';
 import 'package:mobile_app/core/widgets/app_error_view.dart';
@@ -28,19 +29,21 @@ class CustomerCapabilityGate extends StatelessWidget {
       }
       return Scaffold(
         appBar: const AppMobileHeader(title: 'Quyền truy cập', showBack: true),
-        body: state.loading
-            ? const AppLoadingView()
-            : state.error != null
-            ? AppErrorView(
-                message: state.error!,
-                onRetry: context.read<CapabilitiesCubit>().load,
-              )
-            : AppEmptyView(
-                title: 'Chưa có quyền truy cập',
-                message: requireB2b
-                    ? 'Tính năng dành cho tổ chức B2B đã được xác minh.'
-                    : 'Tài khoản hiện tại chưa được cấp quyền sử dụng tính năng này.',
-              ),
+        body: HeritageSurface(
+          child: state.loading
+              ? const AppLoadingView()
+              : state.error != null
+              ? AppErrorView(
+                  message: state.error!,
+                  onRetry: context.read<CapabilitiesCubit>().load,
+                )
+              : AppEmptyView(
+                  title: 'Chưa có quyền truy cập',
+                  message: requireB2b
+                      ? 'Tính năng dành cho tổ chức B2B đã được xác minh.'
+                      : 'Tài khoản hiện tại chưa được cấp quyền sử dụng tính năng này.',
+                ),
+        ),
       );
     },
   );

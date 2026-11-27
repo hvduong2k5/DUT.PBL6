@@ -20,3 +20,5 @@ CREATE TABLE IF NOT EXISTS core_inventory_commands(order_id uuid NOT NULL REFERE
 CREATE TABLE IF NOT EXISTS core_source_history(source text NOT NULL,resource_id uuid NOT NULL,version bigint NOT NULL,order_id uuid NOT NULL,proof jsonb NOT NULL,PRIMARY KEY(source,resource_id,version));
 CREATE TABLE IF NOT EXISTS core_completion_decisions(order_id uuid NOT NULL,order_version bigint NOT NULL,decision_id uuid NOT NULL,expires_at timestamptz NOT NULL,PRIMARY KEY(order_id,order_version));
 CREATE TABLE IF NOT EXISTS core_admission_barriers(order_id uuid PRIMARY KEY,fenced_generation bigint NOT NULL);
+CREATE TABLE IF NOT EXISTS catalogue_maintenance(singleton boolean PRIMARY KEY DEFAULT true,enabled boolean NOT NULL DEFAULT false,reason text NOT NULL DEFAULT '',updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),CONSTRAINT catalogue_maintenance_singleton CHECK (singleton));
+INSERT INTO catalogue_maintenance(singleton,enabled) VALUES(true,false) ON CONFLICT (singleton) DO NOTHING;

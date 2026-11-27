@@ -56,10 +56,16 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	})
 	r.Get("/readyz", readinessCheck(cfg.Pool, cfg.RedisClient))
 
+	// Public reference data: the checkout locations catalogue (provinces and
+	// wards from administrative_units) contains no personal data and is
+	// needed before sign-in — guest checkout and mobile pre-login address
+	// forms. It is registered outside the identity middleware on purpose;
+	// every other /api/v1 route stays authenticated.
+	r.Get("/api/v1/locations/checkout", locationsHandler(cfg.Pool))
+
 	// API Routes
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Use(middleware.AuthContextWithIdentity(cfg.IdentityToken, cfg.Identity))
-		api.Get("/locations/checkout", locationsHandler(cfg.Pool))
 		api.Get("/customer/capabilities", func(w http.ResponseWriter, r *http.Request) {
 			if role, _ := r.Context().Value(middleware.UserRoleKey).(string); role != "CUSTOMER" {
 				writeJSON(w, 403, map[string]string{"code": "CUSTOMER_REQUIRED"})

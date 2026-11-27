@@ -223,7 +223,7 @@ abstract final class RepositoryFactory {
           : RestAddressRepository(client),
       authRepository: identity ?? RestAuthRepository(client, tokens),
       // No notification endpoint exists in the supplied contracts.
-      notificationsRepository: LocalNotificationsRepository(),
+      notificationsRepository: const EmptyNotificationsRepository(),
       promotionsRepository: RestPromotionsRepository(client),
       customerAccountRepository: RestCustomerAccountRepository(client),
       guestOrdersRepository: RestGuestOrdersRepository(client),

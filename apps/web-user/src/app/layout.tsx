@@ -1,13 +1,33 @@
 import type { Metadata } from "next";
+import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { RecommendationProvider } from "@/components/recommendation/recommendation-provider";
 import "./globals.css";
+import "@/styles/heritage.css";
+import "@/styles/heritage-shell.css";
+import "@/styles/heritage-home.css";
+import "@/styles/heritage-pages.css";
+import "@/styles/heritage-features.css";
+
+const playfair = Playfair_Display({
+  subsets: ["latin", "latin-ext", "vietnamese"],
+  weight: ["500", "600", "700"],
+  variable: "--font-playfair",
+  display: "swap"
+});
+
+const beVietnam = Be_Vietnam_Pro({
+  subsets: ["latin", "latin-ext", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-be-vietnam",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
-  title: { default: "Ô Mạ Huế", template: "%s · Ô Mạ Huế" },
+  title: { default: "Gói Huế", template: "%s · Gói Huế" },
   description: "Tinh hoa bánh mứt Cố Đô và trải nghiệm thành viên Tri Kỷ."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
+  return <html lang="vi" data-scroll-behavior="smooth" className={`${playfair.variable} ${beVietnam.variable}`}><body><AuthProvider><RecommendationProvider>{children}</RecommendationProvider></AuthProvider></body></html>;
 }

@@ -3,6 +3,7 @@ package integration
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestV12ConcurrentRefundBudgetAndUnknownRecovery(t *testing.T) {
@@ -35,8 +36,17 @@ func TestV12ConcurrentRefundBudgetAndUnknownRecovery(t *testing.T) {
 	if e := h.Sim.SetFault(h.ctx, "refund", "lost_ack", 1); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := h.S.WorkJob(h.ctx); e != nil {
-		t.Fatal(e)
+	// One scheduler tick need not claim the refund immediately. Stop as soon
+	// as UNKNOWN is observed, before driving its independent recovery job.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, e := h.S.WorkJob(h.ctx); e != nil {
+			t.Fatal(e)
+		}
+		if h.count("SELECT count(*) FROM refunds WHERE status='UNKNOWN'") == 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	if h.count("SELECT count(*) FROM refunds WHERE status='UNKNOWN'") != 1 || h.mockCount("SELECT count(*) FROM provider_refunds WHERE status='SUCCEEDED'") != 1 {
 		t.Fatal("lost ACK did not preserve independent financial truth")

@@ -39,7 +39,7 @@ void main() {
       final checks = find.byType(Checkbox);
       await tester.tap(checks.at(2)); // Leave only first product selected.
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Thanh Toán'));
+      await tester.tap(find.text('Thanh toán'));
       await tester.pumpAndSettle();
       expect(find.text('Quận/Huyện *'), findsNothing);
       for (final input in {

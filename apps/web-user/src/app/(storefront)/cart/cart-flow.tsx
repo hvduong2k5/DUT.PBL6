@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PublicApiError } from "@/lib/api-contract";
+import { userErrorMessage } from "@/lib/checkout/error-messages";
 import type { Cart, CartItem } from "@/lib/cart/types";
 import { MAX_CART_ITEM_QUANTITY } from "@/lib/cart/validation";
 import { cartService } from "@/services/cart-service";
 import { useCartSummary } from "@/components/cart/cart-summary-provider";
 import { ProductImage } from "@/components/product/product-image";
+import { CartMergeNotice } from "@/components/cart/cart-merge-notice";
 import { RecommendationRail } from "@/components/recommendation/recommendation-rail";
 
 const VND = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
@@ -33,6 +35,12 @@ export function CartFlow() {
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    const refresh=()=>setRetryKey((value)=>value+1);
+    window.addEventListener("guest-cart-merged",refresh);
+    return ()=>window.removeEventListener("guest-cart-merged",refresh);
+  },[]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     setPageError("");
@@ -46,7 +54,7 @@ export function CartFlow() {
       }
     }).catch((cause: unknown) => {
       if (!active) return;
-      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể tải giỏ hàng lúc này.");
+      setPageError(userErrorMessage(cause, "Không thể tải giỏ hàng lúc này."));
       setPageErrorCode(cause instanceof PublicApiError ? cause.code : "");
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -70,7 +78,7 @@ export function CartFlow() {
       setLineErrors((current) => ({
         ...current,
         [item.itemId]: cause instanceof PublicApiError
-          ? cause.status === 409 ? "Giỏ hàng đã thay đổi ở nơi khác. Hãy tải lại trước khi cập nhật." : cause.message
+          ? cause.status === 409 ? "Giỏ hàng đã thay đổi ở nơi khác. Hãy tải lại trước khi cập nhật." : userErrorMessage(cause, "Không thể cập nhật số lượng.")
           : "Không thể cập nhật số lượng."
       }));
     } finally {
@@ -90,7 +98,7 @@ export function CartFlow() {
       setDraftQuantities(Object.fromEntries(nextCart.items.map((cartItem) => [cartItem.itemId, String(cartItem.quantity)])));
       setStatusMessage(`Đã xóa ${item.productName} khỏi giỏ hàng.`);
     } catch (cause) {
-      setLineErrors((current) => ({ ...current, [item.itemId]: cause instanceof PublicApiError ? cause.message : "Không thể xóa sản phẩm." }));
+      setLineErrors((current) => ({ ...current, [item.itemId]: userErrorMessage(cause, "Không thể xóa sản phẩm.") }));
     } finally {
       setPendingItemId(undefined);
     }
@@ -107,17 +115,17 @@ export function CartFlow() {
       setDraftQuantities({});
       setStatusMessage("Đã dọn toàn bộ giỏ hàng.");
     } catch (cause) {
-      setPageError(cause instanceof PublicApiError ? cause.message : "Không thể dọn giỏ hàng lúc này.");
+      setPageError(userErrorMessage(cause, "Không thể dọn giỏ hàng lúc này."));
     } finally {
       setPendingItemId(undefined);
     }
   }
 
-  if (loading) return <main className="cart-page"><CartLoading /></main>;
+  if (loading) return <main className="cart-page"><CartMergeNotice /><CartLoading /></main>;
 
   if (pageError) {
     return (
-      <main className="cart-page">
+      <main className="cart-page"><CartMergeNotice />
         <section className="cart-error-state" role="alert">
           <span aria-hidden="true">!</span>
           <p className="eyebrow">{pageErrorCode === "ACCOUNT_ACTIVATION_REQUIRED" ? "Tài khoản chưa kích hoạt" : "Kết nối gián đoạn"}</p>
@@ -139,7 +147,7 @@ export function CartFlow() {
   }
 
   return (
-    <main className="cart-page">
+    <main className="cart-page"><CartMergeNotice />
       <nav className="cart-breadcrumbs" aria-label="Breadcrumb"><Link href="/">Trang chủ</Link><span aria-hidden="true">/</span><strong>Giỏ hàng</strong></nav>
 
       <ol className="cart-steps" aria-label="Tiến trình mua hàng">
@@ -157,7 +165,7 @@ export function CartFlow() {
 
       {cart.items.length === 0 ? (
         <section className="cart-empty-state">
-          <span aria-hidden="true">◇</span>
+          <span className="gh-emblem" aria-hidden="true" />
           <p className="eyebrow">Giỏ hàng trống</p>
           <h2>Chọn một thức quà Huế phù hợp</h2>
           <p>Sản phẩm chỉ được thêm sau khi bạn xác nhận rõ SKU và số lượng tại trang chi tiết.</p>
@@ -188,7 +196,7 @@ export function CartFlow() {
                     <span>Số lượng</span>
                     <div>
                       <button type="button" aria-label={`Giảm số lượng ${item.productName}`} disabled={pending || !item.isAvailable || item.quantity <= 1} onClick={() => updateQuantity(item, item.quantity - 1)}>−</button>
-                      <input aria-label={`Số lượng ${item.productName}`} type="number" min="1" max={MAX_CART_ITEM_QUANTITY} value={draftQuantities[item.itemId] ?? String(item.quantity)} disabled={pending || !item.isAvailable} onChange={(event) => setDraftQuantities((current) => ({ ...current, [item.itemId]: event.currentTarget.value }))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateQuantity(item, Number(event.currentTarget.value)); } }} />
+                      <input aria-label={`Số lượng ${item.productName}`} type="number" min="1" max={MAX_CART_ITEM_QUANTITY} value={draftQuantities[item.itemId] ?? String(item.quantity)} disabled={pending || !item.isAvailable} onChange={(event) => { const value = event.currentTarget.value; setDraftQuantities((current) => ({ ...current, [item.itemId]: value })); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); updateQuantity(item, Number(event.currentTarget.value)); } }} />
                       <button type="button" aria-label={`Tăng số lượng ${item.productName}`} disabled={pending || !item.isAvailable || item.quantity >= MAX_CART_ITEM_QUANTITY} onClick={() => updateQuantity(item, item.quantity + 1)}>+</button>
                       <button className="cart-quantity-apply" type="button" aria-label={`Áp dụng số lượng cho ${item.productName}`} disabled={pending || !item.isAvailable || draftQuantities[item.itemId] === String(item.quantity)} onClick={() => updateQuantity(item, Number(draftQuantities[item.itemId]))}>✓</button>
                     </div>

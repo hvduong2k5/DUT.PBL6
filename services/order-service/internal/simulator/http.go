@@ -84,6 +84,9 @@ func (s *Simulator) Handler() http.Handler {
 			s.after(r.Context(), w, "catalog", map[string]any{"items": items, "snapshot_id": snapshotID, "expires_at": expiry})
 		})
 		api.Post("/address/validate", func(w http.ResponseWriter, r *http.Request) {
+			if s.catalogueBlocked(w, r) {
+				return
+			}
 			var a domain.Address
 			if e := read(r, &a); e != nil {
 				errResponse(w, domain.E("INVALID_ADDRESS", 400))
@@ -93,11 +96,30 @@ func (s *Simulator) Handler() http.Handler {
 				errResponse(w, e)
 				return
 			}
-			if a.Province != "75" || a.Ward != "HUE-01" {
-				errResponse(w, domain.E("INVALID_ADMINISTRATIVE_UNIT", 422))
+			if e := s.adminValidator().Validate(a.Province, a.Ward); e != nil {
+				errResponse(w, e)
 				return
 			}
 			response(w, 200, map[string]bool{"valid": true})
+		})
+		api.Get("/catalogue/status", func(w http.ResponseWriter, r *http.Request) {
+			v := s.adminValidator()
+			response(w, 200, map[string]any{"dataset_version": v.Version(), "dataset_checksum": v.Checksum(), "maintenance": s.catalogueMaintenanceOn(r.Context())})
+		})
+		api.Post("/catalogue/maintenance", func(w http.ResponseWriter, r *http.Request) {
+			var input struct {
+				Enabled bool   `json:"enabled"`
+				Reason  string `json:"reason"`
+			}
+			if e := read(r, &input); e != nil {
+				errResponse(w, domain.E("INVALID_REQUEST", 400))
+				return
+			}
+			if e := s.setCatalogueMaintenance(r.Context(), input.Enabled, input.Reason); e != nil {
+				errResponse(w, e)
+				return
+			}
+			response(w, 200, map[string]any{"maintenance": input.Enabled})
 		})
 		api.Post("/shipping/quote", func(w http.ResponseWriter, r *http.Request) {
 			var input struct {
@@ -128,7 +150,7 @@ func (s *Simulator) Handler() http.Handler {
 				errResponse(w, domain.E("ADDRESS_NOT_FOUND", 404))
 				return
 			}
-			response(w, 200, map[string]any{"address": domain.Address{Name: "Test customer", Phone: "+84905123456", Street: "Synthetic address", Ward: "HUE-01", Province: "75"}, "version": int64(1)})
+			response(w, 200, map[string]any{"address": domain.Address{Name: "Test customer", Phone: "+84905123456", Street: "Synthetic address", Ward: "19753", Province: "46"}, "version": int64(1)})
 		})
 		for _, action := range []string{"reserve", "finalize", "release", "reverse"} {
 			a := action
