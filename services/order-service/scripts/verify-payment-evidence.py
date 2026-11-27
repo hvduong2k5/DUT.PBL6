@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--test-log", type=Path, required=True)
     args = parser.parse_args()
-    specs = Path(__file__).resolve().parents[3] / "docs" / "03_api_specs"
+    specs = Path(__file__).resolve().parents[3] / "services" / "order-service" / "docs" / "contracts"
     customer = nullable(yaml.safe_load((specs / "order-payment-sepay.candidate.openapi.yaml").read_text(encoding="utf-8")))
     staff = nullable(yaml.safe_load((specs / "order-payment-staff.candidate.openapi.yaml").read_text(encoding="utf-8")))
     names = {"PaymentStatus": (customer, "PaymentStatus"), "PaymentInstructions": (customer, "PaymentInstructions"),

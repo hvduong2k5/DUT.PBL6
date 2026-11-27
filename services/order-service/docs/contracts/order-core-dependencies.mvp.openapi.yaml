@@ -497,21 +497,21 @@ components:
       type: object
       additionalProperties: false
       required:
-      - snapshot_id
-      - version
-      - valid_until
+      - catalog_version
+      - evaluated_at
+      - channel
       properties:
-        snapshot_id:
+        catalog_version:
           type: string
           minLength: 1
           maxLength: 255
-        version:
-          type: string
-          minLength: 1
-          maxLength: 255
-        valid_until:
+        evaluated_at:
           type: string
           format: date-time
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 100
     Snapshot_Packaging:
       type: object
       additionalProperties: false

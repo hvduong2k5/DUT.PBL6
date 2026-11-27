@@ -29,7 +29,6 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 PROTO = ROOT / 'packages/proto'
 sys.path.insert(0, str(HERE))
-from build_public_contract import build  # noqa: E402
 
 
 def check(condition, message):
@@ -177,8 +176,6 @@ def main():
         record_baselines()
         return
     result = {'release': 'mvp-2026-10-26', 'scope': 'static contract/codegen compatibility only; no live service or E2E acceptance'}
-    public = yaml.safe_load((ROOT / 'docs/03_api_specs/mvp-customer.openapi.yaml').read_bytes())
-    check(public == build(), 'Generated public contract is stale; run build_public_contract.py')
     spec_count = 0
     snapshots = ROOT / 'docs/03_api_specs/frontend-contracts'
     snapshot_hashes = json.loads((snapshots / 'snapshot-hashes.json').read_bytes())
@@ -196,7 +193,7 @@ def main():
         except Exception as exc:
             raise AssertionError('Invalid OpenAPI: ' + str(path.relative_to(ROOT)) + ': ' + str(exc)[:220]) from exc
         spec_count += 1
-    result['openapi'] = {'validated_specs': spec_count, 'generated_public_contract': 'current'}
+    result['openapi'] = {'validated_specs': spec_count, 'public_contract': 'docs/03_api_specs/customer-stable.openapi.yaml'}
     staff_schema = json.loads((ROOT / 'packages/contracts/iam/staff-token.v1.schema.json').read_bytes())
     staff_validator_cls = validator_for(staff_schema)
     staff_validator_cls.check_schema(staff_schema)

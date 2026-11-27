@@ -331,3 +331,10 @@ message, requestId and X-Request-Id. Lag -1 means unavailable/uninitialized.
 Operation-level servers and security override the document's production gateway
 and employee authentication defaults. The independent Inventory operations spec
 was consolidated here; runtime URLs and response bodies are unchanged.
+
+## Order Media Evidence (Media Service integration)
+
+| Operation | Success / empty | Loading | Auth / scope | Error |
+|---|---|---|---|---|
+| GET `/api/v1/admin/media/{file_id}/download-url` | 200 `{ download_url, expires_at }` (15m presigned GET URL); empty N/A | Pending presigned URL fetch | 401 missing/invalid token; 403 insufficient payment/evidence staff permission | 503 `MEDIA_SERVICE_UNAVAILABLE` when Media gRPC is unreachable |
+| `/api/v1/admin/payments/reconciliation-cases*`, `/api/v1/admin/payments/refunds*`, `/api/v1/admin/payments/evidence*` | 200/201/202 per operation; empty lists return `200` with empty `items` | Pending request / mutation in progress | 401 missing/invalid staff bearer; 403 missing `payment.*` permission or scope | 400/409 validation or idempotency/version conflict; 429 rate limited; 503 upstream unavailable |

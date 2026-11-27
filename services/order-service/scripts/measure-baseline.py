@@ -26,7 +26,7 @@ identity=request(MOCK,'/test/token',{'role':'CUSTOMER'})[1]
 token=identity['token']
 cart=request(BASE,'/api/v1/cart/items',{'sku_code':'MX-GION-500G','quantity':1,'revision':0},token)[1]
 quote=request(BASE,'/api/v1/checkout/quote',{'cart_revision':cart['revision'],'payment_method':'VIETQR','address':{'recipient_name':'Synthetic baseline','phone':'+84905123456','street':'Test only','ward_code':'19753','province_code':'46'}},token)[1]
-spec=yaml.safe_load((ROOT/'docs/03_api_specs/order-service.openapi.yaml').read_text(encoding='utf-8'))
+spec=yaml.safe_load((ROOT/'services/order-service/docs/contracts/order-service.openapi.yaml').read_text(encoding='utf-8'))
 schema=spec['components']['schemas']['CheckoutOperation']
 schema=json.loads(json.dumps(schema))
 for prop in schema['properties'].values():

@@ -24,12 +24,12 @@ jobs:
         run: |
           python -m pip install -r packages/contracts/mvp/requirements.txt
 
-      - name: Verify public contract is current (build_public_contract.py idempotent)
+      - name: Lint handoff OpenAPI contracts
         run: |
-          python packages/contracts/mvp/build_public_contract.py
-          git diff --quiet -- docs/03_api_specs/mvp-customer.openapi.yaml \
-            || { echo "ERROR: public contract is stale; run build_public_contract.py and commit"; exit 1; }
-          echo "Public contract is current (generated == tracked)"
+          npx --yes @redocly/cli lint docs/03_api_specs/customer-stable.openapi.yaml
+          npx --yes @redocly/cli lint docs/03_api_specs/customer-draft-planned.openapi.yaml
+          npx --yes @redocly/cli lint docs/03_api_specs/admin-stable.openapi.yaml
+          npx --yes @redocly/cli lint docs/03_api_specs/admin-draft-planned.openapi.yaml
 
       - name: Run verify.py
         run: |

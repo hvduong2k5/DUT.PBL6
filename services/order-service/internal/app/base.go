@@ -19,6 +19,7 @@ import (
 	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/fulfillmentprovider"
+	"github.com/omamx/order-service/internal/mediaprovider"
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
 	"github.com/omamx/order-service/internal/shippingprovider"
@@ -45,6 +46,7 @@ type Config struct {
 	IdentityURL                                                                                                                  string
 	CatalogURL, CatalogWarehouse, CatalogShippingCarrier, CatalogShippingService, CatalogShippingPolicy                          string
 	CatalogGRPC, CatalogToken, CatalogTokenFile, CatalogCAFile, CatalogServerName                                                string
+	MediaGRPC, MediaToken, MediaCAFile, MediaServerName                                                                          string
 	CatalogAllowLocalInsecure                                                                                                    bool
 	AuthMode, OIDCIssuer, OIDCAudience, OIDCJWKSURL                                                                              string
 	OIDCAllowLocalHTTP                                                                                                           bool
@@ -68,6 +70,10 @@ func LoadConfig() (Config, error) {
 	c.CatalogCAFile = os.Getenv("ORDER_CATALOG_CA_FILE")
 	c.CatalogServerName = os.Getenv("ORDER_CATALOG_SERVER_NAME")
 	c.CatalogAllowLocalInsecure = os.Getenv("ORDER_CATALOG_ALLOW_LOCAL_INSECURE") == "true"
+	c.MediaGRPC = os.Getenv("ORDER_MEDIA_GRPC")
+	c.MediaToken = os.Getenv("ORDER_MEDIA_TOKEN")
+	c.MediaCAFile = os.Getenv("ORDER_MEDIA_CA_FILE")
+	c.MediaServerName = os.Getenv("ORDER_MEDIA_SERVER_NAME")
 	c.CODPolicyReference = os.Getenv("ORDER_COD_POLICY_REFERENCE")
 	c.CatalogWarehouse = os.Getenv("ORDER_WAREHOUSE_ID")
 	c.CatalogShippingCarrier = os.Getenv("ORDER_QUOTE_CARRIER_CODE")
@@ -128,6 +134,7 @@ func LoadConfig() (Config, error) {
 type Service struct {
 	GuestStore           *persistence.Payment
 	Catalog              *catalogprovider.Adapter
+	Media                *mediaprovider.Adapter
 	Fulfillment          *fulfillmentprovider.Adapter
 	Shipping             *shippingprovider.Adapter
 	Identity             *CustomerIdentity

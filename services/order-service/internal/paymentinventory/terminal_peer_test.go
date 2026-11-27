@@ -47,7 +47,7 @@ func (c *lostTerminalACK) ReleaseReservationByOrder(ctx context.Context, r *api.
 
 func terminalSnapshot(t *testing.T) core.SnapshotInput {
 	t.Helper()
-	raw, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json"))
+	raw, e := os.ReadFile(filepath.Join("..", "..", "testdata", "order-snapshot.v1.examples.json"))
 	if e != nil {
 		t.Fatal(e)
 	}

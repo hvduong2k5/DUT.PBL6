@@ -16,7 +16,7 @@ def main():
     helper = importlib.util.spec_from_file_location('payment_evidence', Path(__file__).with_name('verify-payment-evidence.py'))
     module = importlib.util.module_from_spec(helper)
     helper.loader.exec_module(module)
-    specs = root / 'docs/03_api_specs'
+    specs = root / 'services/order-service/docs/contracts'
     checkout = module.nullable(yaml.safe_load((specs / 'order-cart-checkout.candidate.openapi.yaml').read_text(encoding='utf-8')))
     order = module.nullable(yaml.safe_load((specs / 'order-core.candidate.openapi.yaml').read_text(encoding='utf-8')))
     schemas = {'Quote': checkout, 'CheckoutOperation': checkout, 'OrderDetail': order}

@@ -125,7 +125,7 @@ def main():
     result = {"mode": "static_design_contracts", "provider_integration": "NOT_RUN", "openapi": [], "events": {}}
     target = None
     for name in ["order-service.openapi.yaml", "order-service.sandbox-3.1.openapi.yaml", "order-sandbox-dependencies.openapi.yaml"]:
-        document = yaml.safe_load((ROOT / "docs/03_api_specs" / name).read_text(encoding="utf-8"))
+        document = yaml.safe_load((ROOT / "services/order-service/docs/contracts" / name).read_text(encoding="utf-8"))
         validate_spec(document)
         result["openapi"].append({"file": name, "status": "PASS", "paths": len(document["paths"])})
         if name == "order-service.openapi.yaml":
