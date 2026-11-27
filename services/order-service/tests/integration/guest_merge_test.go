@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omamx/order-service/internal/app"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/persistence"
 )
@@ -148,19 +149,19 @@ func TestMergedCartRetainsCatalogDisplayMetadata(t *testing.T) {
 	if _, err := h.S.MergeGuestCart(h.ctx, customer, token, key); err != nil {
 		t.Fatal(err)
 	}
-	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Items []domain.Item `json:"items"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || len(in.Items) != 1 {
-			http.Error(w, "invalid selection", 400)
-			return
-		}
-		quantity := in.Items[0].Quantity
-		json.NewEncoder(w).Encode(map[string]any{"snapshot_id": uuid.NewString(), "catalog_version": 2, "valid_until": time.Now().Add(time.Minute), "contract_version": "catalog-checkout-1.0", "channel": "D2C_WEB", "subtotal": 120000 * quantity, "items": []map[string]any{{"sku_code": "MX-GION-500G", "quantity": quantity, "product_name": "Current catalog name", "unit_price": 120000, "weight_grams": 500, "packaging_type": "BOX", "is_active": true}}})
-	}))
-	defer catalog.Close()
-	h.S.C.CatalogURL = catalog.URL
+	if err := h.S.UpsertPriceProjection(h.ctx, app.PriceProjection{
+		SKU:           "MX-GION-500G",
+		Channel:       "D2C_WEB",
+		ProductName:   "Current catalog name",
+		UnitPrice:     120000,
+		WeightGrams:   500,
+		PackagingType: "HOP_GIAY_KRAFT",
+		IsSaleable:    true,
+		PriceVersion:  2,
+		EffectiveFrom: time.Now().Add(-time.Minute),
+	}); err != nil {
+		t.Fatal(err)
+	}
 	cart, err := h.S.Cart(h.ctx, customer)
 	if err != nil || cart.Items[0].Name != "Current catalog name" || cart.Items[0].UnitPrice != 120000 {
 		t.Fatal("SQL cart read lost current Catalog display metadata", cart, err)

@@ -29,6 +29,10 @@ func (s *Service) Start(ctx context.Context) {
 		s.stop.Add(1)
 		go s.consumeShipping(ctx)
 	}
+	if s.DB != nil && s.C.Kafka != "" {
+		s.stop.Add(1)
+		go s.consumeCatalog(ctx)
+	}
 	if s.CoreCheckout != nil {
 		s.startPaymentLoop(ctx, s.C.Poll, "target checkout retry", func(ctx context.Context) error { _, e := s.CoreCheckout.Work(ctx); return e })
 	}

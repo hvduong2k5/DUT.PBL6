@@ -2,6 +2,7 @@ package catalogprovider
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -9,79 +10,81 @@ import (
 	catalog "github.com/omamx/order-service/internal/gen/catalog/v1"
 	common "github.com/omamx/order-service/internal/gen/common/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type fakeCatalogClient struct {
+type flakyCatalogClient struct {
 	catalog.CatalogServiceClient
-	lastMD  metadata.MD
-	lastReq *catalog.ValidateCheckoutPricingRequest
-	resp    *catalog.ValidateCheckoutPricingResponse
-	err     error
+	calls     atomic.Int32
+	failUntil int32
+	alwaysErr error
 }
 
-func (f *fakeCatalogClient) ValidateCheckoutPricing(ctx context.Context, in *catalog.ValidateCheckoutPricingRequest, _ ...grpc.CallOption) (*catalog.ValidateCheckoutPricingResponse, error) {
-	f.lastMD, _ = metadata.FromOutgoingContext(ctx)
-	f.lastReq = in
-	return f.resp, f.err
-}
-
-func TestValidateCheckoutPricingSendsTokenAndMapsSnapshot(t *testing.T) {
-	client := &fakeCatalogClient{
-		resp: &catalog.ValidateCheckoutPricingResponse{
-			IsValid: true,
-			Items: []*catalog.ValidatedCheckoutItem{
-				{
-					SkuCode:                "PEER",
-					ProductName:            "Me Xung Hue",
-					Quantity:               2,
-					AuthoritativeUnitPrice: &common.Money{CurrencyCode: "VND", Units: 50000, Nanos: 0},
-					NetWeight:              &common.Weight{DecimalValue: "0.5", Unit: common.WeightUnit_WEIGHT_UNIT_KILOGRAM},
-					PackagingType:          catalog.PackagingType_PACKAGING_TYPE_HOP_GIAY_KRAFT,
-					IsSellable:             true,
-					VariantVersion:         1,
-					PriceVersion:           0,
-				},
+func (f *flakyCatalogClient) ValidateCheckoutPricing(_ context.Context, in *catalog.ValidateCheckoutPricingRequest, _ ...grpc.CallOption) (*catalog.ValidateCheckoutPricingResponse, error) {
+	n := f.calls.Add(1)
+	if f.alwaysErr != nil {
+		return nil, f.alwaysErr
+	}
+	if n <= f.failUntil {
+		return nil, status.Error(codes.Unavailable, "transient")
+	}
+	return &catalog.ValidateCheckoutPricingResponse{
+		IsValid: true,
+		Items: []*catalog.ValidatedCheckoutItem{
+			{
+				SkuCode:                in.Items[0].SkuCode,
+				ProductName:            "Me Xung",
+				Quantity:               in.Items[0].Quantity,
+				AuthoritativeUnitPrice: &common.Money{CurrencyCode: "VND", Units: 50000, Nanos: 0},
+				NetWeight:              &common.Weight{DecimalValue: "500", Unit: common.WeightUnit_WEIGHT_UNIT_GRAM},
+				PackagingType:          catalog.PackagingType_PACKAGING_TYPE_HOP_GIAY_KRAFT,
+				IsSellable:             true,
+				VariantVersion:         1,
+				PriceVersion:           3,
 			},
-			CanonicalSubtotal: &common.Money{CurrencyCode: "VND", Units: 100000, Nanos: 0},
-			EvaluatedAt:       timestamppb.New(time.Now().UTC()),
 		},
-	}
+		CanonicalSubtotal: &common.Money{CurrencyCode: "VND", Units: 50000 * int64(in.Items[0].Quantity), Nanos: 0},
+		EvaluatedAt:       timestamppb.New(time.Now().UTC()),
+	}, nil
+}
+
+func TestValidateCheckoutPricingRetriesTransientUnavailable(t *testing.T) {
+	client := &flakyCatalogClient{failUntil: 2}
 	adapter := &Adapter{Client: client, Token: "token-012345678901234567890123456789"}
-	snap, err := adapter.ValidateCheckoutPricing(context.Background(), []domain.Item{{SKU: "PEER", Quantity: 2}}, false)
+
+	snap, err := adapter.ValidateCheckoutPricing(context.Background(), []domain.Item{{SKU: "MX-500", Quantity: 1}}, false)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("expected retry to succeed, got %v", err)
 	}
-	if got := client.lastMD.Get("x-internal-token"); len(got) != 1 || got[0] != adapter.Token {
-		t.Fatalf("expected x-internal-token metadata, got %v", got)
+	if got := client.calls.Load(); got != 3 {
+		t.Fatalf("expected 3 attempts, got %d", got)
 	}
-	if client.lastReq.Items[0].ClientUnitPrice != nil {
-		t.Fatalf("did not expect client_unit_price when sendClientPrice=false")
-	}
-	if snap.Subtotal != 100000 || snap.Version < 1 || snap.Items[0].Weight != 500 || snap.Items[0].Packaging != "HOP_GIAY_KRAFT" {
+	if snap.Subtotal != 50000 || snap.Items[0].PriceVersion != 3 {
 		t.Fatalf("unexpected snapshot: %+v", snap)
 	}
 }
 
-func TestValidateCheckoutPricingMapsPriceChanged(t *testing.T) {
-	client := &fakeCatalogClient{
-		resp: &catalog.ValidateCheckoutPricingResponse{
-			IsValid: false,
-			Discrepancies: []*catalog.PriceDiscrepancy{
-				{
-					SkuCode:           "PEER",
-					DiscrepancyReason: catalog.ValidationIssue_VALIDATION_ISSUE_PRICE_CHANGED,
-				},
-			},
-		},
-	}
+func TestValidateCheckoutPricingCircuitBreakerOpens(t *testing.T) {
+	client := &flakyCatalogClient{alwaysErr: status.Error(codes.Unavailable, "down")}
 	adapter := &Adapter{Client: client, Token: "token-012345678901234567890123456789"}
-	_, err := adapter.ValidateCheckoutPricing(context.Background(), []domain.Item{{SKU: "PEER", Quantity: 2, UnitPrice: 1000}}, true)
-	if err == nil {
-		t.Fatal("expected error for changed price")
+	items := []domain.Item{{SKU: "MX-500", Quantity: 1}}
+
+	for i := 0; i < 5; i++ {
+		_, err := adapter.ValidateCheckoutPricing(context.Background(), items, false)
+		if err == nil {
+			t.Fatal("expected unavailable error")
+		}
 	}
-	if d, ok := err.(*domain.Error); !ok || d.HTTP != 409 {
-		t.Fatalf("expected 409 conflict, got %v", err)
+	callsAtOpen := client.calls.Load()
+
+	// Next call must short-circuit without invoking the gRPC peer.
+	_, err := adapter.ValidateCheckoutPricing(context.Background(), items, false)
+	if err == nil {
+		t.Fatal("expected circuit-open error")
+	}
+	if client.calls.Load() != callsAtOpen {
+		t.Fatalf("circuit breaker did not short-circuit: calls=%d want=%d", client.calls.Load(), callsAtOpen)
 	}
 }

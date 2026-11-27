@@ -2,9 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -26,14 +23,39 @@ func (codShippingPeer) CalculateShippingFee(_ context.Context, in *shipping.Calc
 	return &shipping.CalculateShippingFeeResponse{ContractVersion: "order-3.2", RequestHash: in.RequestHash, QuoteVersion: 1, QuoteId: uuid.NewString(), QuoteExpiresAt: timestamppb.New(time.Now().Add(time.Minute)), ShippingFee: &common.Money{Units: 30000, CurrencyCode: "VND"}, Carrier: "FAKE", ServiceCode: "STANDARD"}, nil
 }
 
+type countingCatalogGRPC struct {
+	catalogpb.CatalogServiceClient
+	calls *int
+}
+
+func (m countingCatalogGRPC) ValidateCheckoutPricing(_ context.Context, in *catalogpb.ValidateCheckoutPricingRequest, _ ...grpc.CallOption) (*catalogpb.ValidateCheckoutPricingResponse, error) {
+	*m.calls++
+	return &catalogpb.ValidateCheckoutPricingResponse{
+		IsValid: true,
+		Items: []*catalogpb.ValidatedCheckoutItem{
+			{
+				SkuCode:                in.Items[0].SkuCode,
+				ProductName:            "Fresh Catalog name",
+				Quantity:               in.Items[0].Quantity,
+				AuthoritativeUnitPrice: &common.Money{CurrencyCode: "VND", Units: 1000, Nanos: 0},
+				NetWeight:              &common.Weight{DecimalValue: "500", Unit: common.WeightUnit_WEIGHT_UNIT_GRAM},
+				PackagingType:          catalogpb.PackagingType_PACKAGING_TYPE_HOP_GIAY_KRAFT,
+				IsSellable:             true,
+				VariantVersion:         1,
+				PriceVersion:           1,
+			},
+		},
+		CanonicalSubtotal: &common.Money{CurrencyCode: "VND", Units: 1000 * int64(in.Items[0].Quantity), Nanos: 0},
+		EvaluatedAt:       timestamppb.New(time.Now().UTC()),
+	}, nil
+}
+
 func TestCatalogCODSnapshotsCollectionPolicyWithoutClaimingSettlement(t *testing.T) {
 	calls := 0
-	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		_ = json.NewEncoder(w).Encode(map[string]any{"snapshot_id": uuid.NewString(), "catalog_version": 1, "valid_until": time.Now().Add(time.Minute), "contract_version": "catalog-checkout-1.0", "channel": "D2C_WEB", "subtotal": 1000, "items": []map[string]any{{"sku_code": "SKU-A", "quantity": 1, "product_name": "Fresh Catalog name", "unit_price": 1000, "weight_grams": 500, "packaging_type": "BOX", "is_active": true}}})
-	}))
-	defer catalog.Close()
-	s := &Service{C: Config{CatalogURL: catalog.URL}, Client: catalog.Client(), Shipping: &shippingprovider.Adapter{Client: codShippingPeer{}}}
+	s := &Service{
+		Catalog:  &catalogprovider.Adapter{Client: countingCatalogGRPC{calls: &calls}, Token: "token-012345678901234567890123456789"},
+		Shipping: &shippingprovider.Adapter{Client: codShippingPeer{}},
+	}
 	quote := domain.Quote{ID: uuid.NewString(), Method: "COD", Items: []domain.Item{{SKU: "SKU-A", Quantity: 1}}, Address: domain.Address{Name: "TEST", Phone: "+84905123456", Province: "46", Ward: "19753", Street: "TEST"}}
 	for _, policy := range []string{" blank ", strings.Repeat("x", 256)} {
 		s.C.CODPolicyReference = policy

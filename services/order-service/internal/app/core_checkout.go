@@ -34,26 +34,17 @@ func (c coreSource) Revalidate(ctx context.Context, terms core.SnapshotInput) er
 	var out struct {
 		Valid bool `json:"valid"`
 	}
-	if c.s.Catalog != nil || c.s.C.CatalogURL != "" {
-		if c.s.Catalog != nil {
-			items := make([]domain.Item, 0, len(terms.Items))
-			for _, item := range terms.Items {
-				items = append(items, domain.Item{SKU: item.SKU, Quantity: int(item.Quantity), UnitPrice: item.UnitPrice})
-			}
-			if _, e := c.s.Catalog.ValidateCheckoutPricing(ctx, items, true); e != nil {
-				code, _ := c.s.ErrorCode(e)
-				if code == "PRICE_CHANGED" || code == "CATALOG_ITEM_UNAVAILABLE" {
-					return persistence.ErrTermsChanged
-				}
-				return e
-			}
-		} else {
-			if e := c.s.callURL(ctx, c.s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots/"+terms.Catalog.SnapshotID+"/revalidate", nil, &out); e != nil {
-				return e
-			}
-			if !out.Valid {
+	if c.s.Catalog != nil {
+		items := make([]domain.Item, 0, len(terms.Items))
+		for _, item := range terms.Items {
+			items = append(items, domain.Item{SKU: item.SKU, Quantity: int(item.Quantity), UnitPrice: item.UnitPrice})
+		}
+		if _, e := c.s.Catalog.ValidateCheckoutPricing(ctx, items, true); e != nil {
+			code, _ := c.s.ErrorCode(e)
+			if code == "PRICE_CHANGED" || code == "CATALOG_ITEM_UNAVAILABLE" {
 				return persistence.ErrTermsChanged
 			}
+			return e
 		}
 		ship, e := c.s.Shipping.Quote(ctx, domain.Address{Name: terms.Address.RecipientName, Phone: terms.Address.PhoneE164, Street: terms.Address.Street, Ward: terms.Address.WardCode, Province: terms.Address.ProvinceCode}, terms.Shipping.PackageWeightGrams, terms.Shipping.CarrierCode, terms.Shipping.ServiceCode, terms.WarehouseID, "shipping:"+terms.Provenance.QuoteID)
 		if e != nil {
@@ -99,7 +90,7 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	}
 	var terms core.SnapshotInput
 	var termsError error
-	if s.Catalog != nil || s.C.CatalogURL != "" {
+	if s.Catalog != nil {
 		terms, termsError = s.catalogTerms(ctx, q)
 	} else {
 		termsError = s.Call(ctx, "POST", "/order-core/terms", q, &terms)
@@ -169,13 +160,13 @@ func (s *Service) coreQuote(ctx context.Context, p domain.Principal, q domain.Qu
 	q.Subtotal = terms.Money.Subtotal
 	q.Shipping = terms.Money.ShippingFee
 	q.Final = terms.Money.FinalAmount
-	q.CatalogSnapshotID = terms.Catalog.SnapshotID
-	q.CatalogExpiresAt = terms.Catalog.ValidUntil
+	q.CatalogSnapshotID = terms.SnapshotID
+	q.CatalogExpiresAt = terms.Catalog.EvaluatedAt.Add(15 * time.Minute)
 	q.ShippingReference = terms.Shipping.QuoteReference
 	q.ShippingExpiresAt = terms.Shipping.ValidUntil
 	q.ExpiresAt = now.Add(5 * time.Minute)
-	if terms.Catalog.ValidUntil.Before(q.ExpiresAt) {
-		q.ExpiresAt = terms.Catalog.ValidUntil
+	if q.CatalogExpiresAt.Before(q.ExpiresAt) {
+		q.ExpiresAt = q.CatalogExpiresAt
 	}
 	if terms.Shipping.ValidUntil.Before(q.ExpiresAt) {
 		q.ExpiresAt = terms.Shipping.ValidUntil

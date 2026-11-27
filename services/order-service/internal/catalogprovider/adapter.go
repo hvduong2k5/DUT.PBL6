@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,28 +25,82 @@ import (
 )
 
 type SnapshotItem struct {
-	SKU       string
-	Quantity  int
-	Name      string
-	Price     int64
-	Weight    int64
-	Packaging string
-	Active    bool
+	SKU          string
+	Quantity     int
+	Name         string
+	Price        int64
+	Weight       int64
+	Packaging    string
+	Active       bool
+	PriceVersion int64
 }
 
 type Snapshot struct {
-	ID       string
-	Version  int64
-	Until    time.Time
-	Items    []SnapshotItem
-	Subtotal int64
-	Contract string
-	Channel  string
+	ID          string
+	Version     int64
+	Until       time.Time
+	EvaluatedAt time.Time
+	Items       []SnapshotItem
+	Subtotal    int64
+	Contract    string
+	Channel     string
+}
+
+type circuitBreaker struct {
+	mu          sync.Mutex
+	windowStart time.Time
+	total       int
+	failures    int
+	openUntil   time.Time
+}
+
+func (cb *circuitBreaker) allow(now time.Time) bool {
+	if cb == nil {
+		return true
+	}
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	if !cb.openUntil.IsZero() {
+		if now.Before(cb.openUntil) {
+			return false
+		}
+		cb.openUntil = time.Time{}
+		cb.windowStart = now
+		cb.total = 0
+		cb.failures = 0
+	}
+	if cb.windowStart.IsZero() || now.Sub(cb.windowStart) > 10*time.Second {
+		cb.windowStart = now
+		cb.total = 0
+		cb.failures = 0
+	}
+	return true
+}
+
+func (cb *circuitBreaker) record(now time.Time, failed bool) {
+	if cb == nil {
+		return
+	}
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	if cb.windowStart.IsZero() || now.Sub(cb.windowStart) > 10*time.Second {
+		cb.windowStart = now
+		cb.total = 0
+		cb.failures = 0
+	}
+	cb.total++
+	if failed {
+		cb.failures++
+	}
+	if cb.total >= 5 && cb.failures*2 > cb.total {
+		cb.openUntil = now.Add(10 * time.Second)
+	}
 }
 
 type Adapter struct {
-	Client catalog.CatalogServiceClient
-	Token  string
+	Client  catalog.CatalogServiceClient
+	Token   string
+	breaker *circuitBreaker
 }
 
 // Dial connects to the Catalog gRPC endpoint using either pinned TLS or explicit loopback test credentials.
@@ -81,7 +136,7 @@ func Dial(ctx context.Context, target, token, ca, serverName string, local bool)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &Adapter{Client: catalog.NewCatalogServiceClient(conn), Token: token}, conn, nil
+	return &Adapter{Client: catalog.NewCatalogServiceClient(conn), Token: token, breaker: &circuitBreaker{}}, conn, nil
 }
 
 // ValidateCheckoutPricing validates items and prices via Catalog gRPC and builds a checkout pricing snapshot.
@@ -89,6 +144,12 @@ func (a *Adapter) ValidateCheckoutPricing(ctx context.Context, items []domain.It
 	var snap Snapshot
 	if a == nil || a.Client == nil || len(items) == 0 {
 		return snap, domain.E("CATALOG_UNAVAILABLE", 503)
+	}
+	if a.breaker == nil {
+		a.breaker = &circuitBreaker{}
+	}
+	if !a.breaker.allow(time.Now()) {
+		return snap, domain.E("CATALOG_SERVICE_UNAVAILABLE", 503)
 	}
 	reqItems := make([]*catalog.CheckoutItemInput, 0, len(items))
 	for _, item := range items {
@@ -105,21 +166,42 @@ func (a *Adapter) ValidateCheckoutPricing(ctx context.Context, items []domain.It
 		}
 		reqItems = append(reqItems, in)
 	}
-	rpcCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	if a.Token != "" {
-		rpcCtx = metadata.AppendToOutgoingContext(rpcCtx, "x-internal-token", a.Token)
-	}
-	resp, err := a.Client.ValidateCheckoutPricing(rpcCtx, &catalog.ValidateCheckoutPricingRequest{
+	req := &catalog.ValidateCheckoutPricingRequest{
 		Channel: catalog.SalesChannel_SALES_CHANNEL_D2C_WEB,
 		Items:   reqItems,
-	})
+	}
+	var resp *catalog.ValidateCheckoutPricingResponse
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		rpcCtx, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
+		if a.Token != "" {
+			rpcCtx = metadata.AppendToOutgoingContext(rpcCtx, "x-internal-token", a.Token)
+		}
+		resp, err = a.Client.ValidateCheckoutPricing(rpcCtx, req)
+		cancel()
+		if err == nil {
+			break
+		}
+		code := status.Code(err)
+		if (code != codes.Unavailable && code != codes.DeadlineExceeded) || attempt == 2 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			a.breaker.record(time.Now(), true)
+			return snap, domain.E("CATALOG_SERVICE_UNAVAILABLE", 503)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
 	if err != nil {
 		if status.Code(err) == codes.InvalidArgument {
+			a.breaker.record(time.Now(), false)
 			return snap, domain.E("INVALID_CART_INPUT", 400)
 		}
-		return snap, domain.E("CATALOG_UNAVAILABLE", 503)
+		a.breaker.record(time.Now(), true)
+		return snap, domain.E("CATALOG_SERVICE_UNAVAILABLE", 503)
 	}
+	a.breaker.record(time.Now(), false)
 	if !resp.GetIsValid() {
 		for _, d := range resp.GetDiscrepancies() {
 			if d.GetDiscrepancyReason() == catalog.ValidationIssue_VALIDATION_ISSUE_PRICE_CHANGED ||
@@ -166,13 +248,14 @@ func (a *Adapter) ValidateCheckoutPricing(ctx context.Context, items []domain.It
 			maxVersion = v.GetVariantVersion()
 		}
 		outItems = append(outItems, SnapshotItem{
-			SKU:       v.GetSkuCode(),
-			Quantity:  int(v.GetQuantity()),
-			Name:      name,
-			Price:     price.GetUnits(),
-			Weight:    weightGrams,
-			Packaging: packagingName(v.GetPackagingType()),
-			Active:    v.GetIsSellable(),
+			SKU:          v.GetSkuCode(),
+			Quantity:     int(v.GetQuantity()),
+			Name:         name,
+			Price:        price.GetUnits(),
+			Weight:       weightGrams,
+			Packaging:    packagingName(v.GetPackagingType()),
+			Active:       v.GetIsSellable(),
+			PriceVersion: v.GetPriceVersion(),
 		})
 	}
 	sub := resp.GetCanonicalSubtotal()
@@ -186,13 +269,14 @@ func (a *Adapter) ValidateCheckoutPricing(ctx context.Context, items []domain.It
 		}
 	}
 	snap = Snapshot{
-		ID:       uuid.NewString(),
-		Version:  maxVersion,
-		Until:    evaluatedAt.Add(5 * time.Minute),
-		Items:    outItems,
-		Subtotal: total,
-		Contract: "catalog-checkout-1.0",
-		Channel:  "D2C_WEB",
+		ID:          uuid.NewString(),
+		Version:     maxVersion,
+		Until:       evaluatedAt.Add(15 * time.Minute),
+		EvaluatedAt: evaluatedAt,
+		Items:       outItems,
+		Subtotal:    total,
+		Contract:    "catalog-checkout-1.0",
+		Channel:     "D2C_WEB",
 	}
 	return snap, nil
 }

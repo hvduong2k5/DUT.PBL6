@@ -13,7 +13,7 @@ func f36CoreSnapshot() core.SnapshotInput {
 	return core.SnapshotInput{
 		SnapshotID: "snap-1",
 		Provenance: core.Provenance{QuoteID: "quote-1", CartRevision: 3},
-		Catalog:    core.CatalogEvidence{SnapshotID: "cat-1", ValidUntil: time.Now().Add(time.Hour)},
+		Catalog:    core.CatalogEvidence{CatalogVersion: "1", EvaluatedAt: time.Now().Add(-time.Minute), Channel: "D2C_WEB"},
 		Items: []core.SnapshotItem{
 			{SKU: "SKU-002-200", Name: "Mè Xửng Dẻo Ngự Trà", Quantity: 2, UnitPrice: 85000, WeightGrams: 200},
 		},
