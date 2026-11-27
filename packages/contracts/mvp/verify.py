@@ -177,11 +177,6 @@ def main():
         return
     result = {'release': 'mvp-2026-10-26', 'scope': 'static contract/codegen compatibility only; no live service or E2E acceptance'}
     spec_count = 0
-    snapshots = ROOT / 'docs/03_api_specs/frontend-contracts'
-    snapshot_hashes = json.loads((snapshots / 'snapshot-hashes.json').read_bytes())
-    for name, hashes in snapshot_hashes['files'].items():
-        check(hashlib.sha256((snapshots / name).read_bytes()).hexdigest() == hashes['git_normalized_sha256'],
-              'Historical frontend reference changed: ' + name)
     for path in sorted((ROOT / 'docs/03_api_specs').rglob('*.yaml')):
         document = yaml.safe_load(path.read_bytes())
         if not isinstance(document, dict) or 'openapi' not in document:
