@@ -2,7 +2,7 @@
 
 Version0.3.0-draft · 27/11/2026. Mỗi ca bên dưới là yêu cầu, **chưa phải kết quả PASS runtime**. [Index](traceability-workflow-README.md) và [đặc tả service](traceability-workflow-service-spec.md) là context. Người thực hiện điền evidence theo SHA/runID.
 
-Checkpoint mới26/11: [report08 scoped backend](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md) bổ sung mapping test cho phần Traceability và local PostgreSQL/signed HTTP; các mục ghi NOT RUN của lượt tài liệu25/11 bên dưới là lịch sử. Provider thật, Web/print và Order E2E vẫn pending, không suy PASS từ fixture.
+Checkpoint hiện hành 27/11: [report09 gRPC](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) ghi kiểm thử PostgreSQL, signed JWT và TLS gRPC với provider mô phỏng. [Report08 scoped backend](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md) là checkpoint transport cũ; các mục ghi NOT RUN của lượt tài liệu25/11 bên dưới là lịch sử. Provider thật, Web/print và Order E2E vẫn pending, không suy PASS từ fixture.
 
 Nghiệm thu theo đầu ra OUT và contract đích trong [phiếu handoff](traceability-workflow-peer-handoff.md); không có gate gửi ACCEPT trước code. Không bắt tạo bảng/PR mới nếu capability hiện tại đã đáp ứng. Owner tự map logic/API nội bộ ra contract đích, ghi mapping và bằng chứng trong kết quả cuối. Các ca semantics/quyền/lỗi/lịch sử luôn áp dụng; field9/14 phải đúng ở bề mặt proto đích, dù provider tái sử dụng logic nào phía sau. Không dùng khác biệt implementation để bỏ test hoặc đổi wire consumer.
 
@@ -19,7 +19,7 @@ Nghiệm thu theo đầu ra OUT và contract đích trong [phiếu handoff](trac
 | --- | --- | --- |
 | T-SCOPE-01 | makerA create/read/edit profileA rồi thửB | A thành công, B403 không nội dung; create không tin warehouse browser |
 | T-SCOPE-02 | Revoke scope sau command rồi replay cùng key; đổi scope khi dùng cursor | Replay403; cursor authorization đổi bị từ chối; không rò cached response |
-| T-SCOPE-03 | Token có quyềnA nhưng `/me` chỉB; Identity timeout; forged headers | Không cấp quyềnA, timeout503, header không đổi actor/scope |
+| T-SCOPE-03 | Token có quyềnA nhưng current-grants RPC chỉB; Identity timeout; forged headers | Không cấp quyềnA, timeout503, header không đổi actor/scope |
 | T-SCOPE-04 | Provider thiếu warehouse hoặc đổi kho cùng UUID; legacy null binding | Không scoped create/submit/publish; mismatch409; null chỉ GLOBAL, không gán default |
 | T-SCOPE-05 | List tậpA với nhiều rowB xen kẽ, page_size nhỏ | Filter tại DB trước page, không rò ID/count B, empty200 total0 |
 | T-DATA-01 | Hai create đồng thời cùng namespace/batch, key khác | Chỉ một profile/QR, một201 và một409; lookup dẫn cùng profile |
@@ -34,7 +34,7 @@ Nghiệm thu theo đầu ra OUT và contract đích trong [phiếu handoff](trac
 | T-QR-02 | Public404/410/503, Identity403 khi in, ảnh offline đã tải rồi suspend | Không export mới; ảnh offline không thể thu hồi nhưng link dẫn410, không profile cũ hợp lệ |
 | T-QR-03 | Camera/print thực, footer `/trace`, mobile input mã | Đọc đúng mã/lô, quiet zone không cắt; không login public, không sample hardcoded |
 | T-RES-01 | Input duplicates, SKU mismatch, draft/missing/published/gone/corrupt | Giữ1:1 thứ tự; NOT_AVAILABLE không lộ draft; gone link cũ; corruptUNAVAILABLE |
-| T-RES-02 | 101items, body quá lớn, service credential sai, DB down | Invalid input theo contract;401/403;DB503, không giả NOT_AVAILABLE; không query peer |
+| T-RES-02 | 101items, message quá lớn, service credential sai, DB down | gRPC INVALID_ARGUMENT/RESOURCE_EXHAUSTED/UNAUTHENTICATED/UNAVAILABLE đúng nguyên nhân; không giả NOT_AVAILABLE; không query peer |
 
 ## 3. Peer acceptance
 
@@ -69,9 +69,9 @@ Muse được giao bài browser localhost bằng URL truy cập được, actor 
 
 ## 5. Trình tự và điều kiện release
 
-1. Giao trực tiếp target0.2.2-draft/SHA và task handoff. Owner bắt đầu kiểm code, tái sử dụng/bổ sung và test, không gửi ACCEPT hoặc chờ duyệt phương án. Chỉ ghi blocker/amendment nếu không thể đáp ứng contract trong scope; vẫn làm phần độc lập.
+1. Giao trực tiếp target0.3.0-draft/SHA và task handoff thay phiếu0.2.2. Owner bắt đầu kiểm code, tái sử dụng/bổ sung và test, không gửi ACCEPT hoặc chờ duyệt phương án. Chỉ ghi blocker/amendment nếu không thể đáp ứng contract trong scope; vẫn làm phần độc lập.
 2. Implement Traceability scoped domain/repository/transport/migration bằng fixture và tests T-*; v1 wire vẫn có tests bảo vệ. Chưa expose scoped traffic nếu Inventory/Identity chưa đạt.
-3. Inventory+Identity capability thật → chạy scope/workflow integration. Web in tem đi qua provider thật; screenshot sandbox chỉ chứng minh layout.
+3. Inventory warehouse field9, Catalog binding RPC và Identity current-grants RPC qua TLS sẵn sàng → chạy scope/workflow integration. Chuẩn bị đủ cấu hình peer ngay cả khi flags tắt; không dùng flags làm HTTP compatibility fallback. Web in tem đi qua provider thật; screenshot sandbox chỉ chứng minh layout.
 4. Order consumer support packed_lines và empty-legacy fallback trước; Fulfillment provider thêmfield14 sau; broker notification schema v2 không đổi. Deploy resolver trước bật customer traceability link.
 5. Local stack tối thiểu cho từng đợt; không chạy18service. PostgreSQL+Traceability+Web đủ layout/public sandbox; scope thật cần Identity/Keycloak/Catalog/Inventory+DB; full order proof thêm Order/Fulfillment/Kafka và phụ thuộc test ports có nhãn. Không báo Docker/môi trường đang chạy nếu chưa kiểm lại.
 6. Review PR vào dev, trưởng nhóm duyệt rồi release RC02; xác nhận tên nhánh release thực tế khi tạo PR/deploy, không suy đoán từ tên chat. Không test trên deploy cũ rồi coi là bản sửa mới.
@@ -100,7 +100,7 @@ Tất cả test runtime T-*/INV-*/IAM-*/FUL-*/EVT-*/ORD-*/WEB-* ở mục2–3: 
 | ID | Ca kiểm | Expected |
 | --- | --- | --- |
 | CAT-01 | Exact-SKU bootstrap active/hidden/stopped và không có giá | Trả đúng Product/SKU/version, không cần public/saleable/price |
-| CAT-02 | Credential sai, SKU không tồn tại, khác case, DB lỗi | Không fuzzy match;400/401/403/404/503 đúng contract, không lộ internal binding public |
+| CAT-02 | Credential sai, SKU không tồn tại, khác case, DB lỗi | Không fuzzy match; RPC INVALID_ARGUMENT/UNAUTHENTICATED/PERMISSION_DENIED/NOT_FOUND/UNAVAILABLE đúng nguyên nhân; Traceability map sang HTTP theo guide, không lộ internal binding public |
 | CAT-03 | Bootstrap Product rồi verifier cũ phát hiện SKU đổi binding/version | Create/submit/publish chặn conflict, không tin context cũ từ browser |
 | T-CTX-01 | Batch ở kho khác gọicontext, expired/restricted draft source, peer timeout | Kiểm Inventory và scope trước trả Product;403 ngoài kho; context không đồng nghĩa publish; timeout503, receipt giữ nguyên |
 | T-REPLAY-01 | Cùng key v1/v2, edit reference omit/empty rồi retry sau khi dữ liệu đổi | Namespace response không lẫn version; hash client request trước hydrate; replay không mutate; resource/current grants được kiểm lại |

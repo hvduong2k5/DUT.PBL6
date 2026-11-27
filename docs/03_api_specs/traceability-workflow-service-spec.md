@@ -8,7 +8,7 @@ Traceability sở hữu Profile, Revision, Certificate/Evidence metadata, contri
 
 | Dữ liệu | Nguồn | Quy tắc |
 | --- | --- | --- |
-| Product UUID ↔ SKU, version | Catalog exact-SKU context resolver và internal Product–SKU verifier | Bootstrap không phụ thuộc Inventory SKU detail/public price; create/submit/publish vẫn kiểm binding chính xác |
+| Product UUID ↔ SKU, version | CatalogTraceabilitySource.GetSkuBinding gRPC dùng chung cho context và reverify | Bootstrap không phụ thuộc Inventory SKU detail/public price; create/submit/publish vẫn kiểm binding chính xác |
 | Batch UUID, SKU, mã lô, NSX/HSD, restricted/depleted, version, warehouse | Inventory BatchSource | Warehouse không tin từ UI/JWT resource claim; không dùng mã lô làm ID |
 | Nhân viên, active status, permission + scope | Keycloak JWT + Identity gRPC `GetCurrentStaffGrants` | Chữ ký/issuer/audience/thời hạn hợp lệ và intersection quyền hiện hành |
 | Nguồn nguyên liệu, cơ sở/quy trình, chứng nhận | Nội dung nhân viên nhập và reviewer kiểm thủ công | Hiển thị MANUAL; không diễn đạt là cơ quan bên ngoài đã xác minh tự động |
@@ -90,7 +90,7 @@ Rollback: deploy code đọc cả legacy/new trước migration enforcement. Khi
 - v2 mutation dùng `Idempotency-Key`, 16–128 URL-safe ASCII `[A-Za-z0-9._~-]`. Không nhận key trong JSON; gửi nhiều header hoặc cả alias legacy → 400. v1 `X-Idempotency-Key` là legacy, không bắt client v2 tự map.
 - V2 key namespace dùng `(actor, v2.<logical_action>, key)`, tách namespace action v1 đang có để không replay response khác version. Retry giữ nguyên API version. Fingerprint gồm resource/revision/client body đã normalize, không gồm requestId/traceparent; tính trước khi hydrate evidence.reference từ DB, không tính từ content hiện tại. Cùng key/body trả kết quả cũ nếu actor vẫn có quyền/scope; khác body →409 IDEMPOTENCY_CONFLICT. Với edit v2, omission/empty reference cùng evidence ID là marker preserve ở raw normalized request. Replay lookup sau resource authorization nhưng trước hydrate; request mới hydrate từ row được lock và expected_version khớp, rồi validate/write trong cùng transaction. Không dùng latest content ngoài lock để dựng fingerprint hoặc biến replay thành mutation mới. Không tự retry mutation bằng key mới. Đọc resource scope trước trả replay; redact theo quyền hiện tại.
 - Body JSON tối đa256KiB, reject unknown/duplicate fields và trailing JSON; expected_version positive; version thay đổi do mọi command, không đồng nhất revision number.
-- `X-Request-Id`/response requestId thống nhất, tạo server-side khi vắng/không hợp lệ; traceparent truyền theo baseline. Không log bearer token/DSN/evidence reference. `Cache-Control: no-store` cho authenticated và public/resolver data.
+- REST dùng `X-Request-Id`/response requestId thống nhất, tạo server-side khi vắng/không hợp lệ; traceparent truyền theo baseline. Không log bearer token/DSN/evidence reference. `Cache-Control: no-store` cho authenticated/public REST. Resolver gRPC dùng metadata x-request-id theo guide, không có HTTP response envelope/cache header.
 - GET read không cần key. Empty collection 200, items=[], total=0; list total là số row trang hiện tại (không giả làm tổng DB), next_cursor null khi hết. Lookup max1; không scan tất cả profile từ frontend để tìm Batch.
 - By-batch lookup dùng binding đầy đủ để hỗ trợ staff tạo nháp đúng sản phẩm; internal resolver dùng namespace+batch UUID+SKU, đối chiếu hồ sơ đã unique namespace/batch. Không bắt Order đoán product_id.
 
