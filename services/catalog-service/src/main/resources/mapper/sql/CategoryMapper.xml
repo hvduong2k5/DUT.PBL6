@@ -75,4 +75,27 @@
           AND version = #{version}
     </update>
 
+    <delete id="deleteById">
+        DELETE FROM categories WHERE id = #{id}
+    </delete>
+
+    <select id="countProductsByCategoryId" resultType="long">
+        SELECT COUNT(*) FROM products WHERE category_id = #{categoryId}
+    </select>
+
+    <select id="countChildrenByParentId" resultType="long">
+        SELECT COUNT(*) FROM categories WHERE parent_id = #{parentId}
+    </select>
+
+    <select id="findAllAdmin" resultMap="CategoryResultMap">
+        SELECT * FROM categories
+        ORDER BY position ASC, name ASC
+    </select>
+
+    <select id="countProductsGroupedByCategoryId" resultType="com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow">
+        SELECT category_id AS categoryId, COUNT(*) AS count
+        FROM products
+        GROUP BY category_id
+    </select>
+
 </mapper>

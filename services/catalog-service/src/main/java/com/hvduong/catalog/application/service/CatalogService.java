@@ -8,9 +8,11 @@ import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
 import com.hvduong.catalog.common.response.PageResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Application Service interface cho các chức năng public catalog. Chỉ trả Product APPROVED +
@@ -24,9 +26,22 @@ public interface CatalogService {
 
   PageResponse<ProductListItemResponse> searchProducts(String query, int page, int pageSize);
 
+  PageResponse<ProductListItemResponse> searchProducts(
+      String query,
+      UUID categoryId,
+      Long minPrice,
+      Long maxPrice,
+      Integer ocopStar,
+      SortBy sortBy,
+      SalesChannel channel,
+      int page,
+      int pageSize);
+
   List<CategoryResponse> getAllCategories();
 
   ProductVariantResponse getVariantBySkuCode(String skuCode);
+
+  ProductVariantResponse getVariantBySkuCode(String skuCode, SalesChannel channel);
 
   PriceValidationResponse validatePrices(PriceValidationRequest request);
 }

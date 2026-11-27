@@ -90,20 +90,30 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `POST /api/v1/admin/b2b/quote-requests/{requestId}/actions` | EPIC_18 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/files` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/versions` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `GET /api/v1/admin/catalog/categories` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500 |
 | `POST /api/v1/admin/catalog/categories` | EPIC_04 | stable | 201 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `GET /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500 |
+| `PUT /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `PATCH /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `DELETE /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | 409 | — | 500 |
 | `GET /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
-| `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `PUT /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable (legacy) | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products/{productId}/transition` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | 200 (empty list) | 400/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `DELETE /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images/{imageId}/review` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `GET /api/v1/admin/catalog/stock-projections` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus` | EPIC_09 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus/{skuId}` | EPIC_09 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/workbench` | EPIC_09 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
@@ -225,21 +235,30 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 - `skuCode` bất biến, không đổi qua PATCH.
 - PATCH SKU không đổi giá; giá dùng endpoint `/prices`.
 
-### Giá theo kênh
+### Giá theo kênh (Temporal Pricing - Database V11)
 
-- `GET .../skus/{skuId}/prices` trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
-- `PUT .../skus/{skuId}/prices` supersede giá ACTIVE cùng kênh rồi tạo bản ghi mới với `effectiveFrom = now`.
+- `GET .../skus/{skuId}/prices`: Trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
+- `PUT .../skus/{skuId}/prices`: Cập nhật bảng giá áp dụng ngay (tự động supersede giá ACTIVE hiện hành tại `now` và tạo bản ghi mới từ `now -> infinity`). Hỗ trợ `expectedVariantVersion` để chống conflict đồng thời.
+- `POST .../skus/{skuId}/prices`: Lên lịch hoặc tạo một slot giá mới theo khoảng `[effectiveFrom, effectiveTo)`. Bắt buộc `effectiveTo > effectiveFrom`. Chống chồng lấn khoảng hiệu lực bằng PostgreSQL Exclusion Constraint (`tstzrange` + `&&`); vi phạm trả về `409 Conflict`.
+- `DELETE .../skus/{skuId}/prices/{priceId}`: Hủy slot giá đã lên lịch trong tương lai (`effectiveFrom > now`). Cấm xóa cứng bản ghi giá đã hoặc đang có hiệu lực.
 - Kênh: `D2C_WEB`, `MOBILE_APP`, `B2B_WHOLESALE`, `POS_QUAY`, `SHOPEE`, `TIKTOK`.
-- VND dùng `amountUnits`, `amountNanos = 0`; chống chồng lấn khoảng hiệu lực bằng `tstzrange` + `&&`.
+- VND dùng `amountUnits`, `amountNanos = 0`.
+- Outbox event: Chỉ phát sự kiện `vn.omama.catalog.product.price.changed.v1` và tăng `price_revision` khi giá thay đổi có hiệu lực ngay (`effectiveFrom <= now`). Giá tương lai không phát event thay đổi giá giỏ hàng.
 
 ### Ảnh sản phẩm
 
 - Lưu `objectKey` (MinIO/S3); response trả thêm `url = https://cdn.omama.vn/ + objectKey` (giữ nguyên nếu objectKey là URL tuyệt đối).
 - `role`: `COVER` | `GALLERY` | `THUMBNAIL` (mặc định `GALLERY`).
-- `mediaStatus`: `PENDING_SCAN` | `APPROVED` | `REJECTED` (mặc định `PENDING_SCAN`).
-- Bất biến: tối đa một ảnh `COVER` + `APPROVED`. Khi thêm/sửa thành cover APPROVED, cover cũ tự hạ xuống `GALLERY`.
+- Phân tách hai lớp trạng thái:
+  - `scanStatus`: `PENDING` | `CLEAN` | `INFECTED` | `FAILED` (do Media Service kiểm tra an toàn mã độc cập nhật).
+  - `mediaStatus`: `PENDING_SCAN` → `PENDING_REVIEW` → `APPROVED` | `REJECTED` (do Content Moderator duyệt).
+- Ảnh chỉ được hiển thị công khai khi đồng thời: `scanStatus == CLEAN` VÀ `mediaStatus == APPROVED`.
+- Đăng ký ảnh mới (`POST /images`): server tự gán `mediaStatus = PENDING_SCAN`, `scanStatus = PENDING`, `uploadedBy = actorId`.
+- Sửa metadata (`PATCH /images/{imageId}`): chỉ sửa `altText`, `position`, `role`. Cấm sửa `mediaStatus` hoặc `scanStatus`. Không cho phép chuyển ảnh đã `APPROVED` thành `COVER` qua PATCH.
+- Duyệt ảnh (`POST /images/{imageId}/review`): yêu cầu quyền `CATALOG_APPROVE`. Chỉ duyệt khi `scanStatus == CLEAN` và `mediaStatus == PENDING_REVIEW`. Tuân thủ Separation of Duties (người upload không được tự duyệt).
+- Bất biến: tối đa một ảnh `COVER` + `APPROVED` + `CLEAN`. Khi duyệt một ảnh COVER thành APPROVED, cover cũ tự hạ xuống `GALLERY` trong cùng transaction khóa dòng Product.
 - `DELETE` chỉ xóa metadata; object trên storage do job dọn dẹp riêng xử lý.
-- PATCH ảnh yêu cầu `expectedVersion` của ảnh.
+- Optimistic locking: PATCH và review ảnh đều yêu cầu `expectedVersion`.
 
 ### Vòng đời
 

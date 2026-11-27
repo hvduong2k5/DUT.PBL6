@@ -10,9 +10,10 @@ import com.hvduong.catalog.application.dto.response.ProductListItemResponse;
 import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogService;
-import com.hvduong.catalog.common.constant.CatalogConstants;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.response.PageResponse;
@@ -113,30 +114,52 @@ public class CatalogServiceImpl implements CatalogService {
   @Override
   public PageResponse<ProductListItemResponse> searchProducts(
       String query, int page, int pageSize) {
-    log.debug("[CATALOG] searchProducts: query='{}', page={}, size={}", query, page, pageSize);
+    return searchProducts(
+        query, null, null, null, null, SortBy.NEWEST, SalesChannel.D2C_WEB, page, pageSize);
+  }
+
+  @Override
+  public PageResponse<ProductListItemResponse> searchProducts(
+      String query,
+      UUID categoryId,
+      Long minPrice,
+      Long maxPrice,
+      Integer ocopStar,
+      SortBy sortBy,
+      SalesChannel channel,
+      int page,
+      int pageSize) {
+    log.debug(
+        "[CATALOG] searchProducts: query='{}', categoryId={}, channel={}, page={}, size={}",
+        query,
+        categoryId,
+        channel,
+        page,
+        pageSize);
 
     if (!StringUtils.hasText(query)) {
       return PageResponse.of(List.of(), page, pageSize, 0);
     }
 
-    // MVP: PostgreSQL ILIKE pushed down to SQL; no in-memory filtering.
+    SalesChannel targetChannel = channel != null ? channel : SalesChannel.D2C_WEB;
+    String sort = sortBy != null ? sortBy.name() : "NEWEST";
+
     List<Product> products =
         productMapper.findPublicProducts(
             query,
-            null,
-            null,
-            null,
-            null,
-            "NEWEST",
-            CatalogConstants.CHANNEL_D2C_WEB,
+            categoryId,
+            ocopStar,
+            minPrice,
+            maxPrice,
+            sort,
+            targetChannel.getValue(),
             (page - 1) * pageSize,
             pageSize);
     long total =
         productMapper.countPublicProducts(
-            query, null, null, null, null, CatalogConstants.CHANNEL_D2C_WEB);
+            query, categoryId, ocopStar, minPrice, maxPrice, targetChannel.getValue());
 
-    List<ProductListItemResponse> items = enrichListItems(products, SalesChannel.D2C_WEB);
-
+    List<ProductListItemResponse> items = enrichListItems(products, targetChannel);
     return PageResponse.of(items, page, pageSize, total);
   }
 
@@ -157,7 +180,15 @@ public class CatalogServiceImpl implements CatalogService {
 
   @Override
   public ProductVariantResponse getVariantBySkuCode(String skuCode) {
-    log.debug("[CATALOG] getVariantBySkuCode: skuCode={}", skuCode);
+    return getVariantBySkuCode(skuCode, SalesChannel.D2C_WEB);
+  }
+
+  @Override
+  public ProductVariantResponse getVariantBySkuCode(String skuCode, SalesChannel channel) {
+    if (channel == null) {
+      channel = SalesChannel.D2C_WEB;
+    }
+    log.debug("[CATALOG] getVariantBySkuCode: skuCode={}, channel={}", skuCode, channel);
 
     ProductVariant variant =
         variantMapper
@@ -173,12 +204,15 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
-    response.setStockAvailable(
-        stockProjectionService
-            .getAvailableQuantities(List.of(variant.getSkuCode()))
-            .get(variant.getSkuCode()));
+    response.setChannel(channel.name());
+    response.setPriceVersion(variant.getPriceRevision());
+
+    StockStatus stockStatus = stockProjectionService.getStockStatus(effectiveStockSku(variant));
+    response.setStockStatus(stockStatus != null ? stockStatus.name() : StockStatus.UNKNOWN.name());
+    response.setStockAvailable(null);
+
     channelPriceMapper
-        .findActiveByVariantAndChannel(variant.getId(), SalesChannel.D2C_WEB.getValue())
+        .findActiveByVariantAndChannel(variant.getId(), channel.getValue())
         .ifPresent(price -> response.setPrice(dtoMapper.toMoneyResponse(price)));
     return response;
   }
@@ -295,7 +329,7 @@ public class CatalogServiceImpl implements CatalogService {
         stockProjectionService.getAvailableQuantities(
             variantsByProduct.values().stream()
                 .flatMap(List::stream)
-                .map(ProductVariant::getSkuCode)
+                .map(CatalogServiceImpl::effectiveStockSku)
                 .distinct()
                 .collect(Collectors.toList()));
     return products.stream()
@@ -318,10 +352,12 @@ public class CatalogServiceImpl implements CatalogService {
       Map<String, Long> quantities) {
     ProductListItemResponse item = dtoMapper.toListItemResponse(product);
     boolean stockKnown =
-        variants.stream().allMatch(variant -> quantities.get(variant.getSkuCode()) != null);
+        variants.stream().allMatch(variant -> quantities.get(effectiveStockSku(variant)) != null);
     Long available =
         stockKnown
-            ? variants.stream().mapToLong(variant -> quantities.get(variant.getSkuCode())).sum()
+            ? variants.stream()
+                .mapToLong(variant -> quantities.get(effectiveStockSku(variant)))
+                .sum()
             : null;
     item.setStockAvailable(available);
     item.setInStock(available == null ? null : available > 0);
@@ -340,12 +376,20 @@ public class CatalogServiceImpl implements CatalogService {
       List<ProductVariant> variants, SalesChannel channel) {
     Map<String, Long> quantities =
         stockProjectionService.getAvailableQuantities(
-            variants.stream().map(ProductVariant::getSkuCode).collect(Collectors.toList()));
+            variants.stream()
+                .map(CatalogServiceImpl::effectiveStockSku)
+                .distinct()
+                .collect(Collectors.toList()));
     return variants.stream()
         .map(
             v -> {
               ProductVariantResponse resp = dtoMapper.toVariantResponse(v);
-              resp.setStockAvailable(quantities.get(v.getSkuCode()));
+              resp.setChannel(channel.name());
+              resp.setPriceVersion(v.getPriceRevision());
+              String stockSku = effectiveStockSku(v);
+              StockStatus status = stockProjectionService.getStockStatus(stockSku);
+              resp.setStockStatus(status != null ? status.name() : StockStatus.UNKNOWN.name());
+              resp.setStockAvailable(quantities.get(stockSku));
               channelPriceMapper
                   .findActiveByVariantAndChannel(v.getId(), channel.getValue())
                   .ifPresent(price -> resp.setPrice(dtoMapper.toMoneyResponse(price)));
@@ -371,6 +415,12 @@ public class CatalogServiceImpl implements CatalogService {
       }
     }
     return min;
+  }
+
+  private static String effectiveStockSku(ProductVariant variant) {
+    return StringUtils.hasText(variant.getInventorySkuCode())
+        ? variant.getInventorySkuCode()
+        : variant.getSkuCode();
   }
 
   /** TODO Phase 2: MinIO presigned URL generator */

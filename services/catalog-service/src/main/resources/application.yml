@@ -92,12 +92,16 @@ app:
 catalog:
   identity-url: ${IDENTITY_URL:}
   internal-token: ${CATALOG_INTERNAL_TOKEN:}
-  traceability-token: ${CATALOG_TRACEABILITY_TOKEN:}
+  media:
+    base-url: ${CATALOG_MEDIA_BASE_URL:http://localhost:9000/om-catalog/}
+    grpc-enabled: ${CATALOG_MEDIA_GRPC_ENABLED:false}
+    grpc-target: ${MEDIA_GRPC_TARGET:localhost:9007}
   cache:
     product-ttl-seconds: ${REDIS_TTL_SECONDS:3600}
     category-ttl-seconds: 86400
   events:
     topic: ${CATALOG_EVENTS_TOPIC:catalog.events.v1}
+    source: ${CATALOG_EVENTS_SOURCE:https://omama.vn/services/catalog-service}
   outbox:
     enabled: ${CATALOG_OUTBOX_ENABLED:true}
     poll-interval-ms: ${CATALOG_OUTBOX_POLL_INTERVAL_MS:1000}

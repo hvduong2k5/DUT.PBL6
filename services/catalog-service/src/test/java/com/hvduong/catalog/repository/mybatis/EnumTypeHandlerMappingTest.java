@@ -27,8 +27,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Regression test cho lỗi MyBatis enum type handler bị tráo: khai báo tường minh {@code
  * typeHandler="org.apache.ibatis.type.EnumTypeHandler"} khiến mọi enum dùng chung instance đầu tiên
- * được đăng ký (ví dụ {@code EnumTypeHandler<SalesChannel>}), nên cột {@code approval_status} bị đọc
- * thành {@code SalesChannel.APPROVED} và ném IllegalArgumentException.
+ * được đăng ký (ví dụ {@code EnumTypeHandler<SalesChannel>}), nên cột {@code approval_status} bị
+ * đọc thành {@code SalesChannel.APPROVED} và ném IllegalArgumentException.
  *
  * <p>Test nạp chính các mapper XML thật trong {@code src/main/resources/mapper/sql}.
  */
@@ -79,7 +79,8 @@ class EnumTypeHandlerMappingTest {
     }
   }
 
-  private Object readEnum(String resultMapId, String property, String columnValue) throws Exception {
+  private Object readEnum(String resultMapId, String property, String columnValue)
+      throws Exception {
     ResultMapping mapping = findMapping(findResultMap(resultMapId), property);
     TypeHandler<?> typeHandler = mapping.getTypeHandler();
     if (typeHandler == null) {

@@ -182,10 +182,9 @@ services/catalog-service/
 - 401: Giữ response chung của Spring Security.
 - Admin write (POST/PUT): Bọc trong `ApiResponse` envelope.
 
-### 4.3. Internal Contract (`catalog-checkout.openapi.yaml`)
-- Port 8005 (không phải 8006).
-- Snapshot chỉ nhận `D2C_WEB` / `MOBILE_APP`.
-- Endpoint `/api/v1/internal/prices/validate` deprecated + bắt buộc `X-Internal-Token`.
+### 4.3. Internal Communication (East-West)
+- Toàn bộ giao tiếp nội bộ giữa các microservices (Checkout pricing, Traceability binding, SKU lookup) đã chuyển 100% sang gRPC (`packages/proto/catalog/v1/catalog.proto`).
+- Các REST internal adapter cũ (`/api/v1/internal/prices/validate`, `/api/v1/internal/catalog/snapshots`, `/api/v1/internal/traceability/...`) và file `catalog-checkout.openapi.yaml` đã được decommission hoàn toàn.
 
 ### 4.4. gRPC Contract (`packages/proto/catalog/v1/catalog.proto`)
 - Chỉ dùng nội bộ. Không khôi phục `catalog_public.proto` / `catalog_admin.proto`.
@@ -345,6 +344,21 @@ git log --oneline -10
 - [ ] `python packages/contracts/mvp/verify.py` pass (nếu thay đổi contract).
 - [ ] Git status sạch (không có file lẻ).
 - [ ] Commit message tuân thủ convention.
+
+---
+
+## 13. Quy tắc Docker & Containerization
+
+- **Không dùng docker-compose:** Tuyệt đối không tạo hoặc duy trì file `docker-compose.yml` cho `catalog-service`.
+- **Duy trì đúng 2 file Dockerfile:**
+  1. **`Dockerfile` (Dev / Local):**
+     - Base image: `eclipse-temurin:21-jre-alpine`.
+     - Đóng gói file JAR prebuilt từ `build/libs/catalog-service-*.jar`.
+     - Phục vụ việc build và chạy nhanh container trực tiếp bằng lệnh `docker run` hoặc trong môi trường dev/WSL.
+  2. **`Dockerfile.coolify` (Production / Coolify Git Deploy):**
+     - Multi-stage build độc lập: Stage 1 dùng `gradle:9.2.0-jdk21` build source code từ root repo (`packages/proto` + `services/catalog-service`), Stage 2 package sang `eclipse-temurin:21-jre-alpine`.
+     - Phục vụ triển khai Git-based webhook tự động trên Coolify production.
+- **File `.dockerignore`:** Bắt buộc có để loại trừ `.gradle/`, `.git/`, `build/classes/`, `.idea/`, file `.env`.
 
 ---
 

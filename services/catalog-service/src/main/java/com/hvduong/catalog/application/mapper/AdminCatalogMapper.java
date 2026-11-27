@@ -60,6 +60,7 @@ public final class AdminCatalogMapper {
         new AdminProductDetailResponse.AdminProductSkuResponse();
     sku.setSkuId(variant.getId().toString());
     sku.setSkuCode(variant.getSkuCode());
+    sku.setInventorySkuCode(variant.getInventorySkuCode());
     sku.setLabel(variant.getVariantName());
     sku.setWeightGrams(weightGrams(variant.getWeightValue(), variant.getWeightUnit()));
     sku.setFlavor(variant.getFlavor());
@@ -143,6 +144,12 @@ public final class AdminCatalogMapper {
         .role(image.getRole())
         .position(image.getPosition())
         .mediaStatus(image.getMediaStatus())
+        .scanStatus(image.getScanStatus())
+        .scannedAt(formatInstant(image.getScannedAt()))
+        .rejectedReason(image.getRejectedReason())
+        .uploadedBy(image.getUploadedBy())
+        .reviewedBy(image.getReviewedBy())
+        .reviewedAt(formatInstant(image.getReviewedAt()))
         .revision(image.getVersion())
         .createdAt(formatInstant(image.getCreatedAt()))
         .updatedAt(formatInstant(image.getUpdatedAt()))

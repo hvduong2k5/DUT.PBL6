@@ -5,19 +5,29 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.hvduong.catalog.application.dto.request.CreateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.CreatePriceScheduleRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductImageRequest;
 import com.hvduong.catalog.application.dto.request.CreateProductRequest;
+import com.hvduong.catalog.application.dto.request.CreateVariantRequest;
+import com.hvduong.catalog.application.dto.request.PatchCategoryRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
+import com.hvduong.catalog.application.dto.request.UpdateCategoryRequest;
+import com.hvduong.catalog.application.dto.request.UpdatePriceRequest;
 import com.hvduong.catalog.application.dto.request.UpdateProductRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
 import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.application.service.CatalogCacheEvictor;
 import com.hvduong.catalog.common.enums.ApprovalStatus;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.domain.entity.Category;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
 import com.hvduong.catalog.domain.entity.Product;
@@ -29,6 +39,9 @@ import com.hvduong.catalog.repository.mybatis.ChannelPriceMapper;
 import com.hvduong.catalog.repository.mybatis.ProductImageMapper;
 import com.hvduong.catalog.repository.mybatis.ProductMapper;
 import com.hvduong.catalog.repository.mybatis.ProductVariantMapper;
+import com.hvduong.catalog.repository.mybatis.StockAvailabilityMapper;
+import com.hvduong.catalog.repository.mybatis.projection.AdminStockProjectionRow;
+import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,9 +51,10 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.springframework.cache.annotation.Cacheable;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +62,7 @@ class CatalogAdminServiceImplTest {
 
   @Mock private ProductMapper productMapper;
   @Mock private CategoryMapper categoryMapper;
+  @Mock private StockAvailabilityMapper stockAvailabilityMapper;
   @Mock private ProductVariantMapper variantMapper;
   @Mock private ChannelPriceMapper channelPriceMapper;
   @Mock private ProductImageMapper imageMapper;
@@ -68,6 +83,7 @@ class CatalogAdminServiceImplTest {
             channelPriceMapper,
             imageMapper,
             categoryMapper,
+            stockAvailabilityMapper,
             dtoMapper,
             outboxWriter,
             cacheEvictor);
@@ -84,11 +100,15 @@ class CatalogAdminServiceImplTest {
     when(productMapper.existsBySlug(req.getSlug(), null)).thenReturn(false);
     when(categoryMapper.findById(req.getCategoryId())).thenReturn(Optional.of(new Category()));
 
-    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-    mockResponse.setProductId(productId);
-    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+    Product product = Product.builder().id(productId).version(0L).build();
+    when(productMapper.findById(any())).thenReturn(Optional.of(product));
+    when(imageMapper.findAllByProductId(any())).thenReturn(List.of());
 
-    ProductDetailResponse result = adminService.createProduct(req, "admin-1");
+    AdminProductDetailResponse mockResponse =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+    when(dtoMapper.toAdminDetailResponse(any())).thenReturn(mockResponse);
+
+    AdminProductDetailResponse result = adminService.createProduct(req, "admin-1");
 
     assertNotNull(result);
     verify(productMapper, times(1)).insert(any(Product.class));
@@ -110,6 +130,7 @@ class CatalogAdminServiceImplTest {
     UpdateProductRequest req = new UpdateProductRequest();
     req.setSlug("new-slug");
     req.setName("Updated Name");
+    req.setExpectedVersion(1L);
 
     Product existingProduct = new Product();
     existingProduct.setId(productId);
@@ -118,11 +139,13 @@ class CatalogAdminServiceImplTest {
     when(productMapper.findById(productId)).thenReturn(Optional.of(existingProduct));
     when(productMapper.existsBySlug("new-slug", productId)).thenReturn(false);
     when(productMapper.update(any(Product.class))).thenReturn(1);
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
 
-    ProductDetailResponse mockResponse = ProductDetailResponse.builder().build();
-    when(dtoMapper.toDetailResponse(any())).thenReturn(mockResponse);
+    AdminProductDetailResponse mockResponse =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+    when(dtoMapper.toAdminDetailResponse(any())).thenReturn(mockResponse);
 
-    ProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.updateProduct(productId, req, "admin-1");
 
     assertNotNull(result);
     verify(productMapper, times(1)).update(any(Product.class));
@@ -147,7 +170,7 @@ class CatalogAdminServiceImplTest {
     when(productMapper.update(any(Product.class))).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.patchProduct(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.patchProduct(productId, req, "admin-1");
 
     assertNotNull(result);
     assertEquals("Câu chuyện thương hiệu mới", existing.getStory());
@@ -205,7 +228,8 @@ class CatalogAdminServiceImplTest {
     when(variantMapper.update(any(ProductVariant.class))).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.patchVariant(productId, variantId, req, "admin-1");
+    AdminProductDetailResponse result =
+        adminService.patchVariant(productId, variantId, req, "admin-1");
 
     assertNotNull(result);
     assertEquals("Hộp 500g", variant.getVariantName());
@@ -236,25 +260,132 @@ class CatalogAdminServiceImplTest {
   }
 
   @Test
-  void addImage_ApprovedCover_DemotesPreviousCover() {
+  void addImage_CreatesPendingImage() {
     CreateProductImageRequest req = new CreateProductImageRequest();
     req.setObjectKey("products/cover-new.jpg");
     req.setRole("COVER");
-    req.setMediaStatus("APPROVED");
 
     Product product = new Product();
     product.setId(productId);
     product.setVersion(1L);
 
     when(productMapper.findById(productId)).thenReturn(Optional.of(product));
-    when(imageMapper.demoteOtherApprovedCovers(productId, null)).thenReturn(1);
     stubDetailMapping();
 
-    ProductDetailResponse result = adminService.addImage(productId, req, "admin-1");
+    AdminProductDetailResponse result = adminService.addImage(productId, req, "admin-1");
 
     assertNotNull(result);
-    verify(imageMapper).demoteOtherApprovedCovers(productId, null);
-    verify(imageMapper).insert(any(ProductImage.class));
+    ArgumentCaptor<ProductImage> captor = ArgumentCaptor.forClass(ProductImage.class);
+    verify(imageMapper).insert(captor.capture());
+    assertEquals("PENDING_REVIEW", captor.getValue().getMediaStatus());
+    assertEquals("PENDING", captor.getValue().getScanStatus());
+    assertEquals("admin-1", captor.getValue().getUploadedBy());
+    verify(imageMapper, never()).demoteOtherApprovedCovers(any(), any());
+  }
+
+  @Test
+  void reviewImage_ApprovedCover_DemotesPreviousCoverAndApproves() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    product.setVersion(1L);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .objectKey("products/cover.webp")
+            .role("COVER")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("CLEAN")
+            .uploadedBy("staff-uploader")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+    when(imageMapper.demoteOtherApprovedCovers(productId, imageId)).thenReturn(1);
+    when(imageMapper.update(any(ProductImage.class))).thenReturn(1);
+    stubDetailMapping();
+
+    AdminProductDetailResponse result =
+        adminService.reviewImage(productId, imageId, req, "moderator-2");
+
+    assertNotNull(result);
+    verify(imageMapper).demoteOtherApprovedCovers(productId, imageId);
+    verify(imageMapper).update(image);
+    assertEquals("APPROVED", image.getMediaStatus());
+    assertEquals("moderator-2", image.getReviewedBy());
+    assertNotNull(image.getReviewedAt());
+  }
+
+  @Test
+  void reviewImage_PendingScanStatus_SucceedsInMvp() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .objectKey("products/2026/11/25/gallery.webp")
+            .role("GALLERY")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("PENDING")
+            .uploadedBy("staff-uploader")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+    when(imageMapper.update(any(ProductImage.class))).thenReturn(1);
+    stubDetailMapping();
+
+    AdminProductDetailResponse result =
+        adminService.reviewImage(productId, imageId, req, "moderator-2");
+
+    assertNotNull(result);
+    assertEquals("APPROVED", image.getMediaStatus());
+    assertEquals("PENDING", image.getScanStatus());
+  }
+
+  @Test
+  void reviewImage_SelfReview_ThrowsCatalogException() {
+    UUID imageId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+
+    ProductImage image =
+        ProductImage.builder()
+            .id(imageId)
+            .productId(productId)
+            .role("GALLERY")
+            .mediaStatus("PENDING_REVIEW")
+            .scanStatus("CLEAN")
+            .uploadedBy("actor-same")
+            .version(1L)
+            .build();
+
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    when(productMapper.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+    when(imageMapper.findById(imageId)).thenReturn(Optional.of(image));
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.reviewImage(productId, imageId, req, "actor-same"));
+    assertEquals(ErrorCode.CATALOG_IMAGE_CANNOT_SELF_REVIEW, ex.getErrorCode());
   }
 
   @Test
@@ -302,14 +433,14 @@ class CatalogAdminServiceImplTest {
     pending.setApprovalStatus(ApprovalStatus.PENDING);
     pending.setVersion(1L);
 
-    when(productMapper.findById(productId))
-        .thenReturn(Optional.of(draft), Optional.of(pending));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(draft), Optional.of(pending));
     when(productMapper.updateApprovalStatus(
             productId, ApprovalStatus.PENDING.getValue(), "admin-1", 0L))
         .thenReturn(1);
     stubDetailMappingFromEntity();
 
-    ProductDetailResponse result = adminService.submitProductForReview(productId, "admin-1", 0L);
+    AdminProductDetailResponse result =
+        adminService.submitProductForReview(productId, "admin-1", 0L);
 
     assertEquals("PENDING", result.getApprovalStatus());
     assertEquals(1L, result.getVersion());
@@ -326,32 +457,30 @@ class CatalogAdminServiceImplTest {
     approved.setApprovalStatus(ApprovalStatus.APPROVED);
     approved.setVersion(2L);
 
-    when(productMapper.findById(productId))
-        .thenReturn(Optional.of(pending), Optional.of(approved));
+    when(productMapper.findById(productId)).thenReturn(Optional.of(pending), Optional.of(approved));
     when(productMapper.updateApprovalStatus(
             productId, ApprovalStatus.APPROVED.getValue(), "admin-1", 1L))
         .thenReturn(1);
     stubDetailMappingFromEntity();
 
-    ProductDetailResponse result = adminService.approveProduct(productId, "admin-1", 1L);
+    AdminProductDetailResponse result = adminService.approveProduct(productId, "admin-1", 1L);
 
     assertEquals("APPROVED", result.getApprovalStatus());
     assertEquals(2L, result.getVersion());
   }
 
   private void stubDetailMappingFromEntity() {
-    when(dtoMapper.toDetailResponse(any()))
+    when(dtoMapper.toAdminDetailResponse(any()))
         .thenAnswer(
             invocation -> {
               Product p = invocation.getArgument(0);
-              return ProductDetailResponse.builder()
-                  .productId(p.getId())
+              return AdminProductDetailResponse.builder()
+                  .productId(p.getId().toString())
                   .approvalStatus(p.getApprovalStatus().name())
-                  .version(p.getVersion())
+                  .revision(p.getVersion())
                   .build();
             });
-    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
-    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
   }
 
   @Test
@@ -370,10 +499,9 @@ class CatalogAdminServiceImplTest {
   }
 
   private void stubDetailMapping() {
-    when(dtoMapper.toDetailResponse(any()))
-        .thenReturn(ProductDetailResponse.builder().productId(productId).build());
-    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
-    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of());
+    when(dtoMapper.toAdminDetailResponse(any()))
+        .thenReturn(AdminProductDetailResponse.builder().productId(productId.toString()).build());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
   }
 
   @Test
@@ -389,5 +517,484 @@ class CatalogAdminServiceImplTest {
     } finally {
       TransactionSynchronizationManager.clearSynchronization();
     }
+  }
+
+  @Test
+  void updateCategoryThrowsWhenParentIsSelf() {
+    UUID catId = UUID.randomUUID();
+    Category existing = Category.builder().id(catId).name("Mè xửng").slug("me-xung").build();
+    when(categoryMapper.findById(catId)).thenReturn(Optional.of(existing));
+
+    var updateReq =
+        UpdateCategoryRequest.builder()
+            .name("Mè xửng")
+            .slug("me-xung")
+            .parentId(catId)
+            .expectedVersion(1L)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.updateCategory(catId, updateReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void updateCategoryThrowsWhenCircularHierarchyDetected() {
+    UUID catA = UUID.randomUUID();
+    UUID catB = UUID.randomUUID();
+    UUID catC = UUID.randomUUID();
+
+    Category existingA = Category.builder().id(catA).name("Cat A").slug("cat-a").build();
+    Category existingB =
+        Category.builder().id(catB).name("Cat B").slug("cat-b").parentId(catA).build();
+    Category existingC =
+        Category.builder().id(catC).name("Cat C").slug("cat-c").parentId(catB).build();
+
+    when(categoryMapper.findById(catA)).thenReturn(Optional.of(existingA));
+    when(categoryMapper.findById(catB)).thenReturn(Optional.of(existingB));
+    when(categoryMapper.findById(catC)).thenReturn(Optional.of(existingC));
+    when(categoryMapper.existsBySlug("cat-a", catA)).thenReturn(false);
+
+    // Attempt to make C parent of A (cycle: A -> B -> C -> A)
+    var updateReq =
+        UpdateCategoryRequest.builder()
+            .name("Cat A")
+            .slug("cat-a")
+            .parentId(catC)
+            .expectedVersion(1L)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.updateCategory(catA, updateReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void patchCategoryThrowsWhenCircularHierarchyDetected() {
+    UUID catA = UUID.randomUUID();
+    UUID catB = UUID.randomUUID();
+
+    Category existingA = Category.builder().id(catA).name("Cat A").slug("cat-a").build();
+    Category existingB =
+        Category.builder().id(catB).name("Cat B").slug("cat-b").parentId(catA).build();
+
+    when(categoryMapper.findById(catA)).thenReturn(Optional.of(existingA));
+    when(categoryMapper.findById(catB)).thenReturn(Optional.of(existingB));
+
+    var patchReq = PatchCategoryRequest.builder().parentId(catB).expectedVersion(1L).build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class, () -> adminService.patchCategory(catA, patchReq, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void updateVariantPrices_ThrowsWhenVersionConflict() {
+    UUID variantId = UUID.randomUUID();
+    ProductVariant variant =
+        ProductVariant.builder().id(variantId).productId(productId).version(2L).build();
+    when(variantMapper.findById(variantId)).thenReturn(Optional.of(variant));
+
+    UpdatePriceRequest req =
+        UpdatePriceRequest.builder()
+            .expectedVariantVersion(1L)
+            .prices(
+                List.of(
+                    UpdatePriceRequest.PriceEntry.builder()
+                        .channel(SalesChannel.D2C_WEB)
+                        .amountUnits(50000L)
+                        .currencyCode("VND")
+                        .build()))
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.updateVariantPrices(productId, variantId, req, "admin-1"));
+    assertEquals(ErrorCode.CATALOG_VERSION_CONFLICT, ex.getErrorCode());
+  }
+
+  @Test
+  void schedulePrice_Future_DoesNotIncrementPriceRevisionOrPublishOutbox() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(1L)
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+
+    Instant futureFrom = Instant.now().plusSeconds(3600);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(70000L)
+            .amountNanos(0)
+            .currencyCode("VND")
+            .effectiveFrom(futureFrom)
+            .build();
+
+    AdminPriceResponse res = adminService.schedulePrice(productId, skuId, req, "admin-1");
+
+    assertNotNull(res);
+    assertEquals("D2C_WEB", res.getChannel());
+    assertEquals(70000L, res.getAmountUnits());
+    verify(channelPriceMapper, never()).supersedePreviousPrice(any(), any());
+    verify(variantMapper, never()).incrementPriceRevision(any());
+    verify(outboxWriter, never()).enqueue(any(), any(), any(), any());
+    verify(channelPriceMapper, times(1)).insert(any());
+  }
+
+  @Test
+  void schedulePrice_Immediate_IncrementsRevisionAndPublishesOutbox() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(1L)
+            .build();
+    ProductVariant updatedVariant =
+        ProductVariant.builder()
+            .id(skuId)
+            .productId(productId)
+            .skuCode("MX-TEST")
+            .version(1L)
+            .priceRevision(2L)
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId))
+        .thenReturn(Optional.of(variant), Optional.of(updatedVariant));
+
+    Instant pastFrom = Instant.now().minusSeconds(10);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(80000L)
+            .amountNanos(0)
+            .currencyCode("VND")
+            .effectiveFrom(pastFrom)
+            .build();
+
+    AdminPriceResponse res = adminService.schedulePrice(productId, skuId, req, "admin-1");
+
+    assertNotNull(res);
+    assertEquals(80000L, res.getAmountUnits());
+    verify(channelPriceMapper).supersedePreviousPrice(skuId, SalesChannel.D2C_WEB.getValue());
+    verify(variantMapper).incrementPriceRevision(skuId);
+    verify(outboxWriter)
+        .enqueue(
+            eq("Product"),
+            eq(productId.toString()),
+            eq("vn.omama.catalog.product.price.changed.v1"),
+            any());
+  }
+
+  @Test
+  void schedulePrice_ThrowsWhenEffectiveToBeforeEffectiveFrom() {
+    UUID skuId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+
+    Instant from = Instant.now().plusSeconds(3600);
+    Instant to = from.minusSeconds(60);
+    CreatePriceScheduleRequest req =
+        CreatePriceScheduleRequest.builder()
+            .channel(SalesChannel.D2C_WEB)
+            .amountUnits(80000L)
+            .effectiveFrom(from)
+            .effectiveTo(to)
+            .build();
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.schedulePrice(productId, skuId, req, "admin-1"));
+    assertEquals(ErrorCode.INVALID_ARGUMENT, ex.getErrorCode());
+  }
+
+  @Test
+  void deleteScheduledPrice_FuturePrice_Success() {
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    ChannelPrice price =
+        ChannelPrice.builder()
+            .id(priceId)
+            .variantId(skuId)
+            .channel(SalesChannel.D2C_WEB)
+            .effectiveFrom(Instant.now().plusSeconds(7200))
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+    when(channelPriceMapper.findById(priceId)).thenReturn(Optional.of(price));
+    when(channelPriceMapper.deleteFuturePriceById(priceId, skuId)).thenReturn(1);
+
+    assertDoesNotThrow(
+        () -> adminService.deleteScheduledPrice(productId, skuId, priceId, "admin-1"));
+    verify(channelPriceMapper).deleteFuturePriceById(priceId, skuId);
+  }
+
+  @Test
+  void deleteScheduledPrice_ActivePrice_ThrowsCannotDelete() {
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+    Product product = new Product();
+    product.setId(productId);
+    ProductVariant variant =
+        ProductVariant.builder().id(skuId).productId(productId).version(1L).build();
+
+    ChannelPrice price =
+        ChannelPrice.builder()
+            .id(priceId)
+            .variantId(skuId)
+            .channel(SalesChannel.D2C_WEB)
+            .effectiveFrom(Instant.now().minusSeconds(100))
+            .build();
+
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(skuId)).thenReturn(Optional.of(variant));
+    when(channelPriceMapper.findById(priceId)).thenReturn(Optional.of(price));
+
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.deleteScheduledPrice(productId, skuId, priceId, "admin-1"));
+    assertEquals(ErrorCode.CATALOG_PRICE_CANNOT_DELETE_ACTIVE, ex.getErrorCode());
+    verify(channelPriceMapper, never()).deleteFuturePriceById(any(), any());
+  }
+
+  @Test
+  void getAdminCategories_TreeMode_ReturnsHierarchicalStructure() {
+    UUID rootId = UUID.randomUUID();
+    UUID childId = UUID.randomUUID();
+
+    Category root =
+        Category.builder()
+            .id(rootId)
+            .parentId(null)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category child =
+        Category.builder()
+            .id(childId)
+            .parentId(rootId)
+            .name("Mè Xửng Giòn")
+            .slug("me-xung-gion")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(root, child));
+    when(categoryMapper.countProductsGroupedByCategoryId())
+        .thenReturn(List.of(new CategoryCountRow(rootId, 5L), new CategoryCountRow(childId, 3L)));
+
+    AdminCategoryListResponse res = adminService.getAdminCategories("tree", null, null, null);
+
+    assertNotNull(res);
+    assertEquals(1, res.getCategories().size());
+    AdminCategoryItem rootItem = res.getCategories().get(0);
+    assertEquals(rootId, rootItem.getCategoryId());
+    assertEquals(5L, rootItem.getProductCount());
+    assertEquals(1L, rootItem.getChildrenCount());
+    assertEquals(1, rootItem.getChildren().size());
+
+    AdminCategoryItem childItem = rootItem.getChildren().get(0);
+    assertEquals(childId, childItem.getCategoryId());
+    assertEquals(rootId, childItem.getParentId());
+    assertEquals("Kẹo Mè Xửng", childItem.getParentName());
+    assertEquals(3L, childItem.getProductCount());
+    assertEquals(0L, childItem.getChildrenCount());
+  }
+
+  @Test
+  void getAdminCategories_FlatMode_ReturnsAllFlatWithParentName() {
+    UUID rootId = UUID.randomUUID();
+    UUID childId = UUID.randomUUID();
+
+    Category root =
+        Category.builder()
+            .id(rootId)
+            .parentId(null)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category child =
+        Category.builder()
+            .id(childId)
+            .parentId(rootId)
+            .name("Mè Xửng Giòn")
+            .slug("me-xung-gion")
+            .position(2)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(root, child));
+    when(categoryMapper.countProductsGroupedByCategoryId()).thenReturn(List.of());
+
+    AdminCategoryListResponse res = adminService.getAdminCategories("flat", null, null, null);
+
+    assertNotNull(res);
+    assertEquals(2, res.getCategories().size());
+    assertEquals("Kẹo Mè Xửng", res.getCategories().get(1).getParentName());
+    assertTrue(res.getCategories().get(1).getChildren().isEmpty());
+  }
+
+  @Test
+  void getAdminCategories_TreeModeWithQuery_ThrowsException() {
+    CatalogException ex =
+        assertThrows(
+            CatalogException.class,
+            () -> adminService.getAdminCategories("tree", "keo", null, null));
+    assertEquals(ErrorCode.CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT, ex.getErrorCode());
+  }
+
+  @Test
+  void getAdminCategories_FlatModeWithQuery_FiltersCorrectly() {
+    UUID id1 = UUID.randomUUID();
+    UUID id2 = UUID.randomUUID();
+
+    Category cat1 =
+        Category.builder()
+            .id(id1)
+            .name("Kẹo Mè Xửng")
+            .slug("keo-me-xung")
+            .position(1)
+            .isActive(true)
+            .version(1L)
+            .build();
+    Category cat2 =
+        Category.builder()
+            .id(id2)
+            .name("Trà Cung Đình")
+            .slug("tra-cung-dinh")
+            .position(2)
+            .isActive(true)
+            .version(1L)
+            .build();
+
+    when(categoryMapper.findAllAdmin()).thenReturn(List.of(cat1, cat2));
+    when(categoryMapper.countProductsGroupedByCategoryId()).thenReturn(List.of());
+
+    AdminCategoryListResponse res =
+        adminService.getAdminCategories("flat", "cung-dinh", null, null);
+
+    assertNotNull(res);
+    assertEquals(1, res.getCategories().size());
+    assertEquals(id2, res.getCategories().get(0).getCategoryId());
+  }
+
+  @Test
+  void addVariant_TrimsInventorySkuCodeAndBuildsVariant() {
+    Product product = Product.builder().id(productId).name("Mè Xửng").build();
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    lenient().when(variantMapper.findBySkuCode("CAT-MX-001")).thenReturn(Optional.empty());
+    when(dtoMapper.toAdminDetailResponse(product)).thenReturn(new AdminProductDetailResponse());
+    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of());
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
+
+    CreateVariantRequest req = new CreateVariantRequest();
+    req.setSkuCode("CAT-MX-001");
+    req.setInventorySkuCode("  INV-MX-001  ");
+    req.setVariantName("Gói 250g");
+    req.setWeightValue(java.math.BigDecimal.valueOf(250));
+    req.setWeightUnit("GRAM");
+    req.setPackagingType("HOP_GIAY_KRAFT");
+    req.setBasePriceUnits(50000L);
+
+    adminService.addVariant(productId, req, "actor-1");
+
+    ArgumentCaptor<ProductVariant> captor = ArgumentCaptor.forClass(ProductVariant.class);
+    verify(variantMapper).insert(captor.capture());
+    assertEquals("INV-MX-001", captor.getValue().getInventorySkuCode());
+  }
+
+  @Test
+  void patchVariant_UpdatesAndClearsInventorySkuCode() {
+    UUID variantId = UUID.randomUUID();
+    Product product = Product.builder().id(productId).name("Mè Xửng").build();
+    ProductVariant variant =
+        ProductVariant.builder()
+            .id(variantId)
+            .productId(productId)
+            .skuCode("CAT-MX-001")
+            .inventorySkuCode("INV-OLD")
+            .variantName("Gói 250g")
+            .listingStatus(ListingStatus.ACTIVE)
+            .version(1L)
+            .build();
+    when(productMapper.findById(productId)).thenReturn(Optional.of(product));
+    when(variantMapper.findById(variantId)).thenReturn(Optional.of(variant));
+    when(variantMapper.update(any())).thenReturn(1);
+    when(dtoMapper.toAdminDetailResponse(product)).thenReturn(new AdminProductDetailResponse());
+    when(variantMapper.findAllByProductId(productId)).thenReturn(List.of(variant));
+    when(imageMapper.findAllByProductId(productId)).thenReturn(List.of());
+
+    PatchVariantRequest req = new PatchVariantRequest();
+    req.setInventorySkuCode("  ");
+    req.setExpectedVersion(1L);
+
+    adminService.patchVariant(productId, variantId, req, "actor-1");
+
+    assertNull(variant.getInventorySkuCode());
+  }
+
+  @Test
+  void getStockProjections_ReturnsPagedRows() {
+    AdminStockProjectionRow row = new AdminStockProjectionRow();
+    row.setSkuCode("INV-MX-001");
+    row.setSellableQuantity(42L);
+    row.setInventoryVersion(3L);
+    row.setSourceUpdatedAt(Instant.parse("2026-11-26T10:00:00Z"));
+    row.setSyncedAt(Instant.parse("2026-11-26T10:00:01Z"));
+    row.setLinkedVariantCount(0L);
+
+    when(stockAvailabilityMapper.findAdminStockProjections("INV", false, 0, 20))
+        .thenReturn(List.of(row));
+    when(stockAvailabilityMapper.countAdminStockProjections("INV", false)).thenReturn(1L);
+
+    AdminStockProjectionListResponse res = adminService.getStockProjections("  INV ", false, 1, 20);
+
+    assertEquals(1L, res.getTotal());
+    assertEquals(1, res.getPage());
+    assertEquals(20, res.getPageSize());
+    assertEquals(1, res.getItems().size());
+    assertEquals("INV-MX-001", res.getItems().get(0).getSkuCode());
+    assertEquals(42L, res.getItems().get(0).getSellableQuantity());
+    assertEquals(0L, res.getItems().get(0).getLinkedVariantCount());
   }
 }

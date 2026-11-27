@@ -149,3 +149,10 @@ Khai báo đầy đủ trong `services/identity-service/.env.example` (backend) 
 ## 13. Tham khảo
 - `docs/01_requirements/identity-iam-lifecycle-plan.md`: Kế hoạch chi tiết vòng đời IAM.
 - `services/identity-service/docs/iam-role-permission-matrix.md`: Ma trận phân quyền.
+
+## 14. Quy tắc Docker & Containerization
+- **Không dùng docker-compose riêng cho service:** Quản lý và chạy container qua lệnh docker trực tiếp, không duy trì compose cho ứng dụng service.
+- **Bắt buộc có đúng 2 file Dockerfile:**
+  1. **`Dockerfile` (Dev / Local):** Image nhẹ (`eclipse-temurin:21-jre-alpine`), đóng gói từ file JAR đã build sẵn (`build/libs/identity-service-*.jar`), phục vụ chạy trực tiếp trên môi trường dev.
+  2. **`Dockerfile.coolify` (Production / Git-based Coolify Deploy):** Multi-stage build độc lập từ mã nguồn gốc, phục vụ deploy tự động trên Coolify.
+- **File `.dockerignore`:** Bắt buộc có để loại trừ file rác và thư mục cache (`.gradle`, `build/classes`, `.git`, file `.env`).

@@ -29,6 +29,15 @@ public class AdminProductDetailResponse {
   private String shortDescription;
   private String longDescription;
 
+  /** Alias tương thích cho revision / version. */
+  public Long getVersion() {
+    return revision;
+  }
+
+  public void setVersion(Long version) {
+    this.revision = version;
+  }
+
   // ── Nội dung đầy đủ để admin chỉnh sửa (PATCH) ─────────────────────────
   private String slug;
   private String description;
@@ -78,6 +87,7 @@ public class AdminProductDetailResponse {
   public static class AdminProductSkuResponse {
     private String skuId;
     private String skuCode;
+    private String inventorySkuCode;
     private String label;
     private Integer weightGrams;
     private String flavor;

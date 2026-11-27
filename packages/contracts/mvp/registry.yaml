@@ -66,11 +66,11 @@ contracts:
     owner: catalog-service
     consumers: [order-service]
     artifact: packages/proto/catalog/v1/catalog.proto
-    rpc: omamx.catalog.v1.CatalogService.GetCheckoutSnapshot
+    rpc: omamx.catalog.v1.CatalogService.ValidateCheckoutPricing
     state: provider-required
     tasks:
       - Implement a coherent price, weight and packaging snapshot with version and validity.
-      - Keep HTTP snapshot and revalidate behind X-Internal-Token; Catalog public/admin read models stay on REST.
+      - Decommission temporary checkout snapshot in Catalog; Order owns immutable order checkout snapshot.
       - Implement Order dependency adapters for catalog validation and core terms/revalidation.
   - id: catalog-public
     owner: catalog-service

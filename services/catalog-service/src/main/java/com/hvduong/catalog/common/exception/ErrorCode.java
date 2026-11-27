@@ -38,7 +38,24 @@ public enum ErrorCode {
   CATALOG_IMAGE_NOT_FOUND(212, 404, "Không tìm thấy ảnh sản phẩm."),
   CATALOG_IMAGE_INVALID(213, 400, "Loại ảnh hoặc trạng thái ảnh không hợp lệ."),
   CATALOG_VARIANT_INVALID(214, 400, "Thông tin biến thể sản phẩm không hợp lệ."),
-  CATALOG_CATEGORY_SLUG_DUPLICATE(215, 409, "Đường dẫn này đã được danh mục khác sử dụng.");
+  CATALOG_CATEGORY_SLUG_DUPLICATE(215, 409, "Đường dẫn này đã được danh mục khác sử dụng."),
+  CATALOG_CATEGORY_IN_USE(216, 409, "Không thể xóa danh mục đang có sản phẩm hoặc danh mục con."),
+  CATALOG_PRICE_OVERLAP_CONFLICT(
+      217, 409, "Khoảng thời gian hiệu lực bị trùng lặp với bản giá đã tồn tại trên kênh này."),
+  CATALOG_PRICE_CANNOT_DELETE_ACTIVE(
+      218, 422, "Chỉ có thể hủy bản ghi giá chưa tới thời điểm hiệu lực."),
+  CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT(
+      219, 400, "Tìm kiếm danh mục theo từ khóa chỉ hỗ trợ định dạng phẳng (format=flat)."),
+  CATALOG_IMAGE_NOT_SCANNED(
+      220, 422, "Ảnh chưa được quét an toàn mã độc hoặc quét không đạt (scan_status != CLEAN)."),
+  CATALOG_IMAGE_NOT_PENDING_REVIEW(221, 400, "Ảnh không ở trạng thái chờ duyệt (PENDING_REVIEW)."),
+  CATALOG_IMAGE_CANNOT_SELF_REVIEW(
+      222, 403, "Người tải ảnh lên không được phép tự phê duyệt ảnh (Separation of Duties)."),
+  CATALOG_IMAGE_APPROVED_ROLE_CHANGE_FORBIDDEN(
+      223,
+      403,
+      "Không thể chuyển ảnh đã duyệt thành COVER qua PATCH. Thao tác cần quyền CATALOG_APPROVE."),
+  CHANNEL_ACCESS_DENIED(224, 403, "Không có quyền truy cập bảng giá của kênh này.");
 
   private final int protoCode;
   private final int httpStatus;

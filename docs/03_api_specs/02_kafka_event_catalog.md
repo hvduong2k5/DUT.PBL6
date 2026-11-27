@@ -150,6 +150,11 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 - **Topic:** `catalog.events.v1` | **Partition Key:** `product_id`
 - Outbox publisher giữ nguyên event ID khi retry; consumer cần idempotent vì giao nhận là at-least-once.
 
+### 2.12. Các sự kiện Media Service (`media.events.v1`)
+- **Topic:** `media.events.v1` | **Partition Key:** `objectKey`
+- **`vn.omama.media.file.uploaded.v1`**: Phát ra khi client gọi `POST /api/v1/media/upload-sessions/{uploadSessionId}/complete` xác nhận file đã tồn tại trên MinIO S3 (`status = PROCESSING`).
+- **`vn.omama.media.file.derivatives_ready.v1`**: Phát ra khi worker `sharp` hoàn tất chuyển đổi WebP và tạo 3 kích thước thumbnail (`150x150`, `300x300`, `600x600`), cập nhật `variants_meta` và chuyển `status = READY`. Payload gồm `fileId`, `objectKey`, `bucket`, `variants`. *(Trong phạm vi MVP không phát sự kiện quét mã độc hay `file.approved` từ Media Service; việc duyệt hiển thị do `catalog-service` quyết định).*
+
 ### Inventory implementation policy (2026-11-21)
 
 Inventory consumes the canonical schema in section 2.5 unchanged. String supplier

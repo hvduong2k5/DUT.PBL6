@@ -2,6 +2,7 @@ package com.hvduong.catalog.application.dto.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -17,11 +18,11 @@ public class CreateProductImageRequest {
   private String altText;
 
   /** COVER | GALLERY | THUMBNAIL. Mặc định GALLERY. */
+  @Pattern(
+      regexp = "^(COVER|GALLERY|THUMBNAIL)$",
+      message = "Role ảnh không hợp lệ. Chỉ chấp nhận: COVER, GALLERY, THUMBNAIL")
   private String role = "GALLERY";
 
   @Min(value = 0, message = "position phải lớn hơn hoặc bằng 0")
   private Integer position = 0;
-
-  /** PENDING_SCAN | APPROVED | REJECTED. Mặc định PENDING_SCAN cho ảnh mới tải lên. */
-  private String mediaStatus;
 }

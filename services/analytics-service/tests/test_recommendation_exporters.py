@@ -169,8 +169,10 @@ def test_owner_queries_from_real_migrations_and_purchase_mapping(owners, store, 
         assert manifest.recordCount == len(records)
         results[dataset] = records
         store.import_snapshot(manifest, records, datetime.now(UTC))
-    assert results["catalog"][0]["weightGrams"] == 500
-    assert results["sellability"][-1]["sellableUnits"] == 0
+    sku1 = next(r for r in results["catalog"] if r["skuCode"] == "SKU-1")
+    assert sku1["weightGrams"] == 500
+    sku6 = next(r for r in results["sellability"] if r["skuCode"] == "SKU-6")
+    assert sku6["sellableUnits"] == 0
     store.build(datetime.now(UTC))
     result = store.recommend("cart", {"skuCodes": ["SKU-4"]}, 6, None, datetime.now(UTC))
     assert result["items"][0]["skuCode"] == "SKU-5"

@@ -24,6 +24,9 @@ public class ProductVariantResponse {
   private String packagingType;
   private Integer shelfLifeDays;
   private MoneyResponse price;
+  private Long priceVersion;
+  private String channel;
   private String listingStatus;
   private Long stockAvailable;
+  private String stockStatus;
 }

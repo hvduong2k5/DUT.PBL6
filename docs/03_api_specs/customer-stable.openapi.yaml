@@ -43,6 +43,8 @@ tags:
   description: Customer support operations for the customer web application.
 - name: Traceability
   description: Traceability operations for the customer web application.
+- name: Media
+  description: Centralized media upload, optimization, and presigned access operations.
 - name: Partner webhooks
   description: Partner webhooks operations for the customer web application.
 x-guest-cart-policy:
@@ -2417,12 +2419,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -3177,7 +3228,8 @@ paths:
       tags:
       - Catalog
       operationId: getCategories
-      summary: Lấy danh sách cây danh mục sản phẩm OCOP
+      summary: Lấy danh sách phẳng các danh mục sản phẩm đang hoạt động, kèm parent_id để client tự phân cấp hiển thị.
+      description: Trả về danh sách phẳng các danh mục sản phẩm đang hoạt động (kèm parent_id để client tự phân cấp hiển thị trên menu/giao diện).
       x-lifecycle: stable
       x-backlog:
       - EPIC_03
@@ -3260,13 +3312,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -3829,13 +3929,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -4665,87 +4813,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - items
-                - total
-                - page
-                - page_size
-                - total_pages
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - product_id
-                      - name
-                      - slug
-                      - summary
-                      - thumbnail_url
-                      - base_price
-                      - ocop_star
-                      - category_name
-                      - in_stock
-                      - stock_available
-                      properties:
-                        product_id:
-                          type: string
-                        name:
-                          type: string
-                        slug:
-                          type: string
-                        summary:
-                          type: string
-                        thumbnail_url:
-                          type: string
-                          format: uri
-                        base_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        ocop_star:
-                          type: integer
-                        category_name:
-                          type: string
-                        in_stock:
-                          type:
-                          - boolean
-                          - 'null'
-                          description: Backward-compatible flag; null means Inventory
-                            stock has not been synchronized yet; otherwise must equal
-                            stock_available > 0.
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Total sellable quantity across active SKUs,
-                            excluding reserved, expired, quarantined, and otherwise
-                            unavailable stock. Null means not synchronized yet. Read
-                            from Catalog's durable stock projection, updated asynchronously
-                            by Inventory events; Inventory remains the source of truth.
-                      additionalProperties: false
-                  total:
-                    type: integer
-                  page:
-                    type: integer
-                  page_size:
-                    type: integer
-                  total_pages:
-                    type: integer
-                additionalProperties: false
+                $ref: '#/components/schemas/PublicProductListResponse'
               examples:
                 success:
                   summary: Successful response
@@ -4791,13 +4859,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -4871,63 +4987,7 @@ paths:
                   variants:
                     type: array
                     items:
-                      type: object
-                      required:
-                      - variant_id
-                      - sku_code
-                      - name
-                      - weight_gram
-                      - price
-                      - original_price
-                      - stock_available
-                      properties:
-                        variant_id:
-                          type: string
-                        sku_code:
-                          type: string
-                        name:
-                          type: string
-                        weight_gram:
-                          type: integer
-                        price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        original_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Current sellable quantity for this SKU from
-                            Catalog's durable stock projection, updated asynchronously
-                            by Inventory events. Null means not synchronized yet;
-                            Inventory remains the source of truth.
-                      additionalProperties: false
+                      $ref: '#/components/schemas/PublicProductVariantItem'
                 additionalProperties: false
               examples:
                 success:
@@ -4955,10 +5015,8 @@ paths:
                         currency_code: VND
                         units: 345000
                         nanos: 0
-                      original_price:
-                        currency_code: VND
-                        units: 345000
-                        nanos: 0
+                      price_version: 1
+                      stock_status: IN_STOCK
                       stock_available: 150
         '404':
           $ref: '#/components/responses/NotFound'
@@ -4998,81 +5056,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                - query
-                - items
-                - total
-                properties:
-                  query:
-                    type: string
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      required:
-                      - product_id
-                      - name
-                      - slug
-                      - summary
-                      - thumbnail_url
-                      - base_price
-                      - ocop_star
-                      - category_name
-                      - in_stock
-                      - stock_available
-                      properties:
-                        product_id:
-                          type: string
-                        name:
-                          type: string
-                        slug:
-                          type: string
-                        summary:
-                          type: string
-                        thumbnail_url:
-                          type: string
-                          format: uri
-                        base_price:
-                          type: object
-                          required:
-                          - currency_code
-                          - units
-                          - nanos
-                          properties:
-                            currency_code:
-                              type: string
-                            units:
-                              type: integer
-                            nanos:
-                              type: integer
-                          additionalProperties: false
-                        ocop_star:
-                          type: integer
-                        category_name:
-                          type: string
-                        in_stock:
-                          type:
-                          - boolean
-                          - 'null'
-                          description: Backward-compatible flag; null means Inventory
-                            stock has not been synchronized yet; otherwise must equal
-                            stock_available > 0.
-                        stock_available:
-                          type:
-                          - integer
-                          - 'null'
-                          format: int64
-                          minimum: 0
-                          description: Total sellable quantity across active SKUs,
-                            excluding reserved, expired, quarantined, and otherwise
-                            unavailable stock. Null means not synchronized yet. Read
-                            from Catalog's durable stock projection, updated asynchronously
-                            by Inventory events; Inventory remains the source of truth.
-                      additionalProperties: false
-                  total:
-                    type: integer
-                additionalProperties: false
+                $ref: '#/components/schemas/ProductSearchResponse'
               examples:
                 success:
                   summary: Successful response
@@ -5114,13 +5098,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -5136,6 +5168,80 @@ paths:
           minimum: 1
           maximum: 100
           default: 20
+  /api/v1/products/variants/{sku}:
+    get:
+      tags:
+      - Catalog
+      operationId: getProductVariantBySku
+      summary: Lấy thông tin chi tiết biến thể SKU và giá theo kênh bán
+      description: Truy vấn biến thể SKU, giá theo kênh bán (channel) và trạng thái tồn kho tham khảo (stock_status). Mặc định channel là D2C_WEB. Kênh B2B_WHOLESALE, POS_QUAY, SHOPEE, TIKTOK yêu cầu định danh hợp lệ.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security: []
+      parameters:
+      - name: sku
+        in: path
+        required: true
+        description: Mã SKU của biến thể sản phẩm.
+        schema:
+          type: string
+          minLength: 1
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng cần lấy giá. Mặc định là D2C_WEB.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+          default: D2C_WEB
+      responses:
+        '200':
+          description: Lấy thông tin biến thể thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProductVariantDetailResponse'
+              examples:
+                success:
+                  summary: Phản hồi thành công
+                  value:
+                    variant:
+                      variant_id: 78e9b001-2026-4020-8020-000000000001
+                      sku_code: GAO-ST25-1KG
+                      name: Gạo ST25 1KG
+                      channel: D2C_WEB
+                      weight_gram: 1000
+                      price:
+                        currency_code: VND
+                        units: 55000
+                        nanos: 0
+                      price_version: 4
+                      stock_status: IN_STOCK
+                      stock_available: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/profile:
     get:
       tags:
@@ -5400,13 +5506,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -5892,13 +6046,61 @@ paths:
         schema:
           type: string
           maxLength: 200
-      - name: status
+      - name: category_id
         in: query
         required: false
-        description: Domain status filter. Allowed values are defined by the endpoint
-          response status vocabulary.
+        description: ID danh mục sản phẩm (UUID).
         schema:
           type: string
+          format: uuid
+      - name: min_price
+        in: query
+        required: false
+        description: Giá tối thiểu (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: max_price
+        in: query
+        required: false
+        description: Giá tối đa (VND).
+        schema:
+          type: integer
+          minimum: 0
+      - name: ocop_star
+        in: query
+        required: false
+        description: Số sao OCOP (3 đến 5).
+        schema:
+          type: integer
+          minimum: 3
+          maximum: 5
+      - name: sort_by
+        in: query
+        required: false
+        description: Tiêu chí sắp xếp.
+        schema:
+          type: string
+          enum:
+          - BEST_SELLING
+          - PRICE_ASC
+          - PRICE_DESC
+          - NEWEST
+          default: BEST_SELLING
+      - name: channel
+        in: query
+        required: false
+        description: Kênh bán hàng lấy thông tin giá.
+        schema:
+          type: string
+          enum:
+          - D2C_WEB
+          - SHOPEE
+          - TIKTOK
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          default: D2C_WEB
       - name: page
         in: query
         required: false
@@ -7515,6 +7717,425 @@ paths:
                 price: 110000
       parameters:
       - $ref: '#/components/parameters/IdempotencyKey'
+  /api/v1/media/upload-sessions:
+    post:
+      tags:
+      - Media
+      operationId: postMediaUploadSessions
+      summary: Create a direct-to-object-storage presigned upload session.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - purpose
+              - fileName
+              - mediaType
+              - sizeBytes
+              properties:
+                purpose:
+                  type: string
+                  enum:
+                  - CATALOG_PRODUCT
+                  - CATALOG_CATEGORY
+                  - OCOP_CERTIFICATE
+                  - SHIPPING_VIDEO
+                  - B2B_DOCUMENT
+                  - REFUND_EVIDENCE
+                  - AVATAR
+                fileName:
+                  type: string
+                  maxLength: 500
+                mediaType:
+                  type: string
+                  maxLength: 128
+                sizeBytes:
+                  type: integer
+                  minimum: 1
+                  maximum: 104857600
+                sha256:
+                  type: string
+                  maxLength: 64
+              additionalProperties: false
+            example:
+              purpose: REFUND_EVIDENCE
+              fileName: package.jpg
+              mediaType: image/jpeg
+              sizeBytes: 420000
+      responses:
+        '201':
+          description: Upload session created with presigned PUT URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - uploadSessionId
+                - fileId
+                - objectKey
+                - bucket
+                - uploadUrl
+                - expiresAt
+                - requiredHeaders
+                properties:
+                  uploadSessionId:
+                    type: string
+                  fileId:
+                    type: string
+                    format: uuid
+                  objectKey:
+                    type: string
+                  bucket:
+                    type: string
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  requiredHeaders:
+                    type: object
+                    additionalProperties:
+                      type: string
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    uploadSessionId: sess_01JDJ89K20
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    uploadUrl: https://s3.omama.vn/om-documents/refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg?X-Amz-Expires=900
+                    expiresAt: '2026-11-25T16:30:00Z'
+                    requiredHeaders:
+                      Content-Type: image/jpeg
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/media/upload-sessions/{uploadSessionId}/complete:
+    post:
+      tags:
+      - Media
+      operationId: postMediaUploadSessionsComplete
+      summary: Confirm direct S3 upload completion and trigger WebP/thumbnail optimization.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: uploadSessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Object verified in storage; async optimization started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+              examples:
+                success:
+                  value:
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    fileName: package.jpg
+                    mediaType: image/jpeg
+                    sizeBytes: 420000
+                    sha256Checksum: null
+                    purpose: REFUND_EVIDENCE
+                    accessLevel: PRIVATE_RESTRICTED
+                    status: PROCESSING
+                    variantsMeta: {}
+                    createdAt: '2026-11-25T16:15:00Z'
+                    updatedAt: '2026-11-25T16:16:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/media/{fileId}:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileById
+      summary: Get media file metadata, generated variants, and presigned view/download URLs.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Media metadata with view and download URLs.
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/MediaFileMetadata'
+                - type: object
+                  required:
+                  - viewUrl
+                  - downloadUrl
+                  properties:
+                    viewUrl:
+                      type: string
+                      format: uri
+                    downloadUrl:
+                      type: string
+                      format: uri
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+      - Media
+      operationId: deleteMediaFileById
+      summary: Soft-delete (archive) a media file.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Media file archived.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/media/{fileId}/view-url:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileViewUrl
+      summary: Issue a short-lived presigned GET URL with Content-Disposition inline for streaming/viewing.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: expirySeconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+      responses:
+        '200':
+          description: Presigned inline view URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccessUrlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/media/{fileId}/download-url:
+    get:
+      tags:
+      - Media
+      operationId: getMediaFileDownloadUrl
+      summary: Issue a short-lived presigned GET URL with Content-Disposition attachment for downloading.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - customerSession: []
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: expirySeconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 60
+          maximum: 3600
+          default: 900
+      responses:
+        '200':
+          description: Presigned attachment download URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAccessUrlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/media/direct-upload:
+    post:
+      tags:
+      - Media
+      operationId: postMediaDirectUpload
+      summary: Fallback multipart upload endpoint for internal scripts and admin tools.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                purpose:
+                  type: string
+                  default: CATALOG_PRODUCT
+      responses:
+        '201':
+          description: File uploaded and processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMetadata'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     storefrontCustomerSession:
@@ -7562,6 +8183,97 @@ components:
         type: string
         format: uuid
   schemas:
+    MediaFileMetadata:
+      type: object
+      required:
+      - fileId
+      - objectKey
+      - bucket
+      - fileName
+      - mediaType
+      - sizeBytes
+      - purpose
+      - accessLevel
+      - status
+      - variantsMeta
+      - createdAt
+      - updatedAt
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        objectKey:
+          type: string
+        bucket:
+          type: string
+        fileName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+        sha256Checksum:
+          type:
+          - string
+          - 'null'
+        purpose:
+          type: string
+          enum:
+          - CATALOG_PRODUCT
+          - CATALOG_CATEGORY
+          - OCOP_CERTIFICATE
+          - SHIPPING_VIDEO
+          - B2B_DOCUMENT
+          - REFUND_EVIDENCE
+          - AVATAR
+        accessLevel:
+          type: string
+          enum:
+          - PUBLIC_READ
+          - AUTHENTICATED_READ
+          - PRIVATE_RESTRICTED
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - PROCESSING
+          - READY
+          - PROCESSING_FAILED
+          - ARCHIVED
+        variantsMeta:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    MediaAccessUrlResponse:
+      type: object
+      required:
+      - fileId
+      - url
+      - disposition
+      - expiresAt
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        disposition:
+          type: string
+          enum:
+          - inline
+          - attachment
+        expiresAt:
+          type: string
+          format: date-time
+      additionalProperties: false
     StorefrontCart:
       type: object
       required:
@@ -7699,6 +8411,168 @@ components:
           type: string
           minLength: 8
           description: Mật khẩu mới (tối thiểu 8 ký tự)
+    PublicMoney:
+      type: object
+      required:
+      - currency_code
+      - units
+      - nanos
+      properties:
+        currency_code:
+          type: string
+        units:
+          type: integer
+        nanos:
+          type: integer
+      additionalProperties: false
+    PublicProductSummaryItem:
+      type: object
+      required:
+      - product_id
+      - name
+      - slug
+      - summary
+      - thumbnail_url
+      - base_price
+      - ocop_star
+      - category_name
+      - in_stock
+      - stock_available
+      properties:
+        product_id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+        thumbnail_url:
+          type: string
+          format: uri
+        base_price:
+          $ref: '#/components/schemas/PublicMoney'
+        ocop_star:
+          type: integer
+        category_name:
+          type: string
+        in_stock:
+          type:
+          - boolean
+          - 'null'
+          description: Backward-compatible flag; null means Inventory stock has not been synchronized yet; otherwise must equal stock_available > 0.
+        stock_available:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+          description: Total sellable quantity across active SKUs, excluding reserved, expired, quarantined, and otherwise unavailable stock. Null means not synchronized yet. Read from Catalog's durable stock projection, updated asynchronously by Inventory events; Inventory remains the source of truth.
+      additionalProperties: false
+    PublicProductListResponse:
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - total_pages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductSummaryItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+      additionalProperties: false
+    PublicProductVariantItem:
+      type: object
+      required:
+      - variant_id
+      - sku_code
+      - name
+      - weight_gram
+      - price
+      - stock_status
+      properties:
+        variant_id:
+          type: string
+          description: Variant UUID.
+        sku_code:
+          type: string
+        name:
+          type: string
+        channel:
+          type:
+          - string
+          - 'null'
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+        weight_gram:
+          type: integer
+          format: int64
+        price:
+          $ref: '#/components/schemas/PublicMoney'
+        price_version:
+          type: integer
+          format: int64
+          description: Revision đơn điệu của giá SKU trên kênh bán.
+        stock_status:
+          type: string
+          enum:
+          - UNKNOWN
+          - IN_STOCK
+          - OUT_OF_STOCK
+          description: Trạng thái tồn kho tham khảo từ Catalog projection (Inventory là nguồn sự thật duy nhất).
+        stock_available:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+          description: Số lượng tồn kho tham khảo (nếu được phép công khai).
+      additionalProperties: false
+    PublicProductVariantDetailResponse:
+      type: object
+      required:
+      - variant
+      properties:
+        variant:
+          $ref: '#/components/schemas/PublicProductVariantItem'
+      additionalProperties: false
+    ProductSearchResponse:
+      type: object
+      required:
+      - query
+      - items
+      - total
+      properties:
+        query:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductSummaryItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+      additionalProperties: false
   responses:
     BadRequest:
       description: Malformed request or invalid query parameters.

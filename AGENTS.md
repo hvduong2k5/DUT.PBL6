@@ -57,7 +57,7 @@ fix(catalog): escape XML comparison operators in ProductMapper.xml
 - Admin catalog API contract: `docs/03_api_specs/admin-stable.openapi.yaml`
 - Admin state matrix: `docs/03_api_specs/admin-api-state-matrix.md`
 - Do not create new catalog doc files outside `docs/03_api_specs/`.
-- `catalog-checkout.openapi.yaml` must be kept (referenced by `packages/contracts/mvp/registry.yaml`).
+- Internal service-to-service communication (Checkout, Traceability) uses gRPC `packages/proto/catalog/v1/catalog.proto`. Internal REST adapters are fully decommissioned.
 
 ## Frontend API Contract Handoff
 
@@ -108,6 +108,21 @@ npx @redocly/cli lint .\docs\03_api_specs\admin-draft-planned.openapi.yaml
 
 ### Sản phẩm tạo ra tự động (Generated artifacts)
 Các sản phẩm tạo ra có thể được làm mới bằng `node scripts/generate-frontend-api-contracts.mjs` sau khi có thay đổi hợp đồng được phê duyệt. Không được chỉnh sửa generated rows hoặc inferred stable response examples nếu không cập nhật cũng theo generator.
+
+## Docker & Containerization Convention (MANDATORY FOR ALL SERVICES)
+
+Quy định bắt buộc về Docker và đóng gói container áp dụng cho tất cả các microservices trong hệ thống (`catalog-service`, `identity-service`, `keycloak-service`, v.v.):
+- **Không dùng Docker Compose cho từng service riêng lẻ:** Các service không duy trì file `docker-compose.yml` nội bộ để chạy hoặc deploy ứng dụng. Dịch vụ chạy trực tiếp bằng Docker command hoặc qua quản lý hạ tầng tập trung.
+- **Mỗi service bắt buộc có đúng 2 file Dockerfile:**
+  1. **`Dockerfile` (Development / Local):**
+     - Dùng cho môi trường phát triển cục bộ và test nhanh.
+     - Sử dụng base image runtime nhẹ (ví dụ `eclipse-temurin:21-jre-alpine`).
+     - Đóng gói từ artifact đã build sẵn (ví dụ: `COPY build/libs/*-service-*.jar app.jar`), chạy với user không đặc quyền (`appuser:appgroup`), expose port cần thiết và cấu hình JVM nhẹ.
+  2. **`Dockerfile.coolify` (Production / Git-based Coolify Deployment):**
+     - Dùng cho hệ thống CI/CD tự động và triển khai Git-based trên Coolify production.
+     - Sử dụng multi-stage build độc lập (Stage 1: build từ mã nguồn gốc bằng build image như `gradle:9.2.0-jdk21`; Stage 2: copy artifact sang minimal JRE runtime).
+     - Build context đặt tại repository root (`.`) nếu service tham chiếu tới shared proto hoặc contracts (`packages/proto`).
+- **File `.dockerignore`:** Bắt buộc có trong thư mục của service để loại bỏ các thư mục tạm (`.gradle`, `build/classes`, `.git`, `.idea`, file `.env` chứa bí mật) giúp tăng tốc độ nạp build context.
 
 ## Catalog Service Specific Rules
 See `services/catalog-service/CATALOG_SERVICE_AGENT_RULES.md`.

@@ -52,6 +52,7 @@ Customer APIs distinguish Guest, Registered Customer and verified B2B Customer c
 | `POST /api/v1/payments/vietqr/callback` | EPIC_07 | stable | 200 | N/A | 400/422 | 401 | — | — | 409 | — | 500/503 |
 | `GET /api/v1/products` | EPIC_03, EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/products/{id_or_slug}` | EPIC_03, EPIC_04 | stable | 200 | N/A | —/— | — | — | 404 | — | — | 500/503 |
+| `GET /api/v1/products/variants/{sku}` | EPIC_04 | stable | 200 | N/A | 400/— | — | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/products/search` | EPIC_03, EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | — | — | — | — | — | 500/503 |
 | `GET /api/v1/profile` | EPIC_02 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `PUT /api/v1/profile` | EPIC_02 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |

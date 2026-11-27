@@ -100,8 +100,8 @@ Fixture tự tạo cấu hình TEST. Nếu chạy service riêng, dùng `.env.ex
 | Order, Profile, Catalog | `IDENTITY_URL` | Origin Identity, để gọi `/api/v1/users/me` bằng JWT đã xác minh; Order/Profile yêu cầu HTTPS với chứng chỉ được tin cậy, ngoại lệ HTTP loopback chỉ dành cho fixture TEST |
 | Order | `ORDER_AUTH_MODE=keycloak`, `ORDER_OIDC_ISSUER`, `ORDER_OIDC_AUDIENCE`, `ORDER_OIDC_JWKS_URL` | Kiểm chữ ký và ràng buộc JWT |
 | Profile | `PROFILE_AUTH_MODE=keycloak`, các `PROFILE_OIDC_*` | Cùng issuer/audience phù hợp cấu hình Keycloak |
-| Order | `ORDER_CATALOG_URL`, `ORDER_WAREHOUSE_ID`, `ORDER_QUOTE_CARRIER_CODE`, `ORDER_QUOTE_SERVICE_CODE` | Catalog nội bộ và tuyến kho/hãng/dịch vụ vận chuyển |
-| Order / Catalog | `ORDER_INTERNAL_TOKEN` / `CATALOG_INTERNAL_TOKEN` | Cùng credential server cho snapshot HTTP, ít nhất 32 ký tự, không gửi xuống UI |
+| Order | `ORDER_CATALOG_GRPC`, `ORDER_CATALOG_TOKEN_FILE` (hoặc `ORDER_CATALOG_TOKEN`), `ORDER_CATALOG_CA_FILE`, `ORDER_CATALOG_SERVER_NAME`, `ORDER_WAREHOUSE_ID`, `ORDER_QUOTE_CARRIER_CODE`, `ORDER_QUOTE_SERVICE_CODE` | Catalog gRPC nội bộ (`ValidateCheckoutPricing`) và tuyến kho/hãng/dịch vụ vận chuyển |
+| Catalog | `CATALOG_INTERNAL_TOKEN` | Credential server gRPC nội bộ, ít nhất 32 ký tự, không gửi xuống UI |
 | Catalog | `HTTP_PORT=8006`, `GRPC_PORT=8005` | Kong gọi HTTP 8006; gRPC giữ cổng riêng |
 | Inventory | `INVENTORY_CATALOG_TOKEN` | Credential chỉ đọc riêng cho Catalog, tối thiểu 32 bytes, khác `INVENTORY_ORDER_TOKEN`; khớp nội dung file token phía Catalog |
 | Catalog | `CATALOG_INVENTORY_TARGET`, `CATALOG_INVENTORY_TOKEN_FILE`, `CATALOG_INVENTORY_CA_FILE`, `CATALOG_INVENTORY_SERVER_NAME` | Đọc tồn hiển thị bằng TLS và credential nội bộ; lỗi đọc trả tồn chưa biết, không giả thành 0 |
@@ -128,7 +128,7 @@ TEST loopback có thể thêm `IDENTITY_ALLOW_HTTP=true`. Khi chạy Android qua
 
 ## Contract Catalog bổ sung
 
-[catalog-checkout.openapi.yaml](../03_api_specs/catalog-checkout.openapi.yaml) mô tả adapter HTTP nội bộ mới. Proto canonical `omamx.catalog.v1.CatalogService.GetCheckoutSnapshot` cũng được triển khai; không suy ra rằng mọi method legacy khác của service này đã có implementation.
+Giao tiếp nội bộ Order → Catalog dùng gRPC `omamx.catalog.v1.CatalogService.ValidateCheckoutPricing` ([catalog.proto](../../packages/proto/catalog/v1/catalog.proto)) xác thực bằng header `x-internal-token` (biến `ORDER_CATALOG_GRPC` / `CATALOG_INTERNAL_TOKEN`). Các adapter HTTP nội bộ cũ (`/api/v1/internal/catalog/snapshots`, `catalog-checkout.openapi.yaml`) và RPC `GetCheckoutSnapshot` đã được decommission hoàn toàn; không suy ra rằng mọi method legacy khác của service này đã có implementation.
 
 Public HTTP cung cấp `/api/v1/categories`, `/products`, `/products/search`, `/products/{slug}`, `/products/variants/{sku}` theo DTO snake_case của Web. Mobile được hỗ trợ alias `q`/`query`, `pageSize`/`page_size`; truyền hai giá trị khác nhau bị 400. Giá public vẫn là Money object; giá checkout là VND nguyên. `stock_available: null` nghĩa là chưa biết, không phải hết hàng. Inventory reserve mới quyết định có giữ được hàng hay không.
 

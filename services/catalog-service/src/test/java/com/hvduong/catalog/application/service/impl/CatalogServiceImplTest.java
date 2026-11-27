@@ -19,6 +19,8 @@ import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
 import com.hvduong.catalog.application.mapper.CatalogDtoMapper;
 import com.hvduong.catalog.common.enums.ListingStatus;
 import com.hvduong.catalog.common.enums.SalesChannel;
+import com.hvduong.catalog.common.enums.SortBy;
+import com.hvduong.catalog.common.enums.StockStatus;
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.response.PageResponse;
@@ -226,6 +228,51 @@ class CatalogServiceImplTest {
   }
 
   @Test
+  void testSearchProducts_WithFilters() {
+    // Given
+    UUID filterCategoryId = UUID.randomUUID();
+    when(productMapper.findPublicProducts(
+            eq("Mè"),
+            eq(filterCategoryId),
+            eq(4),
+            eq(10000L),
+            eq(50000L),
+            eq("PRICE_ASC"),
+            eq("D2C_WEB"),
+            eq(0),
+            eq(10)))
+        .thenReturn(List.of(mockProduct));
+    when(productMapper.countPublicProducts(
+            eq("Mè"), eq(filterCategoryId), eq(4), eq(10000L), eq(50000L), eq("D2C_WEB")))
+        .thenReturn(1L);
+
+    ProductListItemResponse mockListItemResponse = new ProductListItemResponse();
+    when(dtoMapper.toListItemResponse(any(Product.class))).thenReturn(mockListItemResponse);
+    when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+    when(channelPriceMapper.findActiveCurrentByVariantIds(any(), anyString()))
+        .thenReturn(List.of(mockPrice));
+    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+    // When
+    PageResponse<ProductListItemResponse> result =
+        catalogService.searchProducts(
+            "Mè",
+            filterCategoryId,
+            10000L,
+            50000L,
+            4,
+            SortBy.PRICE_ASC,
+            SalesChannel.D2C_WEB,
+            1,
+            10);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(1, result.getItems().size());
+    assertEquals(1, result.getTotal());
+  }
+
+  @Test
   void testGetAllCategories() {
     // Given
     Category parent = new Category();
@@ -258,22 +305,55 @@ class CatalogServiceImplTest {
   void testGetVariantBySkuCode_Success() {
     // Given
     when(variantMapper.findBySkuCode("SKU-123")).thenReturn(Optional.of(mockVariant));
+    mockVariant.setPriceRevision(5L);
 
     ProductVariantResponse response = new ProductVariantResponse();
     when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(response);
 
-    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), anyString()))
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), eq("D2C_WEB")))
         .thenReturn(Optional.of(mockPrice));
 
     MoneyResponse moneyResponse = new MoneyResponse();
     when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(moneyResponse);
+    when(stockProjectionService.getStockStatus("SKU-123")).thenReturn(StockStatus.IN_STOCK);
 
     // When
     ProductVariantResponse result = catalogService.getVariantBySkuCode("SKU-123");
 
     // Then
     assertNotNull(result);
-    assertEquals(response, result);
+    assertEquals("D2C_WEB", result.getChannel());
+    assertEquals(5L, result.getPriceVersion());
+    assertEquals("IN_STOCK", result.getStockStatus());
+    assertNull(result.getStockAvailable());
+  }
+
+  @Test
+  void testGetVariantBySkuCode_WithChannel_Success() {
+    // Given
+    when(variantMapper.findBySkuCode("SKU-123")).thenReturn(Optional.of(mockVariant));
+    mockVariant.setPriceRevision(2L);
+
+    ProductVariantResponse response = new ProductVariantResponse();
+    when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(response);
+
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), eq("B2B_WHOLESALE")))
+        .thenReturn(Optional.of(mockPrice));
+
+    MoneyResponse moneyResponse = new MoneyResponse();
+    when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(moneyResponse);
+    when(stockProjectionService.getStockStatus("SKU-123")).thenReturn(StockStatus.OUT_OF_STOCK);
+
+    // When
+    ProductVariantResponse result =
+        catalogService.getVariantBySkuCode("SKU-123", SalesChannel.B2B_WHOLESALE);
+
+    // Then
+    assertNotNull(result);
+    assertEquals("B2B_WHOLESALE", result.getChannel());
+    assertEquals(2L, result.getPriceVersion());
+    assertEquals("OUT_OF_STOCK", result.getStockStatus());
+    assertNull(result.getStockAvailable());
   }
 
   @Test
@@ -381,5 +461,31 @@ class CatalogServiceImplTest {
     assertFalse(result.isValid());
     assertEquals(1, result.getDiscrepancies().size());
     assertTrue(result.getDiscrepancies().get(0).getReason().contains("SKU không tồn tại"));
+  }
+
+  @Test
+  void testGetPublicProductDetail_UsesInventorySkuCodeOverrideForStock() {
+    mockVariant.setInventorySkuCode("INV-OVERRIDE-99");
+    when(productMapper.findPublicBySlug("test-product")).thenReturn(Optional.of(mockProduct));
+    when(variantMapper.findActiveByProductId(productId)).thenReturn(List.of(mockVariant));
+    when(imageMapper.findApprovedByProductId(productId)).thenReturn(List.of(mockImage));
+
+    ProductDetailResponse detailResponse = ProductDetailResponse.builder().build();
+    when(dtoMapper.toDetailResponse(any(Product.class))).thenReturn(detailResponse);
+    when(dtoMapper.toVariantResponse(mockVariant)).thenReturn(new ProductVariantResponse());
+    when(channelPriceMapper.findActiveByVariantAndChannel(eq(variantId), anyString()))
+        .thenReturn(Optional.of(mockPrice));
+    when(dtoMapper.toMoneyResponse(mockPrice)).thenReturn(new MoneyResponse());
+    when(stockProjectionService.getAvailableQuantities(List.of("INV-OVERRIDE-99")))
+        .thenReturn(java.util.Map.of("INV-OVERRIDE-99", 12L));
+    when(stockProjectionService.getStockStatus("INV-OVERRIDE-99")).thenReturn(StockStatus.IN_STOCK);
+
+    ProductDetailResponse response =
+        catalogService.getPublicProductDetail("test-product", SalesChannel.D2C_WEB);
+
+    assertNotNull(response);
+    assertEquals(1, response.getVariants().size());
+    assertEquals("IN_STOCK", response.getVariants().get(0).getStockStatus());
+    assertEquals(12L, response.getVariants().get(0).getStockAvailable());
   }
 }

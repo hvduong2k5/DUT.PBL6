@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
+	catalogpb "github.com/omamx/order-service/internal/gen/catalog/v1"
 	common "github.com/omamx/order-service/internal/gen/common/v1"
 	shipping "github.com/omamx/order-service/internal/gen/shipping/v2"
 	"github.com/omamx/order-service/internal/shippingprovider"
@@ -57,5 +59,50 @@ func TestCatalogCODSnapshotsCollectionPolicyWithoutClaimingSettlement(t *testing
 	terms, err = s.catalogTerms(context.Background(), quote)
 	if err != nil || terms.Payment.CODPolicyReference != nil || terms.Payment.CollectAmount != nil {
 		t.Fatal("COD admission policy affected VietQR", terms.Payment, err)
+	}
+}
+
+type mockCatalogGRPC struct {
+	catalogpb.CatalogServiceClient
+}
+
+func (mockCatalogGRPC) ValidateCheckoutPricing(_ context.Context, in *catalogpb.ValidateCheckoutPricingRequest, _ ...grpc.CallOption) (*catalogpb.ValidateCheckoutPricingResponse, error) {
+	return &catalogpb.ValidateCheckoutPricingResponse{
+		IsValid: true,
+		Items: []*catalogpb.ValidatedCheckoutItem{
+			{
+				SkuCode:                in.Items[0].SkuCode,
+				ProductName:            "gRPC Catalog Name",
+				Quantity:               in.Items[0].Quantity,
+				AuthoritativeUnitPrice: &common.Money{CurrencyCode: "VND", Units: 2000, Nanos: 0},
+				NetWeight:              &common.Weight{DecimalValue: "500", Unit: common.WeightUnit_WEIGHT_UNIT_GRAM},
+				PackagingType:          catalogpb.PackagingType_PACKAGING_TYPE_HOP_GIAY_KRAFT,
+				IsSellable:             true,
+				VariantVersion:         1,
+				PriceVersion:           0,
+			},
+		},
+		CanonicalSubtotal: &common.Money{CurrencyCode: "VND", Units: 2000 * int64(in.Items[0].Quantity), Nanos: 0},
+		EvaluatedAt:       timestamppb.New(time.Now().UTC()),
+	}, nil
+}
+
+func TestCatalogTermsUsesGRPCClientWithoutHTTP(t *testing.T) {
+	s := &Service{
+		Catalog:  &catalogprovider.Adapter{Client: mockCatalogGRPC{}, Token: "token-012345678901234567890123456789"},
+		Shipping: &shippingprovider.Adapter{Client: codShippingPeer{}},
+	}
+	quote := domain.Quote{
+		ID:      uuid.NewString(),
+		Method:  "VIETQR",
+		Items:   []domain.Item{{SKU: "PEER", Quantity: 2}},
+		Address: domain.Address{Name: "TEST", Phone: "+84905123456", Province: "46", Ward: "19753", Street: "TEST"},
+	}
+	terms, err := s.catalogTerms(context.Background(), quote)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if terms.Money.Subtotal != 4000 || terms.Money.FinalAmount != 34000 || len(terms.Items) != 1 || terms.Items[0].Name != "gRPC Catalog Name" {
+		t.Fatalf("unexpected gRPC catalog terms: %+v", terms)
 	}
 }

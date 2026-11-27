@@ -82,15 +82,25 @@
         )
     </insert>
 
-    <!-- Đánh dấu giá cũ là SUPERSEDED trước khi thêm giá mới -->
+    <!-- Đánh dấu giá đang có hiệu lực hiện tại là SUPERSEDED trước khi thêm giá mới -->
     <update id="supersedePreviousPrice">
         UPDATE channel_prices SET
-            status     = 'SUPERSEDED',
-            version    = version + 1,
-            updated_at = NOW()
+            status       = 'SUPERSEDED',
+            effective_to = NOW(),
+            version      = version + 1,
+            updated_at   = NOW()
         WHERE variant_id = #{variantId}
           AND channel    = #{channel}::sales_channel
           AND status     = 'ACTIVE'
+          AND effective_from &lt;= NOW()
+          AND (effective_to IS NULL OR effective_to &gt; NOW())
     </update>
+
+    <delete id="deleteFuturePriceById">
+        DELETE FROM channel_prices
+        WHERE id = #{id}
+          AND variant_id = #{variantId}
+          AND effective_from &gt; NOW()
+    </delete>
 
 </mapper>

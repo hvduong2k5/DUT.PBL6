@@ -1,7 +1,7 @@
 package com.hvduong.catalog.api;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -10,13 +10,20 @@ import com.hvduong.catalog.application.dto.request.CreateProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchProductRequest;
 import com.hvduong.catalog.application.dto.request.PatchVariantRequest;
 import com.hvduong.catalog.application.dto.request.ProductTransitionRequest;
+import com.hvduong.catalog.application.dto.request.ReviewProductImageRequest;
+import com.hvduong.catalog.application.dto.response.AdminCategoryItem;
+import com.hvduong.catalog.application.dto.response.AdminCategoryListResponse;
+import com.hvduong.catalog.application.dto.response.AdminPriceResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductDetailResponse;
 import com.hvduong.catalog.application.dto.response.AdminProductListResponse;
-import com.hvduong.catalog.application.dto.response.ProductDetailResponse;
+import com.hvduong.catalog.application.dto.response.AdminStockProjectionListResponse;
 import com.hvduong.catalog.application.service.CatalogAdminService;
+import com.hvduong.catalog.common.exception.CatalogException;
+import com.hvduong.catalog.common.exception.ErrorCode;
 import com.hvduong.catalog.common.handler.GlobalRestExceptionHandler;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -123,9 +130,9 @@ class CatalogAdminControllerTest {
     req.setName("Kẹo Mè Xửng Giòn 250g");
     req.setSlug("keo-me-xung-gion-250g");
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder()
-            .productId(UUID.randomUUID())
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(UUID.randomUUID().toString())
             .name("Kẹo Mè Xửng Giòn 250g")
             .slug("keo-me-xung-gion-250g")
             .build();
@@ -137,7 +144,7 @@ class CatalogAdminControllerTest {
             post("/api/v1/admin/catalog/products")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Tạo sản phẩm thành công"));
   }
@@ -148,8 +155,11 @@ class CatalogAdminControllerTest {
     ProductTransitionRequest req =
         ProductTransitionRequest.builder().transition("APPROVE").expectedVersion(1L).build();
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder().productId(id).name("Kẹo Mè Xửng Giòn").build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(id.toString())
+            .name("Kẹo Mè Xửng Giòn")
+            .build();
 
     when(adminService.approveProduct(eq(id), any(), eq(1L))).thenReturn(res);
 
@@ -170,8 +180,11 @@ class CatalogAdminControllerTest {
     req.setStory("Câu chuyện thương hiệu O Mạ");
     req.setExpectedVersion(1L);
 
-    ProductDetailResponse res =
-        ProductDetailResponse.builder().productId(id).story("Câu chuyện thương hiệu O Mạ").build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder()
+            .productId(id.toString())
+            .story("Câu chuyện thương hiệu O Mạ")
+            .build();
 
     when(adminService.patchProduct(eq(id), any(), any())).thenReturn(res);
 
@@ -193,7 +206,8 @@ class CatalogAdminControllerTest {
     req.setSaleStatus("PAUSED");
     req.setExpectedVersion(2L);
 
-    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
 
     when(adminService.patchVariant(eq(productId), eq(skuId), any(), any())).thenReturn(res);
 
@@ -208,13 +222,41 @@ class CatalogAdminControllerTest {
   }
 
   @Test
+  void addVariant_ReturnsCreated() throws Exception {
+    UUID productId = UUID.randomUUID();
+    com.hvduong.catalog.application.dto.request.CreateVariantRequest req =
+        new com.hvduong.catalog.application.dto.request.CreateVariantRequest();
+    req.setSkuCode("MX-GION-250G");
+    req.setVariantName("Kẹo Mè Xửng Giòn 250g");
+    req.setWeightValue(new java.math.BigDecimal("250"));
+    req.setWeightUnit("GRAM");
+    req.setPackagingType("HOP_GIAY_KRAFT");
+    req.setBasePriceUnits(50000L);
+
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+
+    when(adminService.addVariant(eq(productId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/skus")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Thêm biến thể thành công"));
+  }
+
+  @Test
   void addImage_ReturnsSuccess() throws Exception {
     UUID productId = UUID.randomUUID();
     CreateProductImageRequest req = new CreateProductImageRequest();
     req.setObjectKey("products/cover.jpg");
     req.setRole("COVER");
 
-    ProductDetailResponse res = ProductDetailResponse.builder().productId(productId).build();
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
 
     when(adminService.addImage(eq(productId), any(), any())).thenReturn(res);
 
@@ -223,29 +265,302 @@ class CatalogAdminControllerTest {
             post("/api/v1/admin/catalog/products/" + productId + "/images")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-        .andExpect(status().isOk())
+        .andExpect(status().isCreated())
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.message").value("Thêm ảnh sản phẩm thành công"));
   }
 
   @Test
+  void reviewImage_WithCatalogApprove_ReturnsSuccess() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID imageId = UUID.randomUUID();
+    ReviewProductImageRequest req =
+        ReviewProductImageRequest.builder().decision("APPROVED").expectedVersion(1L).build();
+
+    AdminProductDetailResponse res =
+        AdminProductDetailResponse.builder().productId(productId.toString()).build();
+    when(adminService.reviewImage(eq(productId), eq(imageId), any(), any())).thenReturn(res);
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/images/" + imageId + "/review")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.message").value("Kiểm duyệt ảnh sản phẩm thành công"));
+  }
+
+  @Test
   void createsCategoryWithIdempotencyKey() throws Exception {
-    var category = com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
-        .categoryId(UUID.randomUUID()).name("Mè xửng").slug("me-xung").build();
-    when(adminService.createCategory(any(), anyString(), eq("category-create-01"))).thenReturn(category);
-    mockMvc.perform(post("/api/v1/admin/catalog/categories")
-            .header("Idempotency-Key", "category-create-01")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(UUID.randomUUID())
+            .name("Mè xửng")
+            .slug("me-xung")
+            .build();
+    when(adminService.createCategory(any(), anyString(), eq("category-create-01")))
+        .thenReturn(category);
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/categories")
+                .header("Idempotency-Key", "category-create-01")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.data.categoryId").value(category.getCategoryId().toString()));
   }
 
   @Test
   void categoryCreationRejectsMissingIdempotencyKey() throws Exception {
-    mockMvc.perform(post("/api/v1/admin/catalog/categories")
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/categories")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"me-xung\"}"))
         .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void updatesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng giòn")
+            .slug("me-xung-gion")
+            .imageUrl("https://cdn.omama.vn/categories/cat_gion.jpg")
+            .build();
+    when(adminService.updateCategory(eq(categoryId), any(), anyString())).thenReturn(category);
+
+    mockMvc
+        .perform(
+            put("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"name\":\"Mè xửng giòn\",\"slug\":\"me-xung-gion\",\"imageUrl\":\"https://cdn.omama.vn/categories/cat_gion.jpg\",\"expectedVersion\":1}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categoryId").value(categoryId.toString()))
+        .andExpect(jsonPath("$.data.name").value("Mè xửng giòn"))
+        .andExpect(
+            jsonPath("$.data.imageUrl").value("https://cdn.omama.vn/categories/cat_gion.jpg"));
+  }
+
+  @Test
+  void categoryUpdateRejectsInvalidSlug() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    mockMvc
+        .perform(
+            put("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Mè xửng\",\"slug\":\"INVALID SLUG!\",\"expectedVersion\":1}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void getsCategoryById() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng dẻo")
+            .slug("me-xung-deo")
+            .build();
+    when(adminService.getCategory(categoryId)).thenReturn(category);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories/" + categoryId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categoryId").value(categoryId.toString()))
+        .andExpect(jsonPath("$.data.name").value("Mè xửng dẻo"));
+  }
+
+  @Test
+  void patchesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    var category =
+        com.hvduong.catalog.application.dto.response.CategoryResponse.builder()
+            .categoryId(categoryId)
+            .name("Mè xửng dẻo")
+            .slug("me-xung-deo")
+            .imageUrl("https://cdn.omama.vn/cat_deo.jpg")
+            .build();
+    when(adminService.patchCategory(eq(categoryId), any(), anyString())).thenReturn(category);
+
+    mockMvc
+        .perform(
+            patch("/api/v1/admin/catalog/categories/" + categoryId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    "{\"imageUrl\":\"https://cdn.omama.vn/cat_deo.jpg\",\"expectedVersion\":0}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.imageUrl").value("https://cdn.omama.vn/cat_deo.jpg"));
+  }
+
+  @Test
+  void deletesCategorySuccessfully() throws Exception {
+    UUID categoryId = UUID.randomUUID();
+    doNothing().when(adminService).deleteCategory(eq(categoryId), anyString());
+
+    mockMvc
+        .perform(delete("/api/v1/admin/catalog/categories/" + categoryId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("Xóa danh mục thành công"));
+  }
+
+  @Test
+  void getsSkuVariantDetail() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    var variant =
+        com.hvduong.catalog.application.dto.response.ProductVariantResponse.builder()
+            .variantId(skuId)
+            .skuCode("MXG-150G")
+            .name("Gói 150g")
+            .build();
+    when(adminService.getVariant(productId, skuId)).thenReturn(variant);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/products/" + productId + "/skus/" + skuId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.skuCode").value("MXG-150G"))
+        .andExpect(jsonPath("$.data.name").value("Gói 150g"));
+  }
+
+  @Test
+  void schedulesPriceSuccessfully() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+
+    AdminPriceResponse priceRes =
+        AdminPriceResponse.builder()
+            .priceId(priceId.toString())
+            .channel("D2C_WEB")
+            .currencyCode("VND")
+            .amountUnits(55000L)
+            .amountNanos(0)
+            .status("ACTIVE")
+            .effectiveFrom("2026-12-01T00:00:00Z")
+            .revision(1L)
+            .build();
+
+    when(adminService.schedulePrice(eq(productId), eq(skuId), any(), anyString()))
+        .thenReturn(priceRes);
+
+    String body =
+        """
+        {
+          "channel": "D2C_WEB",
+          "currencyCode": "VND",
+          "amountUnits": 55000,
+          "amountNanos": 0,
+          "effectiveFrom": "2026-12-01T00:00:00Z"
+        }
+        """;
+
+    mockMvc
+        .perform(
+            post("/api/v1/admin/catalog/products/" + productId + "/skus/" + skuId + "/prices")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.priceId").value(priceId.toString()))
+        .andExpect(jsonPath("$.data.channel").value("D2C_WEB"))
+        .andExpect(jsonPath("$.data.amountUnits").value(55000));
+  }
+
+  @Test
+  void deletesScheduledPriceSuccessfully() throws Exception {
+    UUID productId = UUID.randomUUID();
+    UUID skuId = UUID.randomUUID();
+    UUID priceId = UUID.randomUUID();
+
+    doNothing()
+        .when(adminService)
+        .deleteScheduledPrice(eq(productId), eq(skuId), eq(priceId), anyString());
+
+    mockMvc
+        .perform(
+            delete(
+                "/api/v1/admin/catalog/products/"
+                    + productId
+                    + "/skus/"
+                    + skuId
+                    + "/prices/"
+                    + priceId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("Hủy bản ghi giá thành công"));
+  }
+
+  @Test
+  void getsAdminCategoriesSuccessfully() throws Exception {
+    UUID catId = UUID.randomUUID();
+    var item =
+        AdminCategoryItem.builder()
+            .categoryId(catId)
+            .name("Mè Xửng")
+            .slug("me-xung")
+            .position(1)
+            .isActive(true)
+            .productCount(10L)
+            .childrenCount(0L)
+            .version(1L)
+            .build();
+    var listRes = AdminCategoryListResponse.builder().categories(List.of(item)).build();
+
+    when(adminService.getAdminCategories(eq("tree"), isNull(), isNull(), isNull()))
+        .thenReturn(listRes);
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories").param("format", "tree"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.categories[0].categoryId").value(catId.toString()))
+        .andExpect(jsonPath("$.data.categories[0].productCount").value(10));
+  }
+
+  @Test
+  void getsAdminCategoriesWithSearchInTreeModeReturns400() throws Exception {
+    when(adminService.getAdminCategories(eq("tree"), eq("keo"), isNull(), isNull()))
+        .thenThrow(new CatalogException(ErrorCode.CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT));
+
+    mockMvc
+        .perform(get("/api/v1/admin/catalog/categories").param("format", "tree").param("q", "keo"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("CATALOG_CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT"));
+  }
+
+  @Test
+  void listsStockProjectionsSuccessfully() throws Exception {
+    AdminStockProjectionListResponse response =
+        AdminStockProjectionListResponse.builder()
+            .items(
+                List.of(
+                    AdminStockProjectionListResponse.Item.builder()
+                        .skuCode("INV-MX-001")
+                        .sellableQuantity(15L)
+                        .inventoryVersion(4L)
+                        .sourceUpdatedAt("2026-11-26T10:00:00Z")
+                        .syncedAt("2026-11-26T10:00:02Z")
+                        .linkedVariantCount(0L)
+                        .build()))
+            .page(1)
+            .pageSize(20)
+            .total(1L)
+            .build();
+
+    when(adminService.getStockProjections(eq("INV"), eq(false), eq(1), eq(20)))
+        .thenReturn(response);
+
+    mockMvc
+        .perform(
+            get("/api/v1/admin/catalog/stock-projections")
+                .param("q", "INV")
+                .param("linked", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].skuCode").value("INV-MX-001"))
+        .andExpect(jsonPath("$.data.items[0].sellableQuantity").value(15))
+        .andExpect(jsonPath("$.data.items[0].linkedVariantCount").value(0));
   }
 }

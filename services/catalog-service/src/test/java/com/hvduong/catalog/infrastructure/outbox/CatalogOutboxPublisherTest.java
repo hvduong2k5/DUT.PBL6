@@ -33,6 +33,8 @@ class CatalogOutboxPublisherTest {
     objectMapper = new ObjectMapper();
     publisher = new CatalogOutboxPublisher(outboxEventMapper, kafkaTemplate, objectMapper);
     ReflectionTestUtils.setField(publisher, "catalogEventsTopic", "catalog.events.v1");
+    ReflectionTestUtils.setField(
+        publisher, "eventSource", "https://custom.omama.test/services/catalog-service");
     ReflectionTestUtils.setField(publisher, "batchSize", 50);
     ReflectionTestUtils.setField(publisher, "leaseSeconds", 30);
   }
@@ -56,7 +58,11 @@ class CatalogOutboxPublisherTest {
 
     publisher.publishDueEvents();
 
-    verify(kafkaTemplate).send(eq("catalog.events.v1"), eq("prod-123"), anyString());
+    verify(kafkaTemplate)
+        .send(
+            eq("catalog.events.v1"),
+            eq("prod-123"),
+            contains("\"source\":\"https://custom.omama.test/services/catalog-service\""));
     verify(outboxEventMapper).markPublished(eq(eventId), any(UUID.class));
     verify(outboxEventMapper, never()).recordFailure(any(), any(), anyInt(), any());
   }
