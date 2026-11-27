@@ -63,3 +63,9 @@ keycloak:
   public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID:frontend-web}
   redirect-uri: ${AUTH_REDIRECT_URI:http://localhost:8016/api/v1/public/auth/callback}
   scope: ${KEYCLOAK_SCOPE:openid}
+
+identity:
+  media:
+    grpc-enabled: ${MEDIA_GRPC_ENABLED:false}
+    grpc-target: ${MEDIA_GRPC_TARGET:localhost:9007}
+    cdn-base-url: ${MEDIA_CDN_BASE_URL:http://localhost:9000/om-catalog/}

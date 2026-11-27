@@ -145,3 +145,22 @@ Các hợp đồng này được định nghĩa bằng **Protocol Buffers v3** �
 
 > **Ghi chú về Xác thực JWT & JWKS:**  
 > API Gateway (Kong) và các microservice nội bộ không gọi RPC vào Identity Service để xác thực JWT. Thay vào đó, Gateway và các service đọc trực tiếp tập khóa công khai JWKS từ **Keycloak OIDC Discovery Endpoint** (`http://keycloak:8080/realms/omama/protocol/openid-connect/certs`), lưu cache vào RAM và kiểm tra chữ ký cục bộ siêu tốc (< 0.1ms). Phương thức `GetJwksPublicKey` trước đây đã được loại bỏ hoàn toàn khỏi hợp đồng Proto và wire baselines để đảm bảo tính tinh gọn (Clean Architecture).
+
+---
+
+### 2.9. MS-07: `MediaInternalService` (Port nội bộ: HTTP 8007 / gRPC 9007)
+- **Tệp định nghĩa:** [`packages/proto/media/v1/media_service.proto`](../../packages/proto/media/v1/media_service.proto)
+- **Bên Cung Cấp (Provider):** `media-service`
+- **Bên Tiêu Thụ (Consumer):** `catalog-service`, `fulfillment-service`, `order-service`, `traceability-service`
+
+#### Chi tiết các RPC Methods:
+1. `ValidateMediaReference(ValidateMediaRequest) returns (ValidateMediaResponse)`:
+   - Kiểm tra `file_id` hoặc `object_key` tồn tại, đúng `expected_purpose` và đã đạt trạng thái kỹ thuật `READY`.
+2. `GetPresignedAccessUrl(GetAccessUrlRequest) returns (GetAccessUrlResponse)`:
+   - Cấp Presigned GET URL ngắn hạn (mặc định 900s / 15 phút) với `disposition = "inline"` (xem/stream trực tiếp) hoặc `"attachment"` (tải về).
+3. `GetPresignedDownloadUrl(GetDownloadUrlRequest) returns (GetDownloadUrlResponse)`:
+   - Cấp Presigned GET URL `attachment` ngắn hạn cho tài liệu mật (`om-fulfillment`, `om-documents`).
+4. `BindMediaToEntity(BindMediaRequest) returns (BindMediaResponse)`:
+   - Gắn kết `file_id` / `object_key` với thực thể nghiệp vụ (`Product`, `TraceabilityProfile`, `FulfillmentTask`, `OrderRefund`).
+5. `PublishMedia(PublishMediaRequest) returns (PublishMediaResponse)`:
+   - Promote/copy ảnh đã được Catalog Moderator duyệt (`APPROVED`) cùng các biến thể WebP/thumbnail từ bucket private (`om-private`) sang bucket public (`om-catalog`).

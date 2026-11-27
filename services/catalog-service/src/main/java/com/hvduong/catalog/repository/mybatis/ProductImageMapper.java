@@ -25,6 +25,12 @@ public interface ProductImageMapper {
 
   int deleteById(@Param("id") UUID id);
 
+  int updateScanResult(
+      @Param("id") UUID id,
+      @Param("scanStatus") String scanStatus,
+      @Param("mediaStatus") String mediaStatus,
+      @Param("scannedAt") java.time.Instant scannedAt);
+
   /**
    * Hạ các ảnh COVER đang APPROVED khác xuống GALLERY trước khi đặt cover mới. Đảm bảo bất biến
    * "mỗi product chỉ có tối đa một cover APPROVED" mà không vấp unique index.

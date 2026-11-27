@@ -27,6 +27,7 @@ public class ProductVariant {
   private UUID id;
   private UUID productId;
   private String skuCode; // Unique: e.g. "MX-GION-500G"
+  private String inventorySkuCode; // Optional override to map to stock projection SKU code
   private String variantName; // e.g. "Kẹo Mè Xửng Giòn Huế - Hộp 500g"
   private BigDecimal weightValue; // Khối lượng tịnh
   private String weightUnit; // GRAM | KILOGRAM
@@ -35,6 +36,7 @@ public class ProductVariant {
   private Integer shelfLifeDays; // Hạn sử dụng (số ngày từ NSX)
   private ListingStatus listingStatus;
   private long version;
+  private long priceRevision;
   private Instant createdAt;
   private Instant updatedAt;
 

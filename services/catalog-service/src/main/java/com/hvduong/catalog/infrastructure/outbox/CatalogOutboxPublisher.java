@@ -31,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
     matchIfMissing = true)
 public class CatalogOutboxPublisher {
 
-  private static final String SOURCE = "https://omama.vn/services/catalog-service";
+  private static final String DEFAULT_SOURCE = "https://omama.vn/services/catalog-service";
 
   private final OutboxEventMapper outboxEventMapper;
   private final KafkaTemplate<String, String> kafkaTemplate;
@@ -39,6 +39,9 @@ public class CatalogOutboxPublisher {
 
   @Value("${catalog.events.topic:catalog.events.v1}")
   private String catalogEventsTopic;
+
+  @Value("${catalog.events.source:" + DEFAULT_SOURCE + "}")
+  private String eventSource = DEFAULT_SOURCE;
 
   @Value("${catalog.outbox.batch-size:50}")
   private int batchSize;
@@ -79,7 +82,7 @@ public class CatalogOutboxPublisher {
     Map<String, Object> event = new LinkedHashMap<>();
     event.put("specversion", "1.0");
     event.put("id", row.id().toString());
-    event.put("source", SOURCE);
+    event.put("source", eventSource);
     event.put("type", row.eventType());
     event.put("subject", row.aggregateType().toLowerCase() + ":" + row.aggregateId());
     event.put("time", row.occurredAt().toString());

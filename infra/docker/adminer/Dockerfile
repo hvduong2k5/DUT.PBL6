@@ -1,0 +1,6 @@
+FROM adminer:latest
+
+ENV ADMINER_DEFAULT_SERVER=postgres \
+    ADMINER_DESIGN=nette
+
+EXPOSE 8080

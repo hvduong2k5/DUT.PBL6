@@ -201,6 +201,17 @@
         WHERE p.id = #{id}
     </select>
 
+    <!-- findByIdForUpdate (admin pessimistic lock) -->
+    <select id="findByIdForUpdate" resultMap="ProductResultMap">
+        SELECT
+            p.*,
+            c.name AS category_name
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.id = #{id}
+        FOR UPDATE OF p
+    </select>
+
     <!-- findAdminProducts (admin list + filter) -->
     <select id="findAdminProducts" resultMap="ProductResultMap">
         SELECT

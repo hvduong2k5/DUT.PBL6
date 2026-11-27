@@ -21,10 +21,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Regression test cho F-21: {@code OutboxRowMap} khai {@code javaType="int"} cho cột {@code
  * schema_version}. Trong MyBatis, alias {@code "int"} trỏ tới {@code Integer.class} trong khi
- * record {@link OutboxRow} khai component {@code int} nguyên thủy — constructor lookup thất bại
- * với {@code NoSuchMethodException} ("Error instantiating class … OutboxRow"), khiến outbox
- * publisher không đọc được dòng nào và sự kiện bị kẹt. Alias đúng cho kiểu nguyên thủy là {@code
- * "_int"}.
+ * record {@link OutboxRow} khai component {@code int} nguyên thủy — constructor lookup thất bại với
+ * {@code NoSuchMethodException} ("Error instantiating class … OutboxRow"), khiến outbox publisher
+ * không đọc được dòng nào và sự kiện bị kẹt. Alias đúng cho kiểu nguyên thủy là {@code "_int"}.
  *
  * <p>Test nạp mapper XML thật và đối chiếu từng javaType trong {@code <constructor>} với đúng
  * record component theo thứ tự — đây là phép tra cứu MyBatis thực hiện khi khởi tạo OutboxRow.
@@ -56,12 +55,11 @@ class OutboxRowMappingTest {
     List<Class<?>> declaredTypes =
         resultMap.getConstructorResultMappings().stream().map(ResultMapping::getJavaType).toList();
     List<Class<?>> recordTypes =
-        Arrays.stream(OutboxRow.class.getRecordComponents())
-            .map(RecordComponent::getType)
-            .toList();
+        Arrays.stream(OutboxRow.class.getRecordComponents()).map(RecordComponent::getType).toList();
 
     assertThat(declaredTypes)
-        .as("javaType khai trong <constructor> phải khớp chính xác record component (kể cả int nguyên thủy)")
+        .as(
+            "javaType khai trong <constructor> phải khớp chính xác record component (kể cả int nguyên thủy)")
         .containsExactlyElementsOf(recordTypes);
     // Phép tra cứu MyBatis thực hiện lúc runtime — trước bản sửa nó ném NoSuchMethodException.
     assertThat(OutboxRow.class.getDeclaredConstructor(declaredTypes.toArray(new Class<?>[0])))

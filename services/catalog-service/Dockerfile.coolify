@@ -1,7 +1,6 @@
-# Multi-stage build for git-based deployments (Coolify).
-# Catalog ships no Dockerfile; this builds the boot jar from source.
+# Production multi-stage Dockerfile for Git-based deployments (Coolify).
 # Build context MUST be the repository root: the Gradle build reads
-# ../../packages/proto relative to the service directory.
+# packages/proto relative to the service directory.
 FROM gradle:9.2.0-jdk21 AS build
 WORKDIR /build
 COPY packages/proto ./packages/proto

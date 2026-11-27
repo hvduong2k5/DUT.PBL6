@@ -1,0 +1,8 @@
+FROM postgres:16-alpine
+
+COPY init-databases.sql /docker-entrypoint-initdb.d/init-databases.sql
+
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+  CMD pg_isready -U "${POSTGRES_USER:-postgres}" || exit 1
+
+EXPOSE 5432

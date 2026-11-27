@@ -19,7 +19,7 @@ See [design](traceability-workflow-design-2026-11-21.md) and [draft OpenAPI](tra
 | Download / print | Current eligible public profile and scoped read_internal; same qr_url on reprint | No export until latest eligibility check completes | Never published/410 blocks new valid-label export; 503 blocks export and allows retry | 401/403 blocks staff export; public QR itself remains anonymous |
 
 
-Updated: 2026-11-07
+Updated: 2026-11-21
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
 
@@ -33,6 +33,8 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 - **Success:** only documented `2xx` codes are compatible. Mutations requiring asynchronous processing use `202`.
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
+
+The Order principal-kind gate retains Employee access to direct admin detail and cancellation-request routes; permission and warehouse checks remain mandatory. Guest, payment-grant and Customer principals cannot access the admin detail projection.
 
 Analytics MVP scoped mode: Dashboard and metric series require `ANALYTICS_DASHBOARD_VIEW#GLOBAL`; all Supply reads require `ANALYTICS_SUPPLY_VIEW#GLOBAL`. Bearer JWT takes the grant from `permission_grants`; Identity session takes structured `permissionGrants`. Flat `permissions`, role `ADMIN`, and WAREHOUSE/DEPARTMENT grants do not authorize these routes. Missing token/session → 401; authenticated actor without matching grant or ACTIVE EMPLOYEE state → 403. Pilot UUID allowlist mode remains dev-only.
 
@@ -107,20 +109,30 @@ task 2. Common BFF errors include code, safe message, requestId and errors.
 | `POST /api/v1/admin/b2b/quote-requests/{requestId}/actions` | EPIC_18 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/files` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/b2b/quote-requests/{requestId}/versions` | EPIC_18 | stable | 200 | 200 (collection empty) | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `GET /api/v1/admin/catalog/categories` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500 |
 | `POST /api/v1/admin/catalog/categories` | EPIC_04 | stable | 201 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `GET /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500 |
+| `PUT /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `PATCH /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | 400/— | 401 | 403 | 404 | 409 | — | 500 |
+| `DELETE /api/v1/admin/catalog/categories/{categoryId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | 409 | — | 500 |
 | `GET /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
-| `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | — | 409 | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `PUT /api/v1/admin/catalog/products/{productId}` | EPIC_04 | stable (legacy) | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `POST /api/v1/admin/catalog/products/{productId}/transition` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/skus/{skuId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `GET /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | 200 (empty list) | 400/— | 401 | 403 | 404 | — | — | 500/503 |
 | `PUT /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
-| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `DELETE /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images` | EPIC_04 | stable | 201 | N/A | 400/422 | 401 | 403 | 404 | — | — | 500/503 |
 | `PATCH /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
+| `POST /api/v1/admin/catalog/products/{productId}/images/{imageId}/review` | EPIC_04 | stable | 200 | N/A | 400/422 | 401 | 403 | 404 | 409 | — | 500/503 |
 | `DELETE /api/v1/admin/catalog/products/{productId}/images/{imageId}` | EPIC_04 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
+| `GET /api/v1/admin/catalog/stock-projections` | EPIC_04 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus` | EPIC_09 | stable | 200 | 200 (collection empty) | 400/— | 401 | 403 | — | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/skus/{skuId}` | EPIC_09 | stable | 200 | N/A | —/— | 401 | 403 | 404 | — | — | 500/503 |
 | `GET /api/v1/admin/inventory/workbench` | EPIC_09 | stable | 200 | N/A | 400/— | 401 | 403 | — | — | — | 500/503 |
@@ -242,21 +254,30 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 - `skuCode` bất biến, không đổi qua PATCH.
 - PATCH SKU không đổi giá; giá dùng endpoint `/prices`.
 
-### Giá theo kênh
+### Giá theo kênh (Temporal Pricing - Database V11)
 
-- `GET .../skus/{skuId}/prices` trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
-- `PUT .../skus/{skuId}/prices` supersede giá ACTIVE cùng kênh rồi tạo bản ghi mới với `effectiveFrom = now`.
+- `GET .../skus/{skuId}/prices`: Trả mọi bản ghi giá (ACTIVE, SUPERSEDED, EXPIRED) của SKU.
+- `PUT .../skus/{skuId}/prices`: Cập nhật bảng giá áp dụng ngay (tự động supersede giá ACTIVE hiện hành tại `now` và tạo bản ghi mới từ `now -> infinity`). Hỗ trợ `expectedVariantVersion` để chống conflict đồng thời.
+- `POST .../skus/{skuId}/prices`: Lên lịch hoặc tạo một slot giá mới theo khoảng `[effectiveFrom, effectiveTo)`. Bắt buộc `effectiveTo > effectiveFrom`. Chống chồng lấn khoảng hiệu lực bằng PostgreSQL Exclusion Constraint (`tstzrange` + `&&`); vi phạm trả về `409 Conflict`.
+- `DELETE .../skus/{skuId}/prices/{priceId}`: Hủy slot giá đã lên lịch trong tương lai (`effectiveFrom > now`). Cấm xóa cứng bản ghi giá đã hoặc đang có hiệu lực.
 - Kênh: `D2C_WEB`, `MOBILE_APP`, `B2B_WHOLESALE`, `POS_QUAY`, `SHOPEE`, `TIKTOK`.
-- VND dùng `amountUnits`, `amountNanos = 0`; chống chồng lấn khoảng hiệu lực bằng `tstzrange` + `&&`.
+- VND dùng `amountUnits`, `amountNanos = 0`.
+- Outbox event: Chỉ phát sự kiện `vn.omama.catalog.product.price.changed.v1` và tăng `price_revision` khi giá thay đổi có hiệu lực ngay (`effectiveFrom <= now`). Giá tương lai không phát event thay đổi giá giỏ hàng.
 
 ### Ảnh sản phẩm
 
 - Lưu `objectKey` (MinIO/S3); response trả thêm `url = https://cdn.omama.vn/ + objectKey` (giữ nguyên nếu objectKey là URL tuyệt đối).
 - `role`: `COVER` | `GALLERY` | `THUMBNAIL` (mặc định `GALLERY`).
-- `mediaStatus`: `PENDING_SCAN` | `APPROVED` | `REJECTED` (mặc định `PENDING_SCAN`).
-- Bất biến: tối đa một ảnh `COVER` + `APPROVED`. Khi thêm/sửa thành cover APPROVED, cover cũ tự hạ xuống `GALLERY`.
+- Phân tách hai lớp trạng thái:
+  - `scanStatus`: `PENDING` | `CLEAN` | `INFECTED` | `FAILED` (do Media Service kiểm tra an toàn mã độc cập nhật).
+  - `mediaStatus`: `PENDING_SCAN` → `PENDING_REVIEW` → `APPROVED` | `REJECTED` (do Content Moderator duyệt).
+- Ảnh chỉ được hiển thị công khai khi đồng thời: `scanStatus == CLEAN` VÀ `mediaStatus == APPROVED`.
+- Đăng ký ảnh mới (`POST /images`): server tự gán `mediaStatus = PENDING_SCAN`, `scanStatus = PENDING`, `uploadedBy = actorId`.
+- Sửa metadata (`PATCH /images/{imageId}`): chỉ sửa `altText`, `position`, `role`. Cấm sửa `mediaStatus` hoặc `scanStatus`. Không cho phép chuyển ảnh đã `APPROVED` thành `COVER` qua PATCH.
+- Duyệt ảnh (`POST /images/{imageId}/review`): yêu cầu quyền `CATALOG_APPROVE`. Chỉ duyệt khi `scanStatus == CLEAN` và `mediaStatus == PENDING_REVIEW`. Tuân thủ Separation of Duties (người upload không được tự duyệt).
+- Bất biến: tối đa một ảnh `COVER` + `APPROVED` + `CLEAN`. Khi duyệt một ảnh COVER thành APPROVED, cover cũ tự hạ xuống `GALLERY` trong cùng transaction khóa dòng Product.
 - `DELETE` chỉ xóa metadata; object trên storage do job dọn dẹp riêng xử lý.
-- PATCH ảnh yêu cầu `expectedVersion` của ảnh.
+- Optimistic locking: PATCH và review ảnh đều yêu cầu `expectedVersion`.
 
 ### Vòng đời
 
@@ -309,3 +330,23 @@ Ví dụ xóa mô tả cũ và cập nhật OCOP:
 Inventory receipts require `INVENTORY_RECEIPT_CREATE` globally or for the SKU warehouse. The API checks the expected revision and replays the stored result for matching idempotent retries.
 
 Fulfillment staff routes validate the `omama-api` audience by default. Missing or invalid credentials return 401. Valid credentials without an eligible staff identity or the required grant return 403.
+
+## Private Inventory operations (contract consolidation — 2026-11-21)
+
+These operations are documented in admin-stable.openapi.yaml with per-operation
+private servers. They are not Employee Web routes and are not published by Kong.
+The employee authentication rule above continues to apply to business APIs;
+these monitoring endpoints use network isolation on INVENTORY_METRICS_ADDR,
+without staff JWT/session authentication. Do not expose them via the public gateway.
+No Customer/Employee UI state or business authorization policy changes here.
+
+| Operation | Success | Failure | Loading / empty | Authentication |
+|---|---|---|---|---|
+| GET /readyz | 200 text/plain: consumer disabled or healthy | 503 shared Error: enabled consumer starting/blocked/stopped | N/A: operations probe, no UI or collection | No JWT on private listener; 401/403 N/A |
+| GET /metrics | 200 Prometheus text: process counters and group lag | Listener/network failure is transport-level; no application error response declared | N/A: operations scrape, no UI or collection | No JWT on private listener; 401/403 N/A |
+
+Readiness failures include stable code PROCUREMENT_CONSUMER_UNHEALTHY, safe
+message, requestId and X-Request-Id. Lag -1 means unavailable/uninitialized.
+Operation-level servers and security override the document's production gateway
+and employee authentication defaults. The independent Inventory operations spec
+was consolidated here; runtime URLs and response bodies are unchanged.

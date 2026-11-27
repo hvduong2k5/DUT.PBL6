@@ -1,139 +1,72 @@
 package com.hvduong.catalog.grpc;
 
-import com.hvduong.catalog.application.dto.request.PriceValidationRequest;
-import com.hvduong.catalog.application.dto.response.MoneyResponse;
-import com.hvduong.catalog.application.dto.response.PriceValidationResponse;
-import com.hvduong.catalog.application.dto.response.ProductVariantResponse;
-import com.hvduong.catalog.common.enums.SalesChannel;
 import com.hvduong.catalog.domain.entity.ChannelPrice;
+import com.hvduong.catalog.domain.entity.Product;
 import com.hvduong.catalog.domain.entity.ProductVariant;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Locale;
 
 import org.springframework.stereotype.Component;
 
-import com.omamx.proto.catalog.v1.PriceDiscrepancy;
+import com.omamx.proto.catalog.v1.OcopRating;
+import com.omamx.proto.catalog.v1.PackagingType;
 import com.omamx.proto.catalog.v1.ProductVariantDetail;
-import com.omamx.proto.catalog.v1.ValidatePriceAndSKURequest;
-import com.omamx.proto.catalog.v1.ValidatePriceAndSKUResponse;
+import com.omamx.proto.catalog.v1.StockStatus;
 import com.omamx.proto.common.v1.Money;
 import com.omamx.proto.common.v1.Weight;
 import com.omamx.proto.common.v1.WeightUnit;
 
-import lombok.RequiredArgsConstructor;
-
-/** Mapper giữa Protobuf generated classes của omamx.catalog.v1 và Application DTOs. */
+/** Mapper giữa Protobuf generated classes của omamx.catalog.v1 và Domain Entities. */
 @Component
-@RequiredArgsConstructor
 public class CatalogGrpcMapper {
 
-  public PriceValidationRequest toValidationRequest(ValidatePriceAndSKURequest proto) {
-    List<PriceValidationRequest.Item> items =
-        proto.getItemsList().stream()
-            .map(
-                i ->
-                    PriceValidationRequest.Item.builder()
-                        .skuCode(i.getSkuCode())
-                        .quantity(i.getQuantity())
-                        .clientUnitPrice(
-                            i.hasClientUnitPrice() ? i.getClientUnitPrice().getUnits() : 0L)
-                        .currencyCode(
-                            i.hasClientUnitPrice()
-                                    && !i.getClientUnitPrice().getCurrencyCode().isBlank()
-                                ? i.getClientUnitPrice().getCurrencyCode()
-                                : "VND")
-                        .nanos(i.hasClientUnitPrice() ? i.getClientUnitPrice().getNanos() : 0)
-                        .build())
-            .collect(Collectors.toList());
-
-    return PriceValidationRequest.builder()
-        .idempotencyKey(proto.getIdempotencyKey())
-        .channel(toSalesChannel(proto.getChannel()))
-        .items(items)
-        .build();
+  public ProductVariantDetail toVariantDetailProto(
+      ProductVariant variant, Product product, ChannelPrice price) {
+    return toVariantDetailProto(variant, product, price, null, null);
   }
 
-  public ValidatePriceAndSKUResponse toValidationResponse(PriceValidationResponse resp) {
-    var builder =
-        ValidatePriceAndSKUResponse.newBuilder()
-            .setIsValid(resp.isValid())
-            .setCanonicalSubtotal(
-                Money.newBuilder()
-                    .setCurrencyCode(
-                        resp.getCurrencyCode() != null ? resp.getCurrencyCode() : "VND")
-                    .setUnits(resp.getCanonicalSubtotalUnits())
-                    .setNanos(0)
-                    .build());
-
-    if (resp.getDiscrepancies() != null) {
-      resp.getDiscrepancies()
-          .forEach(
-              d ->
-                  builder.addDiscrepancies(
-                      PriceDiscrepancy.newBuilder()
-                          .setSkuCode(d.getSkuCode())
-                          .setClientUnitPrice(
-                              Money.newBuilder()
-                                  .setCurrencyCode(
-                                      d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
-                                  .setUnits(d.getClientUnitPrice())
-                                  .setNanos(d.getNanos())
-                                  .build())
-                          .setAuthoritativeUnitPrice(
-                              Money.newBuilder()
-                                  .setCurrencyCode(
-                                      d.getCurrencyCode() != null ? d.getCurrencyCode() : "VND")
-                                  .setUnits(d.getAuthoritativeUnitPrice())
-                                  .setNanos(0)
-                                  .build())
-                          .setDiscrepancyReason(d.getReason() != null ? d.getReason() : "")
-                          .build()));
-    }
-
-    return builder.build();
-  }
-
-  public ProductVariantDetail toVariantDetailProto(ProductVariantResponse v) {
+  public ProductVariantDetail toVariantDetailProto(
+      ProductVariant variant,
+      Product product,
+      ChannelPrice price,
+      com.hvduong.catalog.common.enums.StockStatus stockStatus,
+      Long stockAvailable) {
     var builder =
         ProductVariantDetail.newBuilder()
-            .setSkuCode(v.getSkuCode() != null ? v.getSkuCode() : "")
-            .setProductId(v.getProductId() != null ? v.getProductId().toString() : "")
-            .setVariantName(v.getName() != null ? v.getName() : "")
-            .setPackagingType(v.getPackagingType() != null ? v.getPackagingType() : "")
-            .setShelfLifeDays(v.getShelfLifeDays() != null ? v.getShelfLifeDays() : 90)
-            .setIsActive(
-                v.getListingStatus() != null && "ACTIVE".equalsIgnoreCase(v.getListingStatus()));
-
-    if (v.getPrice() != null) {
-      builder.setUnitPrice(toMoneyProto(v.getPrice()));
-    }
-
-    if (v.getWeightValue() != null) {
-      builder.setNetWeight(toWeightProto(v.getWeightValue(), v.getWeightUnit()));
-    }
-
-    return builder.build();
-  }
-
-  public ProductVariantDetail toVariantDetailProto(ProductVariant variant, ChannelPrice price) {
-    var builder =
-        ProductVariantDetail.newBuilder()
+            .setVariantId(variant.getId() != null ? variant.getId().toString() : "")
             .setSkuCode(variant.getSkuCode() != null ? variant.getSkuCode() : "")
             .setProductId(variant.getProductId() != null ? variant.getProductId().toString() : "")
+            .setProductName(product != null && product.getName() != null ? product.getName() : "")
             .setVariantName(variant.getVariantName() != null ? variant.getVariantName() : "")
-            .setPackagingType(variant.getPackagingType() != null ? variant.getPackagingType() : "")
-            .setShelfLifeDays(variant.getShelfLifeDays() != null ? variant.getShelfLifeDays() : 90)
+            .setPackagingType(toPackagingTypeProto(variant.getPackagingType()))
+            .setOcopRating(
+                product != null
+                    ? toOcopRatingProto(product.getOcopStar())
+                    : OcopRating.OCOP_RATING_UNSPECIFIED)
             .setIsActive(
                 variant.getListingStatus() != null
-                    && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()));
+                    && "ACTIVE".equalsIgnoreCase(variant.getListingStatus().getValue()))
+            .setPriceVersion(variant.getPriceRevision());
+
+    if (stockStatus != null) {
+      builder.setStockStatus(toStockStatusProto(stockStatus));
+    }
+    if (stockAvailable != null) {
+      builder.setStockAvailable(stockAvailable);
+    }
+
+    if (variant.getShelfLifeDays() != null) {
+      builder.setShelfLifeDays(variant.getShelfLifeDays());
+    }
 
     if (price != null) {
       builder.setUnitPrice(
-          toMoneyProto(
-              new MoneyResponse(
-                  price.getCurrencyCode(), price.getAmountUnits(), price.getAmountNanos())));
+          Money.newBuilder()
+              .setCurrencyCode(price.getCurrencyCode() != null ? price.getCurrencyCode() : "VND")
+              .setUnits(price.getAmountUnits())
+              .setNanos(price.getAmountNanos())
+              .build());
     }
 
     if (variant.getWeightValue() != null) {
@@ -143,20 +76,28 @@ public class CatalogGrpcMapper {
     return builder.build();
   }
 
-  public Money toMoneyProto(MoneyResponse m) {
-    if (m == null) {
-      return Money.newBuilder().setCurrencyCode("VND").setUnits(0).setNanos(0).build();
+  public StockStatus toStockStatusProto(com.hvduong.catalog.common.enums.StockStatus status) {
+    if (status == null) {
+      return StockStatus.STOCK_STATUS_UNSPECIFIED;
     }
+    return switch (status) {
+      case UNKNOWN -> StockStatus.STOCK_STATUS_UNKNOWN;
+      case IN_STOCK -> StockStatus.STOCK_STATUS_IN_STOCK;
+      case OUT_OF_STOCK -> StockStatus.STOCK_STATUS_OUT_OF_STOCK;
+    };
+  }
+
+  public Money toMoneyProto(long units, int nanos, String currencyCode) {
     return Money.newBuilder()
-        .setCurrencyCode(m.getCurrencyCode() != null ? m.getCurrencyCode() : "VND")
-        .setUnits(m.getUnits())
-        .setNanos(m.getNanos())
+        .setCurrencyCode(currencyCode != null ? currencyCode : "VND")
+        .setUnits(units)
+        .setNanos(nanos)
         .build();
   }
 
   public Weight toWeightProto(BigDecimal weightValue, String unit) {
     WeightUnit weightUnit = WeightUnit.WEIGHT_UNIT_GRAM;
-    if (unit != null && unit.toUpperCase().contains("KG")) {
+    if (unit != null && unit.toUpperCase(Locale.ROOT).contains("KG")) {
       weightUnit = WeightUnit.WEIGHT_UNIT_KILOGRAM;
     }
     return Weight.newBuilder()
@@ -165,14 +106,40 @@ public class CatalogGrpcMapper {
         .build();
   }
 
-  public SalesChannel toSalesChannel(String channelStr) {
-    if (channelStr == null || channelStr.isBlank()) {
-      return SalesChannel.D2C_WEB;
-    }
-    try {
-      return SalesChannel.valueOf(channelStr.toUpperCase());
-    } catch (IllegalArgumentException e) {
-      return SalesChannel.D2C_WEB;
-    }
+  public com.hvduong.catalog.common.enums.SalesChannel toSalesChannel(
+      com.omamx.proto.catalog.v1.SalesChannel protoChannel) {
+    if (protoChannel == null) return null;
+    return switch (protoChannel) {
+      case SALES_CHANNEL_D2C_WEB -> com.hvduong.catalog.common.enums.SalesChannel.D2C_WEB;
+      case SALES_CHANNEL_MOBILE_APP -> com.hvduong.catalog.common.enums.SalesChannel.MOBILE_APP;
+      case SALES_CHANNEL_B2B_WHOLESALE -> com.hvduong.catalog.common.enums.SalesChannel
+          .B2B_WHOLESALE;
+      case SALES_CHANNEL_POS_QUAY -> com.hvduong.catalog.common.enums.SalesChannel.POS_QUAY;
+      case SALES_CHANNEL_SHOPEE -> com.hvduong.catalog.common.enums.SalesChannel.SHOPEE;
+      case SALES_CHANNEL_TIKTOK -> com.hvduong.catalog.common.enums.SalesChannel.TIKTOK;
+      default -> null;
+    };
+  }
+
+  public PackagingType toPackagingTypeProto(String type) {
+    if (type == null) return PackagingType.PACKAGING_TYPE_UNSPECIFIED;
+    return switch (type.toUpperCase(Locale.ROOT)) {
+      case "HOP_GIAY_KRAFT" -> PackagingType.PACKAGING_TYPE_HOP_GIAY_KRAFT;
+      case "HOP_THIEC" -> PackagingType.PACKAGING_TYPE_HOP_THIEC;
+      case "GOI_HUT_CHAN_KHONG" -> PackagingType.PACKAGING_TYPE_GOI_HUT_CHAN_KHONG;
+      case "HOP_QUA_TANG" -> PackagingType.PACKAGING_TYPE_HOP_QUA_TANG;
+      case "DANG_ROI" -> PackagingType.PACKAGING_TYPE_DANG_ROI;
+      default -> PackagingType.PACKAGING_TYPE_UNSPECIFIED;
+    };
+  }
+
+  public OcopRating toOcopRatingProto(Integer stars) {
+    if (stars == null) return OcopRating.OCOP_RATING_UNSPECIFIED;
+    return switch (stars) {
+      case 3 -> OcopRating.OCOP_RATING_3_STAR;
+      case 4 -> OcopRating.OCOP_RATING_4_STAR;
+      case 5 -> OcopRating.OCOP_RATING_5_STAR;
+      default -> OcopRating.OCOP_RATING_UNSPECIFIED;
+    };
   }
 }

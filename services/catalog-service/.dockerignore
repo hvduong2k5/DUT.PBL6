@@ -1,0 +1,14 @@
+.gradle/
+.apt_generated/
+.apt_generated_tests/
+bin/
+build/classes/
+build/generated/
+build/reports/
+build/resources/
+build/test-results/
+build/tmp/
+src/
+gradle/
+.env
+.env.*

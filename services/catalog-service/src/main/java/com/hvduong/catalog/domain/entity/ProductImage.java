@@ -21,7 +21,13 @@ public class ProductImage {
   private String altText;
   private String role; // COVER | GALLERY | DETAIL
   private int position;
-  private String mediaStatus; // PENDING | APPROVED | REJECTED
+  private String mediaStatus; // PENDING_SCAN | PENDING_REVIEW | APPROVED | REJECTED
+  private String scanStatus; // PENDING | CLEAN | INFECTED | FAILED
+  private Instant scannedAt;
+  private String rejectedReason;
+  private String uploadedBy;
+  private String reviewedBy;
+  private Instant reviewedAt;
   private long version;
   private Instant createdAt;
   private Instant updatedAt;

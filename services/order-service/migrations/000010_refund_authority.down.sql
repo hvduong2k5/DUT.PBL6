@@ -1,0 +1,2 @@
+DROP TABLE payment_refund_evidence_records;
+DROP TABLE payment_refund_approvals;

@@ -1480,3 +1480,14 @@ message SpecializedPermissionResponse {
    - Gateway xác thực JWT cục bộ và tiêm Trusted Context Headers, triệt tiêu Runtime Dependency vào Identity Service.
 3. **Toàn Vẹn Kiểm Toán Thực Tế (Tamper-Evident Reality):**
    - Chuỗi băm Entity-Level Hash Chain kết hợp Periodic Merkle Root Checkpoint trên WORM Storage bảo đảm phát hiện ngay lập tức mọi hành vi sửa xóa dữ liệu trong quá khứ.
+### Inventory Procurement operations update — 2026-11-21
+
+The Inventory consumer implements the section 5.2.8 DLQ convention using
+procurement.events.dlq.v1. In-process retries are bounded to five attempts with
+1/2/4/8-second backoff; this initial implementation uses no separate retry topic.
+DLQ publish or offset commit failures block the current offset rather than lose
+messages, with the internal readiness listener reporting unhealthy. Provision
+source/DLQ topics centrally before enabling the consumer; run infra/kafka/provision-inventory-topics.sh.
+Alert on inventory_procurement_healthy=0 and increases in retry/DLQ counters.
+A new consumer group starts at LastOffset, requiring an explicit cutover/replay decision.
+See services/inventory-service/MIGRATIONS.md and docs/inventory-service/inventory_service_specs.md.

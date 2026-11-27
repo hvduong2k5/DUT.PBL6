@@ -3,12 +3,17 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/omamx/order-service/internal/catalogprovider"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/omamx/order-service/internal/domain/core"
+	"github.com/omamx/order-service/internal/shippingprovider"
 )
 
 type catalogSnapshot struct {
@@ -29,7 +34,95 @@ type catalogSnapshot struct {
 	Channel  string `json:"channel"`
 }
 
+func (s *Service) EnableCatalogFromEnv(ctx context.Context) error {
+	target := s.C.CatalogGRPC
+	if target == "" {
+		target = os.Getenv("ORDER_CATALOG_GRPC")
+	}
+	token := s.C.CatalogToken
+	if token == "" {
+		token = os.Getenv("ORDER_CATALOG_TOKEN")
+	}
+	tokenFile := s.C.CatalogTokenFile
+	if tokenFile == "" {
+		tokenFile = os.Getenv("ORDER_CATALOG_TOKEN_FILE")
+	}
+	caFile := s.C.CatalogCAFile
+	if caFile == "" {
+		caFile = os.Getenv("ORDER_CATALOG_CA_FILE")
+	}
+	serverName := s.C.CatalogServerName
+	if serverName == "" {
+		serverName = os.Getenv("ORDER_CATALOG_SERVER_NAME")
+	}
+	allowLocal := s.C.CatalogAllowLocalInsecure || os.Getenv("ORDER_CATALOG_ALLOW_LOCAL_INSECURE") == "true"
+
+	if target == "" {
+		if token != "" || tokenFile != "" || caFile != "" || serverName != "" || allowLocal {
+			return errors.New("Catalog configuration requires ORDER_CATALOG_GRPC")
+		}
+		return nil
+	}
+	if token == "" && tokenFile != "" {
+		var err error
+		token, err = shippingprovider.TokenFile(tokenFile)
+		if err != nil {
+			return err
+		}
+	}
+	if token == "" {
+		return errors.New("Catalog configuration requires ORDER_CATALOG_TOKEN or ORDER_CATALOG_TOKEN_FILE")
+	}
+	adapter, conn, err := catalogprovider.Dial(ctx, target, token, caFile, serverName, s.C.Mode == "sandbox" && allowLocal)
+	if err != nil {
+		return err
+	}
+	s.Catalog = adapter
+	prior := s.PaymentClose
+	s.PaymentClose = func() error {
+		if prior != nil {
+			_ = prior()
+		}
+		return conn.Close()
+	}
+	return nil
+}
+
 func (s *Service) catalogSnapshot(ctx context.Context, items []domain.Item) (catalogSnapshot, error) {
+	if s.Catalog != nil {
+		snap, err := s.Catalog.ValidateCheckoutPricing(ctx, items, false)
+		if err != nil {
+			return catalogSnapshot{}, err
+		}
+		converted := catalogSnapshot{
+			ID:       snap.ID,
+			Version:  snap.Version,
+			Until:    snap.Until,
+			Subtotal: snap.Subtotal,
+			Contract: snap.Contract,
+			Channel:  snap.Channel,
+		}
+		for _, item := range snap.Items {
+			converted.Items = append(converted.Items, struct {
+				SKU       string `json:"sku_code"`
+				Quantity  int    `json:"quantity"`
+				Name      string `json:"product_name"`
+				Price     int64  `json:"unit_price"`
+				Weight    int64  `json:"weight_grams"`
+				Packaging string `json:"packaging_type"`
+				Active    bool   `json:"is_active"`
+			}{
+				SKU:       item.SKU,
+				Quantity:  item.Quantity,
+				Name:      item.Name,
+				Price:     item.Price,
+				Weight:    item.Weight,
+				Packaging: item.Packaging,
+				Active:    item.Active,
+			})
+		}
+		return converted, nil
+	}
 	var snapshot catalogSnapshot
 	err := s.callURL(ctx, s.C.CatalogURL, "POST", "/api/v1/internal/catalog/snapshots", map[string]any{"items": items, "channel": "D2C_WEB"}, &snapshot)
 	if err != nil {
@@ -97,6 +190,13 @@ func addressNameOrCode(name, code string) string {
 // quote provider; sandbox callers must explicitly label their TEST provider.
 func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.SnapshotInput, error) {
 	var terms core.SnapshotInput
+	policy := s.C.CODPolicyReference
+	if policy == "" {
+		policy = "cod-collection-1.0"
+	}
+	if q.Method == "COD" && (strings.TrimSpace(policy) != policy || len(policy) > 255) {
+		return terms, domain.E("COD_NOT_AVAILABLE", 422)
+	}
 	snapshot, err := s.catalogSnapshot(ctx, q.Items)
 	if err != nil {
 		return terms, err
@@ -124,12 +224,9 @@ func (s *Service) catalogTerms(ctx context.Context, q domain.Quote) (core.Snapsh
 	terms.Money = core.SnapshotMoney{Currency: "VND", Subtotal: snapshot.Subtotal, ShippingFee: quote.Fee, FinalAmount: snapshot.Subtotal + quote.Fee}
 	terms.Policies = core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "shipping-v2"}
 	terms.Payment.Method = q.Method
+	// Placement records the amount still to collect, never evidence of payment.
+	// Completion continues to require the existing Finance settlement authority.
 	if q.Method == "COD" {
-		// COD checkout binds only the collection obligation: the amount the
-		// carrier must collect and the COD policy it is collected under.
-		// Settlement is recorded at delivery against Finance evidence; no
-		// settlement proof is fabricated at checkout.
-		policy := "cod-collection-1.0"
 		amount := terms.Money.FinalAmount
 		terms.Payment.CODPolicyReference = &policy
 		terms.Payment.CollectAmount = &amount

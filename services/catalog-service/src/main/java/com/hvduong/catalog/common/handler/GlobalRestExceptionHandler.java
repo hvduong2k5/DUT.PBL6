@@ -2,7 +2,7 @@ package com.hvduong.catalog.common.handler;
 
 import com.hvduong.catalog.common.exception.CatalogException;
 import com.hvduong.catalog.common.exception.ErrorCode;
-import com.hvduong.catalog.common.response.ApiResponse;
+import com.hvduong.catalog.common.response.BaseResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,53 +22,72 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalRestExceptionHandler {
 
   @ExceptionHandler(CatalogException.class)
-  public ResponseEntity<ApiResponse<Void>> handleCatalogException(CatalogException ex) {
+  public ResponseEntity<BaseResponse<Void>> handleCatalogException(CatalogException ex) {
     log.warn("CatalogException occurred: code={}, message={}", ex.getErrorCode(), ex.getMessage());
     return ResponseEntity.status(ex.getErrorCode().getHttpStatus())
-        .body(ApiResponse.error(ex.getErrorCode().name(), ex.getMessage()));
+        .body(BaseResponse.error(ex.getErrorCode().name(), ex.getMessage()));
   }
 
   @ExceptionHandler(AccessDeniedException.class)
-  public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
+  public ResponseEntity<BaseResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
     log.warn("AccessDeniedException: {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body(ApiResponse.error("FORBIDDEN", "Bạn không có quyền thực hiện thao tác này."));
+        .body(BaseResponse.error("FORBIDDEN", "Bạn không có quyền thực hiện thao tác này."));
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResponse<Void>> handleValidationException(
+  public ResponseEntity<BaseResponse<Void>> handleValidationException(
       MethodArgumentNotValidException ex) {
-    List<ApiResponse.ValidationError> errors = new ArrayList<>();
+    List<BaseResponse.ValidationError> errors = new ArrayList<>();
     for (FieldError fe : ex.getBindingResult().getFieldErrors()) {
       errors.add(
-          ApiResponse.ValidationError.builder()
+          BaseResponse.ValidationError.builder()
               .field(fe.getField())
               .code(fe.getCode())
               .message(fe.getDefaultMessage())
               .build());
     }
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.validationError(errors));
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(BaseResponse.validationError(errors));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
-  public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(
+  public ResponseEntity<BaseResponse<Void>> handleIllegalArgumentException(
       IllegalArgumentException ex) {
     log.warn("IllegalArgumentException: {}", ex.getMessage());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-        .body(ApiResponse.error("INVALID_ARGUMENT", ex.getMessage()));
+        .body(BaseResponse.error("INVALID_ARGUMENT", ex.getMessage()));
+  }
+
+  @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+  public ResponseEntity<BaseResponse<Void>> handleDataIntegrityViolation(
+      org.springframework.dao.DataIntegrityViolationException ex) {
+    log.warn("DataIntegrityViolationException: {}", ex.getMessage());
+    String msg = ex.getMessage();
+    if (msg != null && (msg.contains("excl_channel_prices_no_overlap") || msg.contains("23P01"))) {
+      return ResponseEntity.status(HttpStatus.CONFLICT)
+          .body(
+              BaseResponse.error(
+                  "PRICE_OVERLAP_CONFLICT",
+                  "Khoảng thời gian hiệu lực bị trùng lặp với bản giá đã tồn tại trên kênh này."));
+    }
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(
+            BaseResponse.error(
+                "DATA_INTEGRITY_VIOLATION",
+                "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc toàn vẹn."));
   }
 
   @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
-  public ResponseEntity<ApiResponse<Void>> handleMissingHeader() {
+  public ResponseEntity<BaseResponse<Void>> handleMissingHeader() {
     return handleCatalogException(new CatalogException(ErrorCode.INVALID_ARGUMENT));
   }
 
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
+  public ResponseEntity<BaseResponse<Void>> handleGeneralException(Exception ex) {
     log.error("Unhandled exception occurred", ex);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
         .body(
-            ApiResponse.error(
+            BaseResponse.error(
                 "INTERNAL_SERVER_ERROR", "Hệ thống gặp sự cố, vui lòng thử lại sau."));
   }
 }

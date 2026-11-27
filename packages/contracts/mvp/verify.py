@@ -289,13 +289,19 @@ def main():
                 'go_grpc': 'PASS' if options.go_grpc_plugin else 'NOT_RUN'}
         for path in sorted((HERE / 'baselines').glob('*.json')):
             baseline = json.loads(path.read_bytes())
-            excluded = ('omamx.shipping.v1',) if path.stem == 'order' else ('hvduong.catalog.v1',) if path.stem == 'catalog' else ()
-            count = compatibility(baseline['wire'], current, excluded)
-            exception = None
             if path.stem == 'order':
-                exception = 'Unimplemented Order 3.2 Shipping v1 quote proposal migrated explicitly to v2; provider v1 retained.'
+                excluded = ('omamx.shipping.v1', 'omamx.catalog.v1')
+                exception = 'Order 3.2 Shipping v1 and pre-refactor Catalog v1 pricing RPCs migrated explicitly to Shipping v2 and ValidateCheckoutPricing.'
             elif path.stem == 'catalog':
+                excluded = ('hvduong.catalog.v1',)
                 exception = 'Catalog public/admin gRPC removed by decision; REST OpenAPI is the canonical public/admin contract.'
+            elif path.stem in ('dev', 'shipping'):
+                excluded = ('omamx.catalog.v1',)
+                exception = 'Pre-refactor Catalog v1 pricing/variant RPCs migrated to unified ValidateCheckoutPricing and channel-aware GetProductVariant by team agreement.'
+            else:
+                excluded = ()
+                exception = None
+            count = compatibility(baseline['wire'], current, excluded)
             result['protobuf']['baselines'][path.stem] = {'source_sha': baseline['source_sha'], 'preserved_fields': count,
                 'exception': exception}
         check(len(result['protobuf']['baselines']) == 4, 'Expected four pinned wire baselines')

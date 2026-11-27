@@ -43,6 +43,8 @@ public interface ProductMapper {
 
   Optional<Product> findById(@Param("id") UUID id);
 
+  Optional<Product> findByIdForUpdate(@Param("id") UUID id);
+
   List<Product> findAdminProducts(
       @Param("q") String q,
       @Param("status") String status,

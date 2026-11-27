@@ -1,0 +1,73 @@
+name: Inventory procurement and migration integration
+on:
+  pull_request:
+    paths:
+      - 'services/inventory-service/**'
+      - 'packages/events/schemas/procurement/**'
+      - 'scripts/test-inventory-procurement-contract.py'
+      - '.github/workflows/inventory-procurement.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'services/inventory-service/**'
+      - 'packages/events/schemas/procurement/**'
+      - '.github/workflows/inventory-procurement.yml'
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: inventory_test
+          POSTGRES_DB: inventory_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d inventory_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB_URL: postgres://postgres:inventory_test@localhost:5432/inventory_test?sslmode=disable
+      INVENTORY_TEST_DB_URL: postgres://postgres:inventory_test@localhost:5432/inventory_test?sslmode=disable
+      PGPASSWORD: inventory_test
+    defaults:
+      run:
+        working-directory: services/inventory-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/inventory-service/go.mod
+          cache-dependency-path: services/inventory-service/go.sum
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Canonical event contract
+        run: |
+          python -m pip install 'jsonschema>=4,<5'
+          python ../../scripts/test-inventory-procurement-contract.py
+      - name: Schema job is repeatable and never seeds
+        run: |
+          go run ./cmd/migrate
+          go run ./cmd/migrate
+          go run ./cmd/seed-demo
+          test "$(psql -h localhost -U postgres -d inventory_test -tAc 'SELECT count(*) FROM inventory_items')" = "0"
+      - name: Explicit seed job is repeatable
+        env:
+          INVENTORY_SEED_DEMO: 'true'
+        run: |
+          go run ./cmd/seed-demo
+          go run ./cmd/seed-demo
+          test "$(psql -h localhost -U postgres -d inventory_test -tAc 'SELECT count(*) FROM inventory_items')" = "40"
+          test "$(psql -h localhost -U postgres -d inventory_test -tAc 'SELECT sum(physical_qty) FROM inventory_items')" = "2600"
+      - name: Start isolated Kafka-compatible broker
+        run: >-
+          docker run -d --rm --name inventory-contract-kafka -p 19092:19092
+          docker.redpanda.com/redpandadata/redpanda:v24.3.18
+          redpanda start --overprovisioned --smp 1 --memory 512M --reserve-memory 0M
+          --node-id 0 --check=false --kafka-addr plaintext://0.0.0.0:19092
+          --advertise-kafka-addr plaintext://127.0.0.1:19092
+      - name: PostgreSQL integration and race checks
+        env:
+          INVENTORY_TEST_KAFKA_BROKERS: localhost:19092
+        run: go vet ./... && go test -race -count=1 ./...

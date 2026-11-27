@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MediaPurpose {
+  CATALOG_PRODUCT
+  CATALOG_CATEGORY
+  OCOP_CERTIFICATE
+  SHIPPING_VIDEO
+  B2B_DOCUMENT
+  REFUND_EVIDENCE
+  AVATAR
+
+  @@map("media_purpose")
+}
+
+enum MediaStatus {
+  AWAITING_UPLOAD
+  PROCESSING
+  READY
+  PROCESSING_FAILED
+  ARCHIVED
+
+  @@map("media_status")
+}
+
+enum AccessLevel {
+  PUBLIC_READ
+  AUTHENTICATED_READ
+  PRIVATE_RESTRICTED
+
+  @@map("access_level")
+}
+
+model MediaFile {
+  id              String       @id @default(uuid()) @db.Uuid
+  objectKey       String       @unique @map("object_key") @db.VarChar(1024)
+  bucketName      String       @map("bucket_name") @db.VarChar(128)
+  fileName        String       @map("file_name") @db.VarChar(500)
+  mediaType       String       @map("media_type") @db.VarChar(128)
+  sizeBytes       BigInt       @map("size_bytes")
+  sha256Checksum  String?      @map("sha256_checksum") @db.VarChar(64)
+  purpose         MediaPurpose
+  accessLevel     AccessLevel  @default(PRIVATE_RESTRICTED) @map("access_level")
+  status          MediaStatus  @default(AWAITING_UPLOAD)
+  uploaderId      String       @map("uploader_id") @db.VarChar(128)
+  boundEntityType String?      @map("bound_entity_type") @db.VarChar(64)
+  boundEntityId   String?      @map("bound_entity_id") @db.VarChar(128)
+  variantsMeta    Json         @default("{}") @map("variants_meta")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  uploadSessions UploadSession[]
+
+  @@index([purpose], map: "idx_media_files_purpose")
+  @@index([boundEntityType, boundEntityId], map: "idx_media_files_bound")
+  @@index([status], map: "idx_media_files_status")
+  @@map("media_files")
+}
+
+model UploadSession {
+  id        String    @id @db.VarChar(64)
+  fileId    String    @map("file_id") @db.Uuid
+  uploadUrl String    @map("upload_url")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  status    String    @default("ACTIVE") @db.VarChar(32)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  file MediaFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@map("upload_sessions")
+}

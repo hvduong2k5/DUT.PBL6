@@ -72,7 +72,7 @@ def protobuf_checks(raw, baseline=None):
         "omamx.inventory.v1.InventoryService": ["GetReservationByOrder", "FinalizeReservation", "ReleaseReservationByOrder", "ReverseCommittedStock"],
         "omamx.fulfillment.v1.FulfillmentService": ["AcceptTask", "CancelTask", "GetTaskDecision"],
         "omamx.order.v1.OrderService": ["GetFulfillmentPermit", "ValidateFulfillmentPermit"],
-        "omamx.catalog.v1.CatalogService": ["GetCheckoutSnapshot"],
+        "omamx.catalog.v1.CatalogService": ["ValidateCheckoutPricing"],
         "omamx.promotion.v1.PromotionService": ["GetVoucherHoldByOrder", "FinalizeVoucherHold", "ReleaseVoucherHoldByOrder"],
     }.items():
         check(name in services, f"Missing service {name}")
@@ -130,7 +130,7 @@ def main():
         result["openapi"].append({"file": name, "status": "PASS", "paths": len(document["paths"])})
         if name == "order-service.openapi.yaml":
             target = document
-    check(target["info"]["version"] == "3.2.0" and target["x-contract-status"] == "proposed", "Target version/status drift")
+    check(target["info"]["version"] == "3.2.1" and target["x-contract-status"] == "proposed", "Target version/status drift")
     key_schema = next(p["schema"] for p in target["paths"]["/api/v1/checkout"]["post"]["parameters"] if p["name"] == "X-Idempotency-Key")
     check(re.fullmatch(key_schema["pattern"], "checkout-key-123456"), "Idempotency key rejects valid ASCII input")
     check(not re.fullmatch(key_schema["pattern"], "checkout key 123456"), "Idempotency key accepts whitespace")

@@ -16,6 +16,8 @@ servers:
 - url: https://api.omama.vn
   description: Production API gateway
 tags:
+- name: Inventory operations
+  description: Private Inventory monitoring endpoints, separate from employee business APIs.
 - name: Access management
   description: Access management operations for the admin web application.
 - name: B2B
@@ -42,6 +44,75 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /readyz:
+    get:
+      operationId: inventoryOperationsReadiness
+      summary: Check Procurement consumer readiness
+      responses:
+        '200':
+          description: Ready or consumer explicitly disabled
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'ready
+
+                '
+        '503':
+          description: Enabled consumer is starting, blocked or stopped after panic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: PROCUREMENT_CONSUMER_UNHEALTHY
+                message: Procurement consumer is unavailable
+                requestId: 66ce37bd-f925-4b29-aaee-f3a04c521741
+      tags:
+      - Inventory operations
+      x-lifecycle: stable
+      x-internal: true
+      x-frontend-consumer: false
+      security: []
+      servers: &inventoryOperationsServers
+      - url: http://127.0.0.1:8011
+      description: Private Inventory operations listener selected by INVENTORY_METRICS_ADDR.
+        The shown address is the local default; use the configured private address on
+        deploy. Not exposed through the production API gateway and not called by Customer
+        or Employee Web. No application JWT/session is used on this private listener;
+        enforce network isolation.
+  /metrics:
+    get:
+      operationId: inventoryOperationsMetrics
+      summary: Read Procurement Prometheus counters and gauges
+      responses:
+        '200':
+          description: Process-local receiving metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: 'inventory_procurement_healthy 1
+
+                inventory_procurement_retries_total 0
+
+                inventory_procurement_dlq_total 0
+
+                inventory_procurement_consumer_lag 0
+
+                '
+      tags:
+      - Inventory operations
+      x-lifecycle: stable
+      x-internal: true
+      x-frontend-consumer: false
+      security: []
+      servers: *inventoryOperationsServers
+      description: Private Inventory operations listener selected by INVENTORY_METRICS_ADDR.
+        The shown address is the local default; use the configured private address on
+        deploy. Not exposed through the production API gateway and not called by Customer
+        or Employee Web. No application JWT/session is used on this private listener;
+        enforce network isolation.
   /api/v1/admin/users:
     get:
       operationId: getAdminUsers
@@ -2978,6 +3049,105 @@ paths:
           maximum: 100
           default: 20
   /api/v1/admin/catalog/categories:
+    get:
+      tags: [Product management]
+      operationId: getAdminCatalogCategories
+      summary: Lấy danh sách toàn bộ danh mục sản phẩm phục vụ quản trị CMS.
+      description: Hỗ trợ duyệt cây (format=tree, mặc định) hoặc danh sách phẳng (format=flat). Khi tìm kiếm theo q, yêu cầu format=flat (format=tree&q sẽ trả về 400). Yêu cầu quyền CATALOG_VIEW.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, empty, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tree, flat]
+            default: tree
+          description: Chế độ hiển thị cây phân cấp (tree) hoặc phẳng (flat). Mặc định là tree.
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+          description: Tìm kiếm theo tên hoặc slug danh mục (chỉ áp dụng khi format=flat, nếu gọi với format=tree sẽ trả về 400 CATEGORY_SEARCH_REQUIRES_FLAT_FORMAT).
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Lọc theo trạng thái kích hoạt (true/false, bỏ trống = lấy tất cả).
+        - name: parentId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Lọc danh mục con trực tiếp (flat) hoặc cây con (tree) của parentId.
+      responses:
+        '200':
+          description: Lấy danh sách danh mục thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminCategoryListResponse'
+              examples:
+                success:
+                  summary: Danh sách cây danh mục thành công
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    data:
+                      categories:
+                        - categoryId: 4b684cb6-bf88-444a-9eb8-cbfbe9e89d1b
+                          parentId: null
+                          name: Kẹo Mè Xửng Huế
+                          slug: keo-me-xung-hue
+                          description: Các dòng mè xửng truyền thống
+                          imageUrl: https://cdn.omama.vn/categories/me-xung.jpg
+                          position: 1
+                          isActive: true
+                          productCount: 12
+                          childrenCount: 2
+                          version: 1
+                          createdAt: '2026-11-20T10:00:00Z'
+                          updatedAt: '2026-11-21T15:30:00Z'
+                          children:
+                            - categoryId: c2005555-0000-0000-0000-000000000001
+                              parentId: 4b684cb6-bf88-444a-9eb8-cbfbe9e89d1b
+                              name: Mè Xửng Giòn
+                              slug: me-xung-gion
+                              description: Mè xửng giòn hạt mè vàng ươm
+                              imageUrl: https://cdn.omama.vn/categories/gion.jpg
+                              position: 1
+                              isActive: true
+                              productCount: 5
+                              childrenCount: 0
+                              version: 0
+                              createdAt: '2026-11-20T10:05:00Z'
+                              updatedAt: '2026-11-20T10:05:00Z'
+                              children: []
+                empty:
+                  summary: Không có danh mục nào phù hợp
+                  value:
+                    success: true
+                    code: SUCCESS
+                    message: Thao tác thành công
+                    data:
+                      categories: []
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags: [Product management]
       operationId: postAdminCatalogCategories
@@ -3019,6 +3189,9 @@ paths:
                 description:
                   type: [string, 'null']
                   maxLength: 4000
+                imageUrl:
+                  type: [string, 'null']
+                  maxLength: 2048
                 position:
                   type: [integer, 'null']
                   minimum: 0
@@ -3031,36 +3204,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  data:
-                    type: object
-                    required: [categoryId, name, slug, position]
-                    properties:
-                      categoryId:
-                        type: string
-                        format: uuid
-                      name:
-                        type: string
-                      slug:
-                        type: string
-                      position:
-                        type: integer
-                      parentId:
-                        type: [string, 'null']
-                        format: uuid
-                      description:
-                        type: [string, 'null']
-                      imageUrl:
-                        type: [string, 'null']
-                      children:
-                        type: [array, 'null']
-                        items:
-                          type: object
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
               example:
                 success: true
                 data:
@@ -3068,8 +3212,225 @@ paths:
                   name: Mè xửng
                   slug: me-xung
                   position: 0
+                  isActive: true
+                  version: 0
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/catalog/categories/{categoryId}:
+    put:
+      tags: [Product management]
+      operationId: putAdminCatalogCategoriesCategoryId
+      summary: Update a Catalog category.
+      description: Update category details including image URL. Requires CATALOG_MANAGE grant.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, expectedVersion]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                slug:
+                  type: string
+                  maxLength: 255
+                  pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+                parentId:
+                  type: [string, 'null']
+                  format: uuid
+                description:
+                  type: [string, 'null']
+                  maxLength: 4000
+                imageUrl:
+                  type: [string, 'null']
+                  maxLength: 2048
+                position:
+                  type: [integer, 'null']
+                  minimum: 0
+                isActive:
+                  type: [boolean, 'null']
+                expectedVersion:
+                  type: integer
+                  format: int64
+                  minimum: 0
+      responses:
+        '200':
+          description: Category updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags: [Product management]
+      operationId: getAdminCatalogCategoriesCategoryId
+      summary: Read a Catalog category detail.
+      description: Get category details by ID. Requires CATALOG_VIEW grant.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Product management]
+      operationId: patchAdminCatalogCategoriesCategoryId
+      summary: Partial update of a Catalog category.
+      description: Update partial category fields including image URL without resending full payload. Requires CATALOG_MANAGE grant.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedVersion]
+              properties:
+                name:
+                  type: [string, 'null']
+                  maxLength: 255
+                slug:
+                  type: [string, 'null']
+                  maxLength: 255
+                  pattern: '^$|^[a-z0-9]+(-[a-z0-9]+)*$'
+                parentId:
+                  type: [string, 'null']
+                  format: uuid
+                description:
+                  type: [string, 'null']
+                  maxLength: 4000
+                imageUrl:
+                  type: [string, 'null']
+                  maxLength: 2048
+                position:
+                  type: [integer, 'null']
+                  minimum: 0
+                isActive:
+                  type: [boolean, 'null']
+                expectedVersion:
+                  type: integer
+                  format: int64
+                  minimum: 0
+      responses:
+        '200':
+          description: Category updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminCategoryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Product management]
+      operationId: deleteAdminCatalogCategoriesCategoryId
+      summary: Delete an unused Catalog category.
+      description: Delete category if it has no children and no attached products. Requires CATALOG_MANAGE grant.
+      x-lifecycle: stable
+      x-backlog: [EPIC_04]
+      x-ui-states: [loading, success, error, unauthorized, forbidden]
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category deleted successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3256,12 +3617,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminProductCreateRequest'
       responses:
-        '200':
+        '201':
           description: Đã tạo Product thành công.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3353,6 +3714,7 @@ paths:
                         role: COVER
                         position: 0
                         mediaStatus: APPROVED
+                        scanStatus: CLEAN
                         revision: 2
                         createdAt: '2026-10-01T08:00:00.000Z'
                         updatedAt: '2026-10-02T02:10:00.000Z'
@@ -3463,7 +3825,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3519,7 +3881,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3576,7 +3938,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3628,12 +3990,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminSkuCreateRequest'
       responses:
-        '200':
+        '201':
           description: Đã tạo SKU thành công.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3696,7 +4058,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3709,6 +4071,84 @@ paths:
           $ref: '#/components/responses/CatalogAdminConflict'
         '422':
           $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    get:
+      tags:
+      - Product management
+      operationId: getAdminCatalogProductsProductIdSkusSkuId
+      summary: Đọc chi tiết một SKU của sản phẩm cho EPIC_04.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  data:
+                    type: object
+                    required: [skuId, skuCode, name]
+                    properties:
+                      skuId:
+                        type: string
+                        format: uuid
+                      skuCode:
+                        type: string
+                      name:
+                        type: string
+                      weightValue:
+                        type: number
+                      weightUnit:
+                        type: string
+                      flavor:
+                        type: string
+                      packagingType:
+                        type: string
+                      shelfLifeDays:
+                        type: integer
+                      saleStatus:
+                        type: string
+                      stockAvailable:
+                        type: integer
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
         '500':
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
@@ -3810,7 +4250,131 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdSkusSkuIdPrices
+      summary: Lên lịch hoặc tạo bản ghi giá mới theo khoảng hiệu lực cho SKU.
+      description: Tạo bản ghi giá trong khoảng [effectiveFrom, effectiveTo). Nếu bị overlap với khoảng giá đã có cùng kênh, trả về 409 Conflict theo Exclusion Constraint V11.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminPriceCreateRequest'
+      responses:
+        '201':
+          description: Đã tạo và lên lịch giá thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminPriceSingleResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/skus/{skuId}/prices/{priceId}:
+    delete:
+      tags:
+      - Product management
+      operationId: deleteAdminCatalogProductsProductIdSkusSkuIdPricesPriceId
+      summary: Hủy bản ghi giá đã lên lịch trong tương lai.
+      description: Chỉ cho phép hủy/xóa bản ghi giá chưa tới thời điểm hiệu lực (effectiveFrom > now). Giá đang hoặc đã từng có hiệu lực không được xóa.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: skuId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: priceId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      responses:
+        '200':
+          description: Đã hủy bản ghi giá tương lai thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminApiSuccessResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3832,8 +4396,8 @@ paths:
       tags:
       - Product management
       operationId: postAdminCatalogProductsProductIdImages
-      summary: Thêm metadata ảnh cho Product cho EPIC_04.
-      description: Khi role là COVER và mediaStatus là APPROVED, cover đã duyệt trước đó sẽ bị hạ xuống GALLERY.
+      summary: Đăng ký ảnh mới cho Product cho EPIC_04.
+      description: Đăng ký objectKey đã tải lên thành công qua Media Service. Trạng thái ban đầu luôn là mediaStatus=PENDING_SCAN và scanStatus=PENDING. Không cho phép client tự set trạng thái duyệt.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -3862,12 +4426,12 @@ paths:
             schema:
               $ref: '#/components/schemas/CatalogAdminImageCreateRequest'
       responses:
-        '200':
-          description: Đã thêm ảnh thành công.
+        '201':
+          description: Đã đăng ký ảnh thành công (trạng thái PENDING_SCAN).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3889,7 +4453,8 @@ paths:
       tags:
       - Product management
       operationId: patchAdminCatalogProductsProductIdImagesImageId
-      summary: Cập nhật metadata và trạng thái duyệt ảnh cho EPIC_04.
+      summary: Cập nhật metadata hiển thị ảnh sản phẩm cho EPIC_04.
+      description: Cập nhật altText, role, position với optimistic locking. Không cho phép sửa mediaStatus hoặc scanStatus. Nếu ảnh đã APPROVED, không cho phép đổi role thành COVER qua PATCH.
       x-lifecycle: stable
       x-backlog:
       - EPIC_04
@@ -3929,7 +4494,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '400':
           $ref: '#/components/responses/CatalogAdminBadRequest'
         '401':
@@ -3985,13 +4550,141 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CatalogAdminProductWriteResponse'
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
         '401':
           $ref: '#/components/responses/CatalogAdminUnauthorized'
         '403':
           $ref: '#/components/responses/CatalogAdminForbidden'
         '404':
           $ref: '#/components/responses/CatalogAdminNotFound'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/products/{productId}/images/{imageId}/review:
+    post:
+      tags:
+      - Product management
+      operationId: postAdminCatalogProductsProductIdImagesImageIdReview
+      summary: Kiểm duyệt nội dung ảnh sản phẩm (Content Moderation) cho EPIC_04.
+      description: Yêu cầu quyền CATALOG_APPROVE. Chỉ kiểm duyệt được khi ảnh đã được Media Service quét sạch mã độc (scanStatus=CLEAN) và đang chờ duyệt (mediaStatus=PENDING_REVIEW). Không cho phép người tải ảnh tự phê duyệt (Separation of Duties). Khóa Product khi duyệt ảnh COVER để đảm bảo duy nhất.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      x-test-latency-ms: 1200
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: imageId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogAdminImageReviewRequest'
+      responses:
+        '200':
+          description: Đã kiểm duyệt ảnh thành công.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminProductDetailResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
+        '404':
+          $ref: '#/components/responses/CatalogAdminNotFound'
+        '409':
+          $ref: '#/components/responses/CatalogAdminConflict'
+        '422':
+          $ref: '#/components/responses/CatalogAdminUnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/CatalogAdminInternalError'
+        '503':
+          $ref: '#/components/responses/CatalogAdminServiceUnavailable'
+  /api/v1/admin/catalog/stock-projections:
+    get:
+      tags:
+      - Product management
+      operationId: getAdminCatalogStockProjections
+      summary: Danh sách tồn kho đã đồng bộ từ Inventory (sku_stock_projection) để liên kết SKU.
+      description: Read model độc lập nhận event từ Inventory; Admin dùng để xem mã SKU kho và gắn vào biến thể qua PATCH /skus/{skuId}.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_04
+      x-ui-states:
+      - loading
+      - success
+      - empty
+      - error
+      - unauthorized
+      - forbidden
+      security:
+      - bearerAuth: []
+      - adminSession: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+      - name: linked
+        in: query
+        required: false
+        description: Lọc theo trạng thái đã gắn với biến thể Catalog hay chưa.
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Danh sách projection tồn kho phân trang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogAdminStockProjectionPageResponse'
+        '400':
+          $ref: '#/components/responses/CatalogAdminBadRequest'
+        '401':
+          $ref: '#/components/responses/CatalogAdminUnauthorized'
+        '403':
+          $ref: '#/components/responses/CatalogAdminForbidden'
         '500':
           $ref: '#/components/responses/CatalogAdminInternalError'
         '503':
@@ -5577,6 +6270,12 @@ paths:
       tags:
       - Orders
       operationId: getAdminOrdersOrderId
+      description: >-
+        The direct Order backend principal gate admits Employee requests to this
+        projection; the application still requires ORDER_VIEW and enforces its
+        GLOBAL or WAREHOUSE scope. Guest, payment-grant and Customer principals
+        cannot use this employee endpoint. Same-warehouse ORDER_SENSITIVE_VIEW
+        controls recipient visibility.
       summary: Read-only Order detail snapshot with separate payment, reservation,
         packing and shipping projections. Recipient fields are filtered again by the
         Web Admin BFF.
@@ -11825,52 +12524,7 @@ components:
           type: array
           description: Toàn bộ ảnh của sản phẩm, gồm cả ảnh chưa duyệt (admin view).
           items:
-            type: object
-            required:
-            - imageId
-            - objectKey
-            - role
-            - position
-            - mediaStatus
-            properties:
-              imageId:
-                type: string
-              objectKey:
-                type: string
-              url:
-                type:
-                - string
-                - 'null'
-                format: uri
-              altText:
-                type:
-                - string
-                - 'null'
-              role:
-                type: string
-                enum:
-                - COVER
-                - GALLERY
-                - THUMBNAIL
-              position:
-                type: integer
-                minimum: 0
-              mediaStatus:
-                type: string
-                enum:
-                - PENDING_SCAN
-                - APPROVED
-                - REJECTED
-              revision:
-                type: integer
-                format: int64
-              createdAt:
-                type: string
-                format: date-time
-              updatedAt:
-                type: string
-                format: date-time
-            additionalProperties: false
+            $ref: '#/components/schemas/CatalogAdminProductImage'
         foodInformation:
           type: object
           required:
@@ -11911,6 +12565,11 @@ components:
                 type: string
               skuCode:
                 type: string
+              inventorySkuCode:
+                type:
+                - string
+                - 'null'
+                description: Mã SKU kho liên kết tới sku_stock_projection (null nếu khớp mặc định theo skuCode).
               label:
                 type: string
               weightGrams:
@@ -12196,6 +12855,12 @@ components:
           type: integer
           minimum: 0
           description: Giá cơ sở (VND).
+        inventorySkuCode:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Mã SKU kho liên kết tới sku_stock_projection (tùy chọn).
       additionalProperties: false
     CatalogAdminSkuPatchRequest:
       type: object
@@ -12219,6 +12884,12 @@ components:
           - string
           - 'null'
           maxLength: 200
+        inventorySkuCode:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Mã SKU kho liên kết tới sku_stock_projection; chuỗi rỗng xóa liên kết tùy chỉnh.
         packagingType:
           type: string
           enum:
@@ -12241,11 +12912,72 @@ components:
           format: int64
           minimum: 0
       additionalProperties: false
+    CatalogAdminStockProjectionPageResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            type: object
+            required:
+            - items
+            - page
+            - pageSize
+            - total
+            properties:
+              page:
+                type: integer
+              pageSize:
+                type: integer
+              total:
+                type: integer
+                format: int64
+              items:
+                type: array
+                items:
+                  type: object
+                  required:
+                  - skuCode
+                  - inventoryVersion
+                  - linkedVariantCount
+                  properties:
+                    skuCode:
+                      type: string
+                    sellableQuantity:
+                      type:
+                      - integer
+                      - 'null'
+                      format: int64
+                    inventoryVersion:
+                      type: integer
+                      format: int64
+                    sourceUpdatedAt:
+                      type:
+                      - string
+                      - 'null'
+                      format: date-time
+                    syncedAt:
+                      type:
+                      - string
+                      - 'null'
+                      format: date-time
+                    linkedVariantCount:
+                      type: integer
+                      format: int64
+                  additionalProperties: false
+            additionalProperties: false
     CatalogAdminPriceUpdateRequest:
       type: object
       required:
       - prices
       properties:
+        expectedVariantVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Optimistic lock version của ProductVariant để chống ghi đè đồng thời.
         prices:
           type: array
           items:
@@ -12266,11 +12998,70 @@ components:
               amountUnits:
                 type: integer
                 minimum: 0
+              amountNanos:
+                type: integer
+                minimum: 0
+                maximum: 999999999
+                default: 0
               currencyCode:
                 type: string
+                default: VND
               effectiveFrom:
                 type: string
                 format: date-time
+              effectiveTo:
+                type:
+                - string
+                - 'null'
+                format: date-time
+      additionalProperties: false
+    CatalogAdminPriceCreateRequest:
+      type: object
+      required:
+      - channel
+      - amountUnits
+      - effectiveFrom
+      properties:
+        channel:
+          type: string
+          enum:
+          - D2C_WEB
+          - MOBILE_APP
+          - B2B_WHOLESALE
+          - POS_QUAY
+          - SHOPEE
+          - TIKTOK
+        currencyCode:
+          type: string
+          default: VND
+        amountUnits:
+          type: integer
+          minimum: 0
+        amountNanos:
+          type: integer
+          minimum: 0
+          maximum: 999999999
+          default: 0
+        effectiveFrom:
+          type: string
+          format: date-time
+          description: Thời điểm bắt đầu hiệu lực (hỗ trợ hẹn giờ tương lai).
+        effectiveTo:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Thời điểm kết thúc hiệu lực (null = vô thời hạn).
+      additionalProperties: false
+    CatalogAdminPriceSingleResponse:
+      allOf:
+      - $ref: '#/components/schemas/AdminApiSuccessResponse'
+      - type: object
+        required:
+        - data
+        properties:
+          data:
+            $ref: '#/components/schemas/CatalogAdminPriceRecord'
       additionalProperties: false
     CatalogAdminImageCreateRequest:
       type: object
@@ -12297,13 +13088,6 @@ components:
           type: integer
           minimum: 0
           description: Vị trí hiển thị; mặc định 0.
-        mediaStatus:
-          type: string
-          enum:
-          - PENDING_SCAN
-          - APPROVED
-          - REJECTED
-          description: Mặc định PENDING_SCAN cho ảnh mới.
       additionalProperties: false
     CatalogAdminImagePatchRequest:
       type: object
@@ -12324,16 +13108,34 @@ components:
         position:
           type: integer
           minimum: 0
-        mediaStatus:
-          type: string
-          enum:
-          - PENDING_SCAN
-          - APPROVED
-          - REJECTED
         expectedVersion:
           type: integer
           format: int64
           minimum: 0
+      additionalProperties: false
+    CatalogAdminImageReviewRequest:
+      type: object
+      required:
+      - decision
+      - expectedVersion
+      properties:
+        decision:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+          description: Quyết định kiểm duyệt ảnh (APPROVED hoặc REJECTED).
+        reason:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+          description: Lý do từ chối ảnh; bắt buộc khi decision là REJECTED.
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Phiên bản optimistic-lock hiện tại của ảnh.
       additionalProperties: false
     CatalogAdminProductWriteResponse:
       allOf:
@@ -12466,6 +13268,268 @@ components:
                 type: array
                 items:
                   $ref: '#/components/schemas/CatalogAdminPriceRecord'
+      additionalProperties: false
+    CatalogAdminCategoryItem:
+      type: object
+      required:
+        - categoryId
+        - name
+        - slug
+        - position
+        - isActive
+        - productCount
+        - childrenCount
+        - version
+        - children
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: ID danh mục cha (null nếu là root).
+        parentName:
+          type:
+            - string
+            - 'null'
+          description: Tên danh mục cha (hỗ trợ hiển thị ngữ cảnh ở flat mode).
+        name:
+          type: string
+          description: Tên danh mục.
+        slug:
+          type: string
+          description: Đường dẫn slug URL-friendly.
+        description:
+          type:
+            - string
+            - 'null'
+          description: Mô tả danh mục.
+        imageUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+          description: URL ảnh đại diện danh mục.
+        position:
+          type: integer
+          minimum: 0
+          description: Thứ tự sắp xếp trong cùng cấp.
+        isActive:
+          type: boolean
+          description: Trạng thái hiển thị công khai.
+        productCount:
+          type: integer
+          minimum: 0
+          description: Số lượng sản phẩm được gán trực tiếp vào danh mục này.
+        childrenCount:
+          type: integer
+          minimum: 0
+          description: Số lượng danh mục con trực tiếp.
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Phiên bản optimistic locking.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogAdminCategoryItem'
+          description: Danh sách danh mục con (luôn là mảng rỗng [] nếu không có con hoặc ở chế độ flat).
+      additionalProperties: false
+    CatalogAdminCategoryListResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          const: true
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Thao tác thành công
+        data:
+          type: object
+          required:
+            - categories
+          properties:
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/CatalogAdminCategoryItem'
+          additionalProperties: false
+        timestamp:
+          type: string
+          format: date-time
+      additionalProperties: false
+    CatalogAdminCategoryDetail:
+      type: object
+      required:
+        - categoryId
+        - name
+        - slug
+        - position
+        - isActive
+        - version
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+          description: ID danh mục cha (null nếu là root).
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        imageUrl:
+          type:
+            - string
+            - 'null'
+          format: uri
+        position:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        createdAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updatedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        children:
+          type:
+            - array
+            - 'null'
+          items:
+            $ref: '#/components/schemas/CatalogAdminCategoryDetail'
+      additionalProperties: false
+    CatalogAdminCategoryResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          const: true
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: Thao tác thành công
+        data:
+          $ref: '#/components/schemas/CatalogAdminCategoryDetail'
+      additionalProperties: false
+    CatalogAdminProductImage:
+      type: object
+      required:
+        - imageId
+        - objectKey
+        - role
+        - position
+        - mediaStatus
+        - scanStatus
+      properties:
+        imageId:
+          type: string
+        objectKey:
+          type: string
+        url:
+          type:
+            - string
+            - 'null'
+          format: uri
+        altText:
+          type:
+            - string
+            - 'null'
+        role:
+          type: string
+          enum:
+            - COVER
+            - GALLERY
+            - THUMBNAIL
+        position:
+          type: integer
+          minimum: 0
+        mediaStatus:
+          type: string
+          enum:
+            - PENDING_SCAN
+            - PENDING_REVIEW
+            - APPROVED
+            - REJECTED
+        scanStatus:
+          type: string
+          enum:
+            - PENDING
+            - CLEAN
+            - INFECTED
+            - FAILED
+        scannedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        rejectedReason:
+          type:
+            - string
+            - 'null'
+        uploadedBy:
+          type:
+            - string
+            - 'null'
+        reviewedBy:
+          type:
+            - string
+            - 'null'
+        reviewedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       additionalProperties: false
   responses:
     BadRequest:

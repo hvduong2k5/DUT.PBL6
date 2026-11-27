@@ -1255,6 +1255,13 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .guest-order-aside ul { display: grid; gap: 7px; margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
 .guest-order-aside p { color: var(--muted); font-size: 13px; }
 .guest-order-aside a { color: var(--brick); font-size: 13px; font-weight: 800; }
+.guest-device-orders { max-width: 700px; margin: 0 auto 22px; padding: 17px 20px; border: 1px solid var(--border); border-top: 4px solid var(--brick); border-radius: 3px; background: white; }
+.guest-device-orders h2 { margin: 0 0 4px; color: var(--primary); font: 600 18px var(--font-display); }
+.guest-device-orders > p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.guest-device-orders ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.guest-device-orders li a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 3px; color: var(--ink); font-size: 13px; text-decoration: none; }
+.guest-device-orders li a:hover { background: #f4f1ed; }
+.guest-device-orders li a span { color: var(--muted); }
 
 @media (max-width: 900px) {
   .order-confirmation-layout { grid-template-columns: 1fr; }
@@ -1336,6 +1343,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .checkout-field input[aria-invalid="true"], .checkout-field select[aria-invalid="true"] { border-color: var(--error); background: #fff8f7; }
 .checkout-field select:disabled { color: #a09790; cursor: not-allowed; }
 .checkout-field > small, .checkout-field-error { margin: 0; color: var(--error); font-size: 13px; }
+.field-error-slot { display: block; min-height: 18px; }
+.location-combobox { position: relative; }
+.location-combobox > input { width: 100%; }
+.location-combobox > input:disabled { color: #a09790; cursor: not-allowed; }
+.location-combobox-list { position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; right: 0; max-height: 252px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; background: white; border: 1px solid #d8cfc6; border-radius: 6px; box-shadow: 0 12px 32px rgba(61, 48, 39, .18); }
+.location-combobox-option { padding: 8px 10px; border-radius: 4px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.location-combobox-option.active { background: #f4f1ed; }
+.location-combobox-option[aria-selected="true"] { font-weight: 700; }
+.location-combobox-empty, .location-combobox-more { padding: 8px 10px; font-size: 12px; color: var(--muted); }
 .checkout-data-note { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
 
 .checkout-options { display: grid; gap: 9px; }

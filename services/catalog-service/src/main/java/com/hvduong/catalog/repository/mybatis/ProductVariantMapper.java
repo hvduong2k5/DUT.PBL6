@@ -45,4 +45,6 @@ public interface ProductVariantMapper {
       @Param("id") UUID id,
       @Param("listingStatus") String listingStatus,
       @Param("expectedVersion") long expectedVersion);
+
+  int incrementPriceRevision(@Param("id") UUID id);
 }

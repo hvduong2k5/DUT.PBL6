@@ -56,6 +56,7 @@ def main():
     parser.add_argument("--flutter", help="Run the native Dart repositories against the same live stack")
     parser.add_argument("--keep-running", action="store_true")
     parser.add_argument("--fulfillment", action="store_true", help="Use actual Fulfillment/media providers instead of TEST packing")
+    parser.add_argument("--guest-checkout", action="store_true", help="Exercise F-53 guest COD, VietQR and Customer cart merge through the actual Web BFF")
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
@@ -108,6 +109,19 @@ def main():
     web = f"http://127.0.0.1:{ports['web']}"
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
+    if args.guest_checkout:
+        env.update(
+            WEB_TEST_GUEST_CHECKOUT="true",
+            GUEST_SESSION_SECRET=secrets.token_urlsafe(48),
+            NEXT_PUBLIC_MVP_GUEST_ORDER_ENABLED="true",
+            NEXT_PUBLIC_MVP_COD_ENABLED="true",
+            GUEST_ORDER_UPSTREAM_URL=gateway+"/api/v1",
+            GUEST_SESSION_ISSUANCE_ENABLED="true",
+            GUEST_CART_MUTATION_ENABLED="true",
+            GUEST_COD_CHECKOUT_ENABLED="true",
+            GUEST_VIETQR_CHECKOUT_ENABLED="true",
+            GUEST_CART_MERGE_ENABLED="true",
+        )
     accounts = {
         key: {
             "principal": str(uuid.uuid4()),
@@ -696,6 +710,13 @@ def main():
             "SET search_path TO profile,public;"
             + (
                 ROOT
+                / "services/profile-service/migrations/000002_street_mappings_and_national_seed.up.sql"
+            ).read_text(encoding="utf-8")
+        )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
                 / "services/profile-service/migrations/000003_profile_integrity.up.sql"
             ).read_text(encoding="utf-8")
         )
@@ -706,13 +727,17 @@ def main():
                 / "services/profile-service/migrations/000004_normalize_shipping_ward_names.up.sql"
             ).read_text(encoding="utf-8")
         )
+        sql(
+            "SET search_path TO profile,public;"
+            + (
+                ROOT
+                / "services/profile-service/migrations/000005_full_administrative_catalogue.up.sql"
+            ).read_text(encoding="utf-8")
+        )
         for index, account in enumerate(accounts.values()):
             sql(
                 f"INSERT INTO profile.customer_profiles(id,user_id,full_name,phone_number,email,status) VALUES('{account['customer']}','{account['principal']}','Synthetic Customer {index}','090000000{index}','{account['email']}','ACTIVE');"
             )
-        sql(
-            "INSERT INTO profile.administrative_units(code,name,full_name,parent_code,level) VALUES('HUE-01','Synthetic TEST ward','Synthetic TEST ward','75','WARD');"
-        )
         internal_token = catalog_token
         env.update(
             DATABASE_URL=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=profile",
@@ -797,21 +822,61 @@ def main():
         status, detail, _ = request(catalog_url + "/api/v1/products/test-product")
         assert status == 200 and detail["variants"][0]["stock_available"] == 100, ("Catalog Kafka display", status, detail)
         print("PASS: real Inventory outbox -> Kafka -> Java Catalog consumer -> public stock display", flush=True)
-        # Revalidation must fail on a changed price, future price, or unapproved parent product.
-        headers={"X-Internal-Token":catalog_token}
-        selection={"items":[{"sku_code":"PEER","quantity":1}],"channel":"D2C_WEB"}
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection)[0]==401
-        status,pinned,_=request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)
-        assert status==200 and pinned["subtotal"]==1000
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
-        sql("UPDATE catalog_live.channel_prices SET amount_units=1001,version=version+1;")
-        assert not request(catalog_url+"/api/v1/internal/catalog/snapshots/"+pinned["snapshot_id"]+"/revalidate",method="POST",headers=headers)[1]["valid"]
-        sql("UPDATE catalog_live.channel_prices SET amount_units=1000,version=version+1,effective_from=NOW()+interval '1 day';")
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
-        sql("UPDATE catalog_live.channel_prices SET effective_from=NOW()-interval '1 day'; UPDATE catalog_live.products SET approval_status='DRAFT';")
-        assert request(catalog_url+"/api/v1/internal/catalog/snapshots",selection,headers=headers)[0]==422
-        sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
-        print("PASS: real Catalog rejects missing credentials, stale snapshots, future prices and unapproved products",flush=True)
+        # Catalog checkout pricing validation over gRPC must reject missing credentials, changed prices, future prices, and unapproved parent products.
+        import grpc
+        import grpc_tools
+        from grpc_tools import protoc as grpc_protoc
+        grpc_out = folder / "catalog_grpc_py"
+        grpc_out.mkdir(parents=True, exist_ok=True)
+        proto_root = Path(__file__).resolve().parents[1] / "packages" / "proto"
+        builtin_proto = Path(grpc_tools.__file__).resolve().parent / "_proto"
+        assert grpc_protoc.main([
+            "grpc_tools.protoc",
+            f"-I{proto_root}",
+            f"-I{builtin_proto}",
+            f"--python_out={grpc_out}",
+            f"--grpc_python_out={grpc_out}",
+            str(proto_root / "common" / "v1" / "types.proto"),
+            str(proto_root / "common" / "v1" / "errors.proto"),
+            str(proto_root / "catalog" / "v1" / "catalog.proto"),
+        ]) == 0
+        for pkg_dir in [grpc_out, *grpc_out.rglob("*")]:
+            if pkg_dir.is_dir():
+                (pkg_dir / "__init__.py").touch()
+        sys.path.insert(0, str(grpc_out))
+        from catalog.v1 import catalog_pb2, catalog_pb2_grpc
+        from common.v1 import types_pb2
+        with grpc.insecure_channel(f"127.0.0.1:{ports['catalog_grpc']}") as ch:
+            stub = catalog_pb2_grpc.CatalogServiceStub(ch)
+            req = catalog_pb2.ValidateCheckoutPricingRequest(
+                channel=catalog_pb2.SALES_CHANNEL_D2C_WEB,
+                items=[
+                    catalog_pb2.CheckoutItemInput(
+                        sku_code="PEER",
+                        quantity=1,
+                        client_unit_price=types_pb2.Money(currency_code="VND", units=1000),
+                    )
+                ],
+            )
+            try:
+                stub.ValidateCheckoutPricing(req, timeout=5)
+                raise AssertionError("Expected UNAUTHENTICATED without x-internal-token")
+            except grpc.RpcError as err:
+                assert err.code() == grpc.StatusCode.UNAUTHENTICATED, err.code()
+            meta = [("x-internal-token", catalog_token)]
+            resp = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert resp.is_valid and resp.canonical_subtotal.units == 1000, resp
+            sql("UPDATE catalog_live.channel_prices SET amount_units=1001,version=version+1;")
+            resp_changed = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_changed.is_valid, resp_changed
+            sql("UPDATE catalog_live.channel_prices SET amount_units=1000,version=version+1,effective_from=NOW()+interval '1 day';")
+            resp_future = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_future.is_valid, resp_future
+            sql("UPDATE catalog_live.channel_prices SET effective_from=NOW()-interval '1 day'; UPDATE catalog_live.products SET approval_status='DRAFT';")
+            resp_draft = stub.ValidateCheckoutPricing(req, metadata=meta, timeout=5)
+            assert not resp_draft.is_valid, resp_draft
+            sql("UPDATE catalog_live.products SET approval_status='APPROVED',version=version+1;")
+        print("PASS: real Catalog gRPC rejects missing credentials, changed prices, future prices and unapproved products", flush=True)
         # Catalog reads live display availability from the authenticated TLS Inventory API.
         # Restart catalog with inventory peer target for live availability lookup.
         catalog_process.terminate()
@@ -905,7 +970,8 @@ def main():
                 raise
         env.update(
             WEB_TEST_CHECKOUT="true",
-            WEB_TEST_REAL_CATALOG_URL=catalog_url,
+            WEB_TEST_REAL_CATALOG_GRPC=f"127.0.0.1:{ports['catalog_grpc']}",
+            WEB_TEST_REAL_CATALOG_TOKEN=catalog_token,
             WEB_TEST_FIXTURE_DIR=str(folder),
             WEB_TEST_CONTROL_PORT=str(ports["control"]),
             WEB_TEST_ORDER_DATABASE=f"postgres://peer:{password}@127.0.0.1:{ports['db']}/{db_name}?sslmode=disable&search_path=orders",
@@ -1243,6 +1309,11 @@ def main():
             opener = urllib.request.build_opener(
                 urllib.request.HTTPCookieProcessor(jar), NoRedirect()
             )
+            guest_source = None
+            if args.guest_checkout and key == "A":
+                from mvp_guest_checks import guest_purchases, prepare_merge_source
+                guest_purchases(request,web,f"http://127.0.0.1:{ports['control']}")
+                guest_source=prepare_merge_source(request,web,jar,opener)
             status, _, headers = request(
                 web + "/api/auth/oidc/login?returnUrl=%2Fcart", opener=opener
             )
@@ -1385,6 +1456,9 @@ def main():
             assert (
                 status == 200 and cart["items"][0]["sku_code"] == "PRIVATE-" + key
             ), "Cross-owner Cart/header spoofing"
+            if args.guest_checkout:
+                from mvp_guest_checks import merge_after_login
+                merge_after_login(request,web,gateway,jar,opener,guest_source,cart)
             status, native_refresh, refresh_headers = request(
                 gateway + "/api/v1/public/auth/tokens/refresh",
                 {},
@@ -1434,6 +1508,8 @@ def main():
                     shipping_webhook,
                     packing=real_packing,
                 )
+                if args.guest_checkout:
+                    guest_purchases(request, web, f"http://127.0.0.1:{ports['control']}", customer_opener=opener)
             elif key == "B":
                 for path in [
                     "/api/orders/" + placed_order,
@@ -1506,7 +1582,7 @@ def main():
                 request(web + "/api/auth/me", opener=opener)[0] == 401
             ), "Logout retained local session"
 
-        assert request(web + "/api/cart")[0] == 401
+        assert request(web + "/api/cart")[0] == (200 if args.guest_checkout else 401)
         for action, expected in [("LOGIN_SUCCESS", 3), ("LOGOUT_SUCCESS", 2)]:
             count = int(
                 sql(
@@ -1548,15 +1624,16 @@ def main():
             .splitlines()[2]
             .strip()
         )
+        expected_physical = 95 if args.guest_checkout else 98
         assert stock == {
-            "physical": 98,
+            "physical": expected_physical,
             "reserved": 0,
-            "batch_physical": 98,
+            "batch_physical": expected_physical,
             "batch_reserved": 0,
-            "events": 1,
+            "events": 4 if args.guest_checkout else 1,
         }, ("Inventory did not reserve/release/commit exactly once", stock)
-        inventory_projection(98)
-        assert "(2 rows)" in sql("SELECT id FROM orders.orders;")
+        inventory_projection(expected_physical)
+        assert ("(5 rows)" if args.guest_checkout else "(2 rows)") in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
             session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
@@ -1566,7 +1643,7 @@ def main():
             with (folder/"mobile-live.log").open("w",encoding="utf-8") as log:
                 run([args.flutter,"test","--no-pub","--dart-define=IDENTITY_ALLOW_HTTP=true","test/live_mvp_contract_test.dart"],ROOT/"apps/mobile-app",stdout=log,stderr=log)
             after=json.loads(sql(f"SELECT json_build_object('physical',physical_qty,'reserved',reserved_qty) FROM \"{inventory_schema}\".inventory_items WHERE sku='PEER';",tuples=True))
-            assert after == {"physical":98,"reserved":0}, ("Native cancellation did not release Inventory",after)
+            assert after == {"physical":expected_physical,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
         # Drop the grants projected onto the fixture Employee for the
@@ -1598,6 +1675,7 @@ def main():
             "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
             "accounts": 4,
+            "guest_checkout": args.guest_checkout,
             "inventory": stock,
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
@@ -1610,6 +1688,7 @@ def main():
                 "shipping-revision-kafka-delivery-order-history",
                 "native-app-bound-PKCE-refresh-logout-persona-gates",
                 *( ["native-Dart-real-purchase-cancel-and-Inventory-release"] if args.flutter else [] ),
+                *( ["guest-COD-and-VietQR-order-grant-TEST-settlement", "OIDC-Customer-cart-merge-replay-revocation-dropped-SKU", "registered-Customer-COD"] if args.guest_checkout else [] ),
             ],
         }
         (folder / "result.json").write_text(json.dumps(result, indent=2))

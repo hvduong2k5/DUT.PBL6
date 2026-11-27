@@ -1,0 +1,46 @@
+-- Rollback of 000005: restore the v1 demo subset (39 units).
+-- NOTE: saved addresses and street mappings deleted by the up migration
+-- cannot be restored by this rollback.
+DELETE FROM street_ward_mappings;
+DELETE FROM shipping_addresses;
+DELETE FROM administrative_units;
+INSERT INTO administrative_units (code, name, name_en, full_name, parent_code, level) VALUES
+('75', 'Thành phố Huế', 'Hue City', 'Thành phố Huế', NULL, 'PROVINCE'),
+('WARD-TH-001', 'Thuận Hòa', 'Thuan Hoa', 'Phường Thuận Hòa, Thành phố Huế', '75', 'WARD'),
+('WARD-VL-002', 'Vĩnh Lộc', 'Vinh Loc', 'Xã Vĩnh Lộc, Thành phố Huế', '75', 'WARD'),
+('WARD-PB-003', 'Phú Bài', 'Phu Bai', 'Phường Phú Bài, Thành phố Huế', '75', 'WARD'),
+('WARD-KL-004', 'Kim Long', 'Kim Long', 'Phường Kim Long, Thành phố Huế', '75', 'WARD'),
+('WARD-VD-005', 'Vỹ Dạ', 'Vy Da', 'Phường Vỹ Dạ, Thành phố Huế', '75', 'WARD'),
+('WARD-AC-006', 'An Cựu', 'An Cuu', 'Phường An Cựu, Thành phố Huế', '75', 'WARD'),
+('WARD-XP-007', 'Xuân Phú', 'Xuan Phu', 'Phường Xuân Phú, Thành phố Huế', '75', 'WARD'),
+('WARD-DN-008', 'Đức Nhuận', 'Duc Nhuan', 'Phường Đức Nhuận, Thành phố Huế', '75', 'WARD'),
+('WARD-TX-009', 'Thủy Xuân', 'Thuy Xuan', 'Phường Thủy Xuân, Thành phố Huế', '75', 'WARD'),
+('WARD-TB-010', 'Thủy Biều', 'Thuy Bieu', 'Phường Thủy Biều, Thành phố Huế', '75', 'WARD'),
+('WARD-TL-011', 'Tây Lộc', 'Tay Loc', 'Phường Tây Lộc, Thành phố Huế', '75', 'WARD'),
+('WARD-DB-012', 'Đông Ba', 'Dong Ba', 'Phường Đông Ba, Thành phố Huế', '75', 'WARD'),
+('01', 'Thành phố Hà Nội', 'Hanoi City', 'Thành phố Hà Nội', NULL, 'PROVINCE'),
+('79', 'Thành phố Hồ Chí Minh', 'Ho Chi Minh City', 'Thành phố Hồ Chí Minh', NULL, 'PROVINCE'),
+('48', 'Thành phố Đà Nẵng', 'Da Nang City', 'Thành phố Đà Nẵng', NULL, 'PROVINCE'),
+('WARD-HN-001', 'Tràng Tiền', 'Trang Tien', 'Phường Tràng Tiền, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-002', 'Hàng Bạc', 'Hang Bac', 'Phường Hàng Bạc, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-003', 'Cửa Đông', 'Cua Dong', 'Phường Cửa Đông, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-004', 'Dịch Vọng', 'Dich Vong', 'Phường Dịch Vọng, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-005', 'Nghĩa Tân', 'Nghia Tan', 'Phường Nghĩa Tân, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-006', 'Láng Thượng', 'Lang Thuong', 'Phường Láng Thượng, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HN-007', 'Bách Khoa', 'Bach Khoa', 'Phường Bách Khoa, Thành phố Hà Nội', '01', 'WARD'),
+('WARD-HCM-001', 'Bến Nghé', 'Ben Nghe', 'Phường Bến Nghé, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-HCM-002', 'Bến Thành', 'Ben Thanh', 'Phường Bến Thành, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-HCM-003', 'Đa Kao', 'Da Kao', 'Phường Đa Kao, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-HCM-004', 'Tân Định', 'Tan Dinh', 'Phường Tân Định, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-HCM-005', 'Thảo Điền', 'Thao Dien', 'Phường Thảo Điền, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-HCM-006', 'Võ Thị Sáu', 'Vo Thi Sau', 'Phường Võ Thị Sáu, Thành phố Hồ Chí Minh', '79', 'WARD'),
+('WARD-DN-001', 'Thạch Thang', 'Thach Thang', 'Phường Thạch Thang, Thành phố Đà Nẵng', '48', 'WARD'),
+('WARD-DN-002', 'Hải Châu 1', 'Hai Chau 1', 'Phường Hải Châu 1, Thành phố Đà Nẵng', '48', 'WARD'),
+('WARD-DN-003', 'Hải Châu 2', 'Hai Chau 2', 'Phường Hải Châu 2, Thành phố Đà Nẵng', '48', 'WARD'),
+('WARD-DN-004', 'Phước Mỹ', 'Phuoc My', 'Phường Phước Mỹ, Thành phố Đà Nẵng', '48', 'WARD'),
+('WARD-DN-005', 'Hòa Cường Bắc', 'Hoa Cuong Bac', 'Phường Hòa Cường Bắc, Thành phố Đà Nẵng', '48', 'WARD'),
+('WARD-TL-013', 'Thuận Lộc', 'Thuan Loc', 'Phường Thuận Lộc, Thành phố Huế', '75', 'WARD'),
+('WARD-VN-014', 'Vĩnh Ninh', 'Vinh Ninh', 'Phường Vĩnh Ninh, Thành phố Huế', '75', 'WARD'),
+('WARD-PH-015', 'Phú Hội', 'Phu Hoi', 'Phường Phú Hội, Thành phố Huế', '75', 'WARD'),
+('WARD-PN-016', 'Phú Nhuận', 'Phu Nhuan', 'Phường Phú Nhuận, Thành phố Huế', '75', 'WARD'),
+('WARD-GH-017', 'Gia Hội', 'Gia Hoi', 'Phường Gia Hội, Thành phố Huế', '75', 'WARD');

@@ -5,8 +5,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +54,12 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 	cfg.CallbackSecret = strings.Repeat("y", 32)
 	cfg.EncryptionKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{17}, 32))
 	cfg.Receiver = "SYNTHETIC-ONLY"
-	cfg.CatalogURL = os.Getenv("WEB_TEST_REAL_CATALOG_URL")
+	cfg.CatalogGRPC = os.Getenv("WEB_TEST_REAL_CATALOG_GRPC")
+	cfg.CatalogToken = os.Getenv("WEB_TEST_REAL_CATALOG_TOKEN")
+	cfg.CatalogAllowLocalInsecure = cfg.CatalogGRPC != ""
+	if cfg.CatalogGRPC == "" {
+		cfg.CatalogURL = os.Getenv("WEB_TEST_REAL_CATALOG_URL")
+	}
 	cfg.CatalogWarehouse = "00000000-0000-0000-0000-000000000001"
 	cfg.CatalogShippingCarrier = "FAKE"
 	cfg.CatalogShippingService = "STANDARD"
@@ -115,6 +125,22 @@ func connected(ctx context.Context, cfg app.Config) (*app.Service, error) {
 	}
 	if err = service.EnableSePayFromEnv(ctx); err != nil {
 		return nil, err
+	}
+	if cfg.GuestVietQRCheckoutEnabled {
+		key, e := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if e != nil {
+			return nil, e
+		}
+		service.Payment.GrantKey = key
+		service.Payment.GrantKeyID = "guest-fixture-v1"
+		// Keep the generated key private to this disposable TEST fixture.
+		der, e := x509.MarshalPKCS8PrivateKey(key)
+		if e != nil {
+			return nil, e
+		}
+		if e = os.WriteFile(filepath.Join(folder, "guest-grant.pem"), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0600); e != nil {
+			return nil, e
+		}
 	}
 	if err = service.EnableCoreCheckout(); err != nil {
 		return nil, err

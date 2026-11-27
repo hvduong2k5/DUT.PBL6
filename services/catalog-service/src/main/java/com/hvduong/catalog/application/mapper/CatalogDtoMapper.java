@@ -25,6 +25,10 @@ public interface CatalogDtoMapper {
 
   // ── Category ──────────────────────────────────────────────────────────────
   @Mapping(source = "id", target = "categoryId")
+  @Mapping(source = "active", target = "isActive")
+  @Mapping(
+      target = "imageUrl",
+      expression = "java(AdminCatalogMapper.imageUrl(category.getImageUrl()))")
   @Mapping(target = "children", ignore = true)
   CategoryResponse toCategoryResponse(Category category);
 
@@ -52,6 +56,9 @@ public interface CatalogDtoMapper {
   @Mapping(source = "productId", target = "productId")
   @Mapping(source = "variantName", target = "name")
   @Mapping(target = "price", ignore = true)
+  @Mapping(target = "priceVersion", ignore = true)
+  @Mapping(target = "channel", ignore = true)
+  @Mapping(target = "stockStatus", ignore = true)
   @Mapping(target = "stockAvailable", ignore = true)
   ProductVariantResponse toVariantResponse(ProductVariant variant);
 

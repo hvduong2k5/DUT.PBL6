@@ -17,10 +17,11 @@ services:
     networks:
       - om-network
 
-  # 2. NoSQL Document Store: MongoDB (User Clickstream, Behavior & Tracking Events)
+  # 2. NoSQL Document Store: MongoDB (Dự phòng cho Clickstream/Behavior — hiện chưa có service sử dụng)
   mongodb:
     image: mongo:7.0
     container_name: om-mongodb
+    profiles: ["clickstream"]
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
@@ -62,9 +63,9 @@ services:
     networks:
       - om-network
 
-  # 5. Object Storage: MinIO (S3-Compatible for Product Images, Videos, Invoices)
+  # 5. Object Storage: MinIO (S3-Compatible via pgsty/silo drop-in image)
   minio:
-    image: minio/minio:RELEASE.2024-03-30T09-41-56Z
+    image: pgsty/silo:latest
     container_name: om-minio
     restart: unless-stopped
     environment:
@@ -76,6 +77,21 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    networks:
+      - om-network
+
+  # 6. Database Management UI: Adminer (Quản lý PostgreSQL qua Web UI)
+  adminer:
+    image: adminer:latest
+    container_name: om-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: nette
+    ports:
+      - "8088:8080"
+    depends_on:
+      - postgres
     networks:
       - om-network
 

@@ -1,0 +1,40 @@
+# Stage 1: Build from repository root (.) so shared packages/proto is accessible
+FROM node:20-alpine AS builder
+
+WORKDIR /workspace
+
+RUN apk add --no-cache python3 make g++ vips-dev
+
+COPY packages/proto ./packages/proto
+COPY services/media-service/package*.json ./services/media-service/
+
+WORKDIR /workspace/services/media-service
+RUN npm ci
+
+COPY services/media-service ./
+RUN npx prisma generate && npm run build
+
+# Stage 2: Minimal runtime image
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN apk add --no-cache vips
+
+COPY --from=builder /workspace/services/media-service/package*.json ./
+COPY --from=builder /workspace/services/media-service/node_modules ./node_modules
+COPY --from=builder /workspace/services/media-service/dist ./dist
+COPY --from=builder /workspace/services/media-service/prisma ./prisma
+COPY --from=builder /workspace/packages/proto ./packages/proto
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && chown -R appuser:appgroup /app
+
+USER appuser
+
+ENV NODE_ENV=production \
+    PROTO_ROOT=/app/packages/proto
+
+EXPOSE 8007 9007
+
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

@@ -187,7 +187,7 @@ func (h *harness) quote(method string) domain.Quote {
 	if e != nil {
 		h.t.Fatal(e)
 	}
-	q, e := h.S.CreateQuote(h.ctx, h.Principal, domain.QuoteInput{Revision: cart.Revision, Method: method, Address: &domain.Address{Name: "Synthetic customer", Phone: "+84905123456", Street: "Test only", Ward: "HUE-01", Province: "75"}})
+	q, e := h.S.CreateQuote(h.ctx, h.Principal, domain.QuoteInput{Revision: cart.Revision, Method: method, Address: &domain.Address{Name: "Synthetic customer", Phone: "+84905123456", Street: "Test only", Ward: "19753", Province: "46"}})
 	if e != nil {
 		h.t.Fatal(e)
 	}

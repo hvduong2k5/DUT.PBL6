@@ -2,6 +2,9 @@ package com.hvduong.catalog.application.dto.request;
 
 import java.util.UUID;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -26,6 +29,8 @@ public class UpdateProductRequest {
   @Size(max = 1000)
   private String storageGuide;
 
+  @Min(value = 3, message = "Sao OCOP phải từ 3 đến 5")
+  @Max(value = 5, message = "Sao OCOP phải từ 3 đến 5")
   private Integer ocopStar;
 
   @Size(max = 100)
@@ -34,6 +39,19 @@ public class UpdateProductRequest {
   @Size(max = 5000)
   private String story;
 
-  /** Bắt buộc để optimistic locking. */
-  private long version;
+  /** Bắt buộc cho khóa lạc quan (optimistic locking). */
+  @NotNull(message = "expectedVersion không được bỏ trống")
+  @Min(value = 0, message = "expectedVersion phải lớn hơn hoặc bằng 0")
+  private Long expectedVersion;
+
+  /** Alias tương thích ngược cho version. */
+  public Long getVersion() {
+    return expectedVersion;
+  }
+
+  public void setVersion(Long version) {
+    if (this.expectedVersion == null) {
+      this.expectedVersion = version;
+    }
+  }
 }
