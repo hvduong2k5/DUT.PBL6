@@ -1,0 +1,97 @@
+package kafka
+
+import (
+    "context"
+    "dut-pbl6/inventory-service/internal/testdb"
+    "encoding/json"
+    "errors"
+    "os"
+    "os/exec"
+    "strings"
+    "testing"
+    "time"
+    segmentio "github.com/segmentio/kafka-go"
+    "github.com/stretchr/testify/require"
+)
+
+// Test adapter copied into an archived PR snapshot, never the real Inventory branch.
+// Consumer/store/migrations are the unmodified production code at the pinned commit.
+func TestProcurementProducerConsumerE2E(t *testing.T) {
+    if os.Getenv("PROCUREMENT_E2E_ISOLATED") != "1" { t.Skip("isolated launcher required") }
+    brokers := strings.Split(os.Getenv("PROCUREMENT_E2E_KAFKA_BROKERS"), ",")
+    ctx, cancel := context.WithTimeout(context.Background(), 150*time.Second)
+    defer cancel()
+    conn, err := segmentio.DialContext(ctx, "tcp", brokers[0])
+    require.NoError(t, err)
+    for _, topic := range []string{procurementTopic, procurementDLQ} {
+        err := conn.CreateTopics(segmentio.TopicConfig{Topic:topic, NumPartitions:1, ReplicationFactor:1})
+        require.True(t, err == nil || errors.Is(err, segmentio.TopicAlreadyExists), "%v", err)
+    }
+    conn.Close()
+    db := testdb.Open(t)
+    _, err = db.Exec("INSERT INTO inventory_items(sku,warehouse_id,physical_qty) VALUES('PROC-E2E-KG',$1,0)", warehouseID)
+    require.NoError(t, err)
+    mapping, err := ProcurementWarehouseMap("WH-HUE="+warehouseID)
+    require.NoError(t, err)
+    consumerCtx, stop := context.WithCancel(ctx)
+    done := make(chan struct{})
+    go func(){ defer close(done); RunProcurementConsumer(consumerCtx, brokers, db, mapping, map[string]string{"PROC-E2E-KG":"GRAM"}) }()
+    defer func(){ stop(); select {case <-done: case <-time.After(10*time.Second): t.Error("consumer did not stop") } }()
+    writer := &segmentio.Writer{Addr:segmentio.TCP(brokers...), Topic:procurementTopic, RequiredAcks:segmentio.RequireAll, BatchTimeout:10*time.Millisecond}
+    defer writer.Close()
+    client := &segmentio.Client{Addr:segmentio.TCP(brokers...), Timeout:3*time.Second}
+    // No business event is sent until LastOffset group activation is proven by
+    // committing an unrelated event on this dedicated test broker.
+    require.Eventually(t,func()bool{
+        if err := writer.WriteMessages(ctx, segmentio.Message{Key:[]byte("probe"), Value:[]byte(`{"type":"vn.omama.procurement.e2e.probe.v1","specversion":"1.0","id":"test-probe","source":"urn:isolated:receiving-test"}`)}); err != nil { return false }
+        offsets,err := client.OffsetFetch(ctx,&segmentio.OffsetFetchRequest{GroupID:procurementGroup,Topics:map[string][]int{procurementTopic:{0}}})
+        if err != nil || offsets.Error != nil { return false }
+        for _,p := range offsets.Topics[procurementTopic] { if p.Error==nil && p.CommittedOffset>0 { return true } }
+        return false
+    },35*time.Second,300*time.Millisecond)
+    cmd := exec.CommandContext(ctx, os.Getenv("PROCUREMENT_E2E_PRODUCER_BIN"), "-test.run=^TestPublishInspectedReceiptsE2E$", "-test.v", "-test.timeout=100s")
+    output, err := cmd.CombinedOutput()
+    t.Log(string(output))
+    require.NoError(t, err, "real Procurement producer failed")
+    raw, err := os.ReadFile(os.Getenv("PROCUREMENT_E2E_REPORT"))
+    require.NoError(t,err)
+    var events []json.RawMessage
+    require.NoError(t,json.Unmarshal(raw,&events))
+    require.Len(t,events,2)
+    require.Eventually(t,func()bool{
+        var quantity int
+        return db.QueryRow("SELECT physical_qty FROM inventory_items WHERE sku='PROC-E2E-KG'").Scan(&quantity)==nil && quantity==3500
+    },25*time.Second,200*time.Millisecond)
+    for _, payload := range events {
+        // Replay exactly the persisted outbox bytes, including ID and trace.
+        require.NoError(t,writer.WriteMessages(ctx,segmentio.Message{Key:[]byte("PROC-E2E-KG"),Value:payload}))
+    }
+    require.Eventually(t,func()bool{lag,err:=readProcurementLag(ctx,client); return err==nil&&lag==0},15*time.Second,200*time.Millisecond)
+    var stock, batches, receipts, quarantined, unknownDates, sellable int
+    require.NoError(t,db.QueryRow("SELECT physical_qty,inventory_sellable_quantity(sku,clock_timestamp()) FROM inventory_items WHERE sku='PROC-E2E-KG'").Scan(&stock,&sellable))
+    require.Equal(t,3500,stock)
+    require.Zero(t,sellable)
+    require.NoError(t,db.QueryRow("SELECT count(*),count(*) FILTER(WHERE status='QUARANTINE'),count(*) FILTER(WHERE mfg_date IS NULL AND exp_date IS NULL) FROM batches WHERE sku='PROC-E2E-KG'").Scan(&batches,&quarantined,&unknownDates))
+    require.Equal(t,2,batches); require.Equal(t,2,quarantined); require.Equal(t,2,unknownDates)
+    require.NoError(t,db.QueryRow("SELECT count(*) FROM procurement_receipts WHERE sku='PROC-E2E-KG' AND po_number<>'' AND supplier_code<>'' AND received_at IS NOT NULL").Scan(&receipts))
+    require.Equal(t,2,receipts)
+    leader,err:=segmentio.DialLeader(ctx,"tcp",brokers[0],procurementDLQ,0)
+    require.NoError(t,err)
+    offset,err:=leader.ReadLastOffset(); require.NoError(t,err); leader.Close()
+    var invalid map[string]any
+    require.NoError(t,json.Unmarshal(events[0],&invalid))
+    invalid["id"]="invalid-quantity-e2e"
+    invalid["data"].(map[string]any)["quantity_received"]=1.000001
+    invalidPayload,err:=json.Marshal(invalid);require.NoError(t,err)
+    require.NoError(t,writer.WriteMessages(ctx,segmentio.Message{Key:[]byte("PROC-E2E-KG"),Value:invalidPayload}))
+    dlq:=segmentio.NewReader(segmentio.ReaderConfig{Brokers:brokers,Topic:procurementDLQ,Partition:0,MaxWait:time.Second})
+    defer dlq.Close();require.NoError(t,dlq.SetOffset(offset))
+    message,err:=dlq.ReadMessage(ctx);require.NoError(t,err)
+    require.JSONEq(t,string(invalidPayload),string(message.Value))
+    headers:=map[string]string{};for _,h:=range message.Headers{headers[h.Key]=string(h.Value)}
+    require.Equal(t,procurementTopic,headers["x-original-topic"])
+    require.NotEmpty(t,headers["x-exception-message"])
+    require.NoError(t,db.QueryRow("SELECT physical_qty FROM inventory_items WHERE sku='PROC-E2E-KG'").Scan(&stock))
+    require.Equal(t,3500,stock)
+    t.Log("PASS: real inspection/outbox/Kafka/Inventory; 3500g physical, 0 sellable, 2 quarantine batches; replay dedupe; DB rollback; invalid quantity DLQ")
+}

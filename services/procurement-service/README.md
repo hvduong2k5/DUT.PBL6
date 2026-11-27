@@ -113,6 +113,34 @@ Run `python scripts/verify-procurement-receipt-contract.py` from the repository 
 
 Cutover: new events have traceparent, but persisted older outbox payloads are never rewritten by retries. Audit pending/published events before enabling the consumer; missing trace context or incompatible quantities require an operator-reviewed replay/correction plan. Do not regenerate IDs or blindly replay old receipts into stock. Inventory's new-group LastOffset policy also requires coordinated startup before new Procurement events, or an explicit retained-offset replay plan.
 
+## Isolated producer-consumer verification
+
+From the repository root on Windows with Docker Desktop and Go available:
+
+```powershell
+.\services\procurement-service\scripts\run-receiving-integration.ps1
+```
+
+The launcher creates a uniquely named disposable PostgreSQL 16/Kafka project on loopback-only
+temporary ports. It archives Inventory PR #118 at `21775d667bdf1373dce76c33d27f35aba1c8f5b0`
+into `.tmp`, copies only a test adapter there, and does not merge/edit that Inventory branch.
+The pinned commit must exist in local Git objects. Procurement uses its real migrations,
+application/repository, inspection transaction, outbox worker and Kafka producer. Inventory
+uses the pinned real migrations and consumer. Each service has its own generated DB schema.
+
+Coverage: migration rerun, receipt-create idempotency, partial and fully rejected receipts,
+injected outbox failure with receipt/PO/history rollback, real broker acknowledgement, receipt
+provenance, exact 3500-gram physical stock in two undated QUARANTINE batches, zero sellable stock,
+replayed-message dedupe, committed offsets and invalid-quantity DLQ without stock mutation.
+This is not HTTP/JWT/Web acceptance, Inventory QC release or production deployment approval.
+The fully rejected quantity remains physical quarantine evidence; its disposition is still a
+separate business workflow.
+
+The launcher removes only its own containers/network/anonymous volumes afterward; archived
+source and synthetic published-event evidence remain in the printed `.tmp/receiving-e2e-*`
+directory. `-KeepStack` retains that isolated project for diagnosis. No existing DB/volume,
+live broker, deployment configuration or credentials are used.
+
 ## Configuration
 
 - `PROCUREMENT_HTTP_ADDRESS` (default `:8008`)
