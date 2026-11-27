@@ -1,0 +1,30 @@
+// Integration target 0.3.0-draft. Provider: Identity; consumer: Traceability.
+syntax = "proto3";
+package omamx.identity.v1;
+option go_package = "github.com/omamx/proto/identity/v1;identityv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.identity.v1";
+
+// TLS, authorization: Bearer <service credential>, and exactly one
+// x-staff-authorization: Bearer <employee JWT>. Never log either credential.
+// Identity verifies both, derives the principal from the employee JWT and reads
+// current authoritative IAM grants. Do not accept a caller-supplied user ID.
+service StaffAuthorization {
+  rpc GetCurrentStaffGrants(CurrentStaffGrantsRequest) returns (CurrentStaffGrantsResponse);
+}
+message CurrentStaffGrantsRequest {}
+message CurrentStaffGrantsResponse {
+  string principal_id = 1;
+  string idp_subject = 2;
+  string principal_type = 3;
+  string provisioning_status = 4;
+  // Only traceability.* grants, at most 128; never silently truncate.
+  repeated StaffPermissionGrant permission_grants = 5;
+}
+message StaffPermissionGrant {
+  string permission_code = 1;
+  // GLOBAL or WAREHOUSE. Consumers ignore unknown scope types, never widen them.
+  string scope_type = 2;
+  // Empty for GLOBAL; canonical warehouse UUID for WAREHOUSE.
+  string scope_id = 3;
+}

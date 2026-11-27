@@ -1,4 +1,4 @@
-// Implementation target 0.2.2-draft, 2026-11-25. NOT canonical/runtime code.
+// Implementation target 0.3.0-draft, 2026-11-27. NOT canonical/runtime code.
 // Compile this directory separately; do not compile beside the canonical files.
 syntax = "proto3";
 

@@ -1,6 +1,10 @@
 # Customer API State Matrix
 
-## Order batch traceability target — 2026-11-21 (draft, not implemented)
+Transport amendment2026-11-27: target0.3.0 uses gRPC for internal business reads/resolver/current grants; Web/BFF REST and UI states below remain unchanged. See [gRPC guide](traceability-workflow-grpc.md) and [report09](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md). Do not use the superseded internal REST proposals from0.2.2.
+
+## Order batch traceability target — 2026-11-21 (draft; resolver implemented, Order/UI integration pending)
+
+Backend checkpoint 2026-11-26: the Traceability-owned internal resolver is implemented and locally tested. The customer Order subresource, sealed packing proof and Web mapping remain peer deliverables. See [verification scope](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md); no full customer E2E or production verification is claimed.
 
 Review target0.2.2: every line-batch row includes authoritative sku_code. Current Order manifests allow one line per SKU; the UI bridges exact typed SKU and verifies quantities when detail lacks canonical IDs. Duplicate/mismatched mapping becomes UNAVAILABLE, never a guessed link. More than1000rows/512KiB is root UNAVAILABLE with empty items/total0; unresolved chunks within the5second outer budget stay UNAVAILABLE. This does not erase or invalidate the order detail itself.
 

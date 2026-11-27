@@ -1,14 +1,17 @@
 # Traceability — mục lục kiểm thử và bằng chứng
 
-Cập nhật25/11/2026. Mục lục này không phải báo cáo PASS cho target mới.
+**Checkpoint27/11: target0.3.0 gRPC East-West.** [Report09](09_grpc_transport_2026-11-27.md) thay transport nội bộ của checkpoint08; nghiệp vụ/REST Web giữ nguyên, peer/UI vẫn pending.
+
+Cập nhật26/11/2026. Kết quả áp dụng đúng phạm vi của từng báo cáo, không suy thành full E2E.
 
 ## Target0.2.2: việc phải nghiệm thu
 
 - [Acceptance/test IDs và rollout](../../03_api_specs/traceability-workflow-acceptance.md): nguồn duy nhất của T-*, INV-*, IAM-*, CAT-*, FUL-*, EVT-*, ORD-*, WEB-*.
 - [Review code/rủi ro và kết quả kiểm artifact](../../03_api_specs/traceability-workflow-review-2026-11-25.md): phân biệt static checks đã chạy với runtime chưa chạy.
 - [Bộ contract và task owner](../../03_api_specs/traceability-workflow-README.md): đầu vào triển khai và kiểm thử.
+- [08 scoped backend26/11](08_scoped_backend_2026-11-26.md): phần backend mới, PostgreSQL local/signed HTTP, contract response và runbook bật tính năng.
 
-Trạng thái runtime target: **NOT RUN / NOT VERIFIED**. Lint/schema/proto compatibility xanh không chứng minh scope kho, cookie transport, in tem hoặc source proof chạy thật. Không dùng evidence sandbox/v1/P8 bên dưới để đóng các case target. Mỗi run mới phải ghi SHA/image, mode/fixture/peer thật, testID, requestId và ảnh khi áp dụng; không đưa secrets/PII vào report. Bằng chứng mới thuộc `docs/04_testing/traceability-service/` theo runID, không ghi đè report lịch sử hoặc tạo catalog contract tại đây.
+Trạng thái backend: **IMPLEMENTED / LOCAL VERIFICATION**, xem report08; trạng thái peer/UI/print/Order E2E: **PENDING**. Lint/schema/proto compatibility và fixture không chứng minh cookie transport, in tem hoặc source proof của peer thật. Không dùng evidence sandbox/v1/P8 bên dưới để đóng các case target. Mỗi run mới phải ghi SHA/image, mode/fixture/peer thật, testID, requestId và ảnh khi áp dụng; không đưa secrets/PII vào report. Bằng chứng mới thuộc `docs/04_testing/traceability-service/` theo runID, không ghi đè report lịch sử hoặc tạo catalog contract tại đây.
 
 ## Baseline đã có tài liệu bằng chứng
 

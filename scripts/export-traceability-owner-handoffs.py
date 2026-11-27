@@ -30,6 +30,10 @@ STABLE = BASE + "admin-stable.openapi.yaml"
 LEGACY = BASE + "traceability-service.openapi.yaml"
 BATCH_PROTO = BASE + "traceability-workflow-candidates/batch_source.proto"
 PACKING_PROTO = BASE + "traceability-workflow-candidates/packing.proto"
+GRPC_GUIDE = BASE + "traceability-workflow-grpc.md"
+CATALOG_PROTO = "packages/proto/catalog/v1/traceability_source.proto"
+IDENTITY_PROTO = "packages/proto/identity/v1/staff_authorization.proto"
+LINKS_PROTO = "packages/proto/traceability/v1/batch_links.proto"
 
 
 class PlainDumper(yaml.SafeDumper):
@@ -180,7 +184,7 @@ class Bundle:
             "openapi": "3.1.0",
             "info": {
                 "title": f"PBL6 {self.owner} traceability handoff",
-                "version": "0.2.2-draft",
+                "version": "0.3.0-draft",
                 "license": {"name": "Proprietary", "identifier": "LicenseRef-Proprietary"},
                 "description": f"Distribution snapshot from documentation commit {self.sources.commit}. Direct implementation target, not runtime acceptance. All references are local to this embedded contract.",
             },
@@ -213,10 +217,10 @@ def test_rows(text: str, prefixes: list[str]) -> str:
 
 OWNERS = [
     ("01-inventory.md", "Inventory", "INV-TRC-01", 1, ["INV-", "T-SCOPE-04"], [BATCH_PROTO]),
-    ("02-catalog.md", "Catalog", "CAT-TRC-01", 6, ["CAT-", "T-CTX-"], []),
-    ("03-identity.md", "Identity / Keycloak", "IAM-TRC-01", 2, ["IAM-", "T-SCOPE-01", "T-SCOPE-02", "T-SCOPE-03", "WEB-05"], []),
+    ("02-catalog.md", "Catalog", "CAT-TRC-01", 6, ["CAT-", "T-CTX-", "GRPC-CAT-"], [CATALOG_PROTO]),
+    ("03-identity.md", "Identity / Keycloak", "IAM-TRC-01", 2, ["IAM-", "T-SCOPE-01", "T-SCOPE-02", "T-SCOPE-03", "WEB-05", "GRPC-IAM-"], [IDENTITY_PROTO]),
     ("04-fulfillment.md", "Fulfillment", "FUL-TRC-01", 3, ["FUL-", "EVT-", "ORD-07"], [PACKING_PROTO]),
-    ("05-order.md", "Order", "ORD-TRC-01", 4, ["ORD-", "EVT-"], [PACKING_PROTO]),
+    ("05-order.md", "Order", "ORD-TRC-01", 4, ["ORD-", "EVT-", "GRPC-RES-"], [PACKING_PROTO, LINKS_PROTO]),
     ("06-web-gateway.md", "Frontend / Gateway", "WEB-TRC-01", 5, ["WEB-", "T-QR-", "ORD-04", "T-CTX-"], []),
 ]
 
@@ -236,8 +240,6 @@ def render(sources: Sources, owner) -> str:
         bundle.add(STABLE, "/api/v1/admin/inventory/workbench", "get")
         bundle.add(STABLE, "/api/v1/admin/inventory/workbench/receipts", "post")
         bundle.receipt_delta()
-    elif number == 6:
-        bundle.add(INTEGRATION, "/api/v1/internal/traceability/skus/{sku_code}", "get")
     elif number == 2:
         for path, item in sources.document(BFF)["paths"].items():
             for method in item:
@@ -245,7 +247,6 @@ def render(sources: Sources, owner) -> str:
                     bundle.add(BFF, path, method)
     elif number == 4:
         bundle.add(INTEGRATION, "/api/v1/orders/{order_id}/traceability", "get")
-        bundle.add(INTEGRATION, "/api/v1/internal/traceability/batch-links/resolve", "post")
     elif number == 5:
         for path in sources.document(ADMIN)["paths"]:
             file, item = ADMIN, sources.document(ADMIN)["paths"][path]
@@ -257,8 +258,8 @@ def render(sources: Sources, owner) -> str:
         bundle.add(INTEGRATION, "/api/v1/orders/{order_id}/traceability", "get")
         bundle.add(LEGACY, "/api/v2/trace/{qr_code}", "get")
 
-    source_list = [BASE + "traceability-workflow-README.md", HANDOFF, ACCEPTANCE,
-                   BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md"]
+    source_list = [HANDOFF, ACCEPTANCE,
+                   BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md", GRPC_GUIDE]
     source_list += sorted(bundle.files) + protos
     if number == 5:
         source_list += [BFF, "services/api-gateway/docker-compose.yml"]
@@ -267,7 +268,9 @@ def render(sources: Sources, owner) -> str:
     checksum = hashlib.sha256("".join(path + "\n" + sources.text(path) for path in source_list).encode("utf-8")).hexdigest()
     result = f"""# PBL6 — Bàn giao {title}: {task}
 
-Version nghiệp vụ/contract: **0.2.2-draft** · Snapshot tài liệu: **`{sources.commit}`**.
+Version nghiệp vụ/contract: **0.3.0-draft** · Snapshot tài liệu: **`{sources.commit}`**.
+
+**Bản phát lại0.3.0 thay toàn bộ phiếu0.2.2 cũ:** giữ nghiệp vụ, chuyển business service-to-service sang gRPC. Nếu đã làm REST nội bộ theo bản cũ, tái sử dụng logic và bổ sung gRPC adapter đúng contract. Web/BFF vẫn REST.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -285,7 +288,7 @@ Trong repository đã clone, các lệnh đọc sau không checkout/reset hay gh
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show {sources.commit}:docs/03_api_specs/traceability-workflow-README.md
+git show {sources.commit}:docs/03_api_specs/traceability-workflow-grpc.md
 git show {sources.commit}:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
@@ -311,6 +314,8 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
 
 Đọc AGENTS.md và rule service trong repository trước khi sửa. Commit mới dùng tiếng Anh, giữ một type/scope; contract thay trước hoặc cùng code, không sửa migration cũ/generated rows sai quy trình. Không tự push dev/release hoặc deploy production; tạo PR theo quy trình nhóm.
 """
+    guide = sources.pin_links(sources.text(GRPC_GUIDE), GRPC_GUIDE).split("\n", 1)[1].strip()
+    result += "\n## Quy định transport mới và contract gRPC\n\n" + guide + "\n"
     if bundle.paths:
         result += "\n## Contract HTTP nhúng — không cần tải thêm file để đọc schema\n\n"
         result += "Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi thành nội bộ khối này. Có thể chép nguyên khối vào `owner-contract.openapi.yaml` để lint. Server URLs là ví dụ cấu hình; giữ path/method/header/field/status theo contract. Không tạo endpoint mới nếu lớp hiện có đã trả đúng đầu ra; khác wire thì làm adapter trong phần mình phụ trách.\n\n```yaml\n"
@@ -318,7 +323,8 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
     if number == 5:
         result += "\n## Mapping cookie transport do Identity cung cấp\n\n| BFF route | Backend route qua Kong |\n| --- | --- |\n| `/api/v2/admin/trace-api/...` | `/api/v2/admin/trace/...` |\n| `/api/v1/admin/inventory-api/workbench` | `/api/v1/admin/inventory/workbench` |\n| `/api/v1/admin/inventory-api/workbench/receipts` | `/api/v1/admin/inventory/workbench/receipts` |\n\nCookie mode chuyển `OMAMA_SESSION` server-side qua Identity; forward Origin đã kiểm tra ở mutation, giữ Idempotency-Key. Bearer mode lấy credential tin cậy trong server, không cho client gán user/role headers. Internal resolver và Catalog binding không route public.\n"
     for proto in protos:
-        result += f"\n## Proto target nhúng: `{proto}`\n\nKhông compile cạnh proto canonical cùng package/message vì đây là candidate full definition. Khi implement cập nhật canonical/copies/codegen theo contract, giữ field/method cũ; không hand-edit generated code.\n\n```proto\n{sources.text(proto).rstrip()}\n```\n"
+        instruction = ("Candidate full definition: compile riêng, cập nhật canonical/copies/codegen khi implement; không compile cạnh canonical cùng message." if proto.startswith(BASE) else "Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng.")
+        result += f"\n## Proto target nhúng: `{proto}`\n\n{instruction} Không hand-edit generated code.\n\n```proto\n{sources.text(proto).rstrip()}\n```\n"
     result += f"\n## Tính toàn vẹn bản gửi\n\nNguồn commit: `{sources.commit}`. SHA-256 tập source: `{checksum}`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.\n"
     return result
 
@@ -332,11 +338,11 @@ def main():
         parser.error("--source-commit must be a Git commit hash")
     commit = subprocess.run(["git", "rev-parse", "--verify", args.source_commit + "^{commit}"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
     sources = Sources(commit)
-    if sources.document(INTEGRATION)["info"]["version"] != "0.2.2-draft":
-        parser.error("This exporter targets contract 0.2.2-draft; update the exporter before exporting another version")
+    if sources.document(INTEGRATION)["info"]["version"] != "0.3.0-draft":
+        parser.error("This exporter targets contract 0.3.0-draft; update the exporter before exporting another version")
     outputs = {owner[0]: render(sources, owner) for owner in OWNERS}
     outputs["README.md"] = "# Bản Markdown gửi riêng cho từng owner\n\n" + (
-        f"Source commit `{commit}`, target0.2.2-draft. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.\n\n"
+        f"Source commit `{commit}`, target0.3.0-draft. Bản này thay phiếu0.2.2 cũ về transport East-West; giữ nghiệp vụ, REST Web và BFF. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.\n\n"
     ) + "\n".join(f"- [{title} — {task}]({filename})" for filename, title, task, *_ in OWNERS) + (
         f"\n\nSinh lại từ repo root (Python có PyYAML): `python scripts/export-traceability-owner-handoffs.py --source-commit {commit}`. Kiểm snapshot khớp source bằng thêm `--check`. Không tạo PDF/Word/ZIP.\n"
     )

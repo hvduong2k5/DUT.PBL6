@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: Traceability warehouse-scoped admin target
-  version: 0.2.2-draft
+  version: 0.3.0-draft
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
   description: 'Full v2 staff implementation target. Start work directly without a pre-implementation approval reply.
-    NOT yet implemented or stable. Normative behavior: traceability-workflow-service-spec.md. Legacy v1 paths/error/header
+    Backend implemented behind an opt-in flag and locally verified with PostgreSQL; shared provider and UI integration
+    remain pending. Not stable. Normative behavior: traceability-workflow-service-spec.md. Legacy v1 paths/error/header
     remain unchanged. Every resource command checks current permission and authoritative warehouse scope, including
     idempotent replay. Internal print is a scoped read followed by public eligibility verification, not a create
     command.'
+  x-implementation-report: ../04_testing/traceability-service/09_grpc_transport_2026-11-27.md
 servers:
 - url: http://127.0.0.1:8003
 security:

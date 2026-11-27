@@ -1,5 +1,7 @@
 # BỘ SƠ ĐỒ CONTAINER KIẾN TRÚC TỔNG (CONTAINER DIAGRAMS - C4 LEVEL 2)
 
+> **Traceability transport27/11 —0.3.0:** [gRPC guide/shared contracts](../../03_api_specs/traceability-workflow-grpc.md) thay internal REST của target0.2.2; Web/BFF giữ REST, OIDC giữ HTTPS. Ba proto mới additive; candidate Inventory9/packing14 vẫn theo task provider.
+
 > **Traceability 21/11/2026:** [Thiết kế toàn luồng](../../03_api_specs/traceability-workflow-design-2026-11-21.md) là tham chiếu cho QR theo lô, scope kho, in tem sau publish và nguồn gốc từ đơn. Sơ đồ supply bên dưới không còn nối packing → kích hoạt QR. Những mũi tên khác là tổng quan legacy, không phải bằng chứng runtime hoặc rollout target Order 3.2.
 
 ## 1. Vị Trí & Vai Trò Trong Tài Liệu HLD

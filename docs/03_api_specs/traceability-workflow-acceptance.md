@@ -1,6 +1,8 @@
 # Nghiệm thu và rollout Traceability workflow
 
-Version0.2.2-draft · 25/11/2026. Mỗi ca bên dưới là yêu cầu, **chưa phải kết quả PASS runtime**. [Index](traceability-workflow-README.md) và [đặc tả service](traceability-workflow-service-spec.md) là context. Người thực hiện điền evidence theo SHA/runID.
+Version0.3.0-draft · 27/11/2026. Mỗi ca bên dưới là yêu cầu, **chưa phải kết quả PASS runtime**. [Index](traceability-workflow-README.md) và [đặc tả service](traceability-workflow-service-spec.md) là context. Người thực hiện điền evidence theo SHA/runID.
+
+Checkpoint mới26/11: [report08 scoped backend](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md) bổ sung mapping test cho phần Traceability và local PostgreSQL/signed HTTP; các mục ghi NOT RUN của lượt tài liệu25/11 bên dưới là lịch sử. Provider thật, Web/print và Order E2E vẫn pending, không suy PASS từ fixture.
 
 Nghiệm thu theo đầu ra OUT và contract đích trong [phiếu handoff](traceability-workflow-peer-handoff.md); không có gate gửi ACCEPT trước code. Không bắt tạo bảng/PR mới nếu capability hiện tại đã đáp ứng. Owner tự map logic/API nội bộ ra contract đích, ghi mapping và bằng chứng trong kết quả cuối. Các ca semantics/quyền/lỗi/lịch sử luôn áp dụng; field9/14 phải đúng ở bề mặt proto đích, dù provider tái sử dụng logic nào phía sau. Không dùng khác biệt implementation để bỏ test hoặc đổi wire consumer.
 
@@ -112,3 +114,22 @@ Tất cả test runtime T-*/INV-*/IAM-*/FUL-*/EVT-*/ORD-*/WEB-* ở mục2–3: 
 | WEB-07 | Receipt đãAPPLIED nhưng trace binding mới thiếu/sai/timeout | Giữ confirmation APPLIED, chỉ trace panel báo chưa sẵn sàng; không POST lại receipt với key mới hoặc giả rollback |
 
 Các ca trên cùng bộ test cũ là yêu cầu runtime, chưa chạy trong lượt tài liệu. Code baseline tăng batch_version với mọi update: thêm kiểm stock mutation giữa review/publish gây409 và UI hướng dẫn đúng, không tự sửa hash để test qua.
+
+## 8. Amendment gRPC0.3.0 — yêu cầu nghiệm thu hiện hành
+
+[Guide transport](traceability-workflow-grpc.md), shared proto và report09 là nguồn hiện hành. Các đoạn POST/internal REST và HTTP422 resolver của checkpoint0.2.2 phía trên chỉ là lịch sử; thay bằng unary RPC và canonical gRPC codes. REST North-South của Web/admin/customer giữ nguyên.
+
+| ID | Ca kiểm | Expected |
+| --- | --- | --- |
+| GRPC-CAT-01 | Exact SKU active/hidden/stopped/no-price, wrong/missing/duplicate service credential | Product/SKU/version authoritative, TLS + authorization Bearer riêng; interceptor bảo vệ cả full method mới |
+| GRPC-CAT-02 | NOT_FOUND/timeout/UNIMPLEMENTED/DB failure, version đổi | Phân biệt absent/conflict/503, không HTTP fallback hoặc constant version |
+| GRPC-IAM-01 | Service credential + employee JWT, wrong userId/subject/customer/inactive | Identity xác minh hai danh tính, Traceability kiểm ID/subject và EMPLOYEE ACTIVE, không lấy ID từ request body |
+| GRPC-IAM-02 | STAFF_UNAUTHENTICATED/FORBIDDEN và SERVICE_AUTHENTICATION_FAILED/PERMISSION_DENIED; missing details | ErrorInfo staff→401/403; service/missing/unknown→503; không re-login loop để che lỗi config |
+| GRPC-IAM-03 | Reply129grant hoặc >32KiB, deadline và old provider |503 fail closed, không truncate/cached token fallback |
+| GRPC-IAM-04 | Mixed GLOBAL/WAREHOUSE, revoked grant và department | Intersection tuple đúng scope hiện hành, không role/cross-product bypass; /users/me vẫn phục vụ Web |
+| GRPC-RES-01 | Duplicates/exact input echo, enum và optional qr_url |1:1 thứ tự; absent→null khi Order map REST; không UNSPECIFIED hoặc proto JSON trực tiếp |
+| GRPC-RES-02 |1/100/101bindings, 256KiB/512KiB caps, wrong/missing/duplicate credential | Invalid count→INVALID_ARGUMENT, byte cap→RESOURCE_EXHAUSTED, auth→UNAUTHENTICATED; chỉ Order credential, không route HTTP cũ |
+| GRPC-RES-03 | Deadline, DB down, corrupt/old/unpublished/withdrawn rows |gRPC storage/budget lỗi, per-row status đúng; không block Order lifecycle và không query peer |
+| GRPC-SYS-01 | Integration TLS config, disabled flags, two listener startup/drain | Không insecure fallback, resolver bật độc lập; HTTP route cũ404; shutdown bounded trước đóng DB/worker |
+
+Provider fixture tests không thay nghiệm thu Catalog/Identity của nhóm. Report09 ghi rõ phần nào là local TCP/TLS thật với provider mô phỏng và phần nào chưa tích hợp.

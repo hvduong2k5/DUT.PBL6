@@ -1,24 +1,20 @@
 openapi: 3.1.0
 info:
   title: Traceability workflow integration proposal
-  version: 0.2.2-draft
+  version: 0.3.0-draft
+  x-implementation-report: ../04_testing/traceability-service/09_grpc_transport_2026-11-27.md
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: 'Direct implementation target, NOT yet implemented or stable. Product decisions dated 2026-11-21;
-    direct implementation is authorized; provider/consumer tests remain required before stable promotion. See traceability-workflow-design-2026-11-21.md.
-    Each operation documents its owning service; server URLs are local examples, not deployed routing. Existing
-    public QR and workflow endpoints remain in traceability-service.openapi.yaml. Staff scoped lookup is v2; see
-    traceability-scoped-admin-draft.openapi.yaml for the complete staff workflow. Review update 2026-11-25: exact
-    Catalog SKU binding and scoped batch bootstrap are implementation targets; cookie BFF routes are defined in
-    traceability-workflow-bff-draft.openapi.yaml.'
+  description: North-south REST integration target 0.3.0-draft. Business East-West calls use the shared gRPC contracts
+    in traceability-workflow-grpc.md. The unshipped internal REST resolver and Catalog binding proposals from 0.2.2
+    are removed. Public/customer/scoped admin semantics remain unchanged. Backend fixture verification does not
+    establish peer acceptance or stable promotion.
 servers:
 - url: http://127.0.0.1:8003
 tags:
 - name: Staff
   description: Traceability-owned scoped staff lookup
-- name: Internal
-  description: Traceability-owned Order service resolver
 - name: Customer
   description: Order-owned authenticated subresource
 x-contract-deltas:
@@ -28,95 +24,6 @@ x-contract-deltas:
     schema:
       $ref: '#/components/schemas/ReceiptBindingExtension'
 paths:
-  /api/v1/internal/traceability/batch-links/resolve:
-    post:
-      tags:
-      - Internal
-      operationId: resolveOrderBatchTraceabilityDraft
-      summary: Resolve published links for exact batch bindings
-      description: Read-only bounded bulk lookup. Authenticated order-service identity with a dedicated credential
-        over trusted internal transport; never public Kong routing. Does not create records, publish, or mutate
-        stock, so no create Idempotency-Key is required. Preserve input order and one output per input. Unknown
-        and unpublished bindings both return NOT_AVAILABLE. No internal profile IDs, evidence or actor data. Cache-Control
-        no-store. AVAILABLE requires eligible public revision and qr_url; NO_LONGER_PUBLIC returns only the previously
-        public URL; if it cannot be reconstructed safely, return UNAVAILABLE. Other states have null qr_url.
-      security:
-      - serviceBearer: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - items
-              properties:
-                items:
-                  type: array
-                  minItems: 1
-                  maxItems: 100
-                  items:
-                    $ref: '#/components/schemas/Binding'
-      responses:
-        '200':
-          description: One result per binding; per-item source failures remain UNAVAILABLE
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                enum:
-                - no-store
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - items
-                - total
-                properties:
-                  items:
-                    type: array
-                    maxItems: 100
-                    items:
-                      $ref: '#/components/schemas/ResolvedBindingResult'
-                    minItems: 1
-                  total:
-                    type: integer
-                    minimum: 1
-                    maximum: 100
-              examples:
-                mixed:
-                  value:
-                    items:
-                    - sku_code: MX-001
-                      source_namespace: inventory
-                      batch_id: 33333333-3333-4333-8333-333333333333
-                      status: AVAILABLE
-                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
-                    - sku_code: MX-001
-                      source_namespace: inventory
-                      batch_id: 44444444-4444-4444-8444-444444444444
-                      status: NOT_AVAILABLE
-                      qr_url: null
-                    - sku_code: MX-002
-                      source_namespace: inventory
-                      batch_id: 55555555-5555-4555-8555-555555555555
-                      status: NO_LONGER_PUBLIC
-                      qr_url: https://shop.example.test/trace/zyxwvutsrqponmlkjihgfe
-                    - sku_code: MX-003
-                      source_namespace: inventory
-                      batch_id: 66666666-6666-4666-8666-666666666666
-                      status: UNAVAILABLE
-                      qr_url: null
-                    total: 4
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/Invalid'
-        '503':
-          $ref: '#/components/responses/Unavailable'
   /api/v1/orders/{order_id}/traceability:
     get:
       servers:
@@ -328,61 +235,6 @@ paths:
           $ref: '#/components/responses/Conflict'
         '400':
           $ref: '#/components/responses/BadRequest'
-  /api/v1/internal/traceability/skus/{sku_code}:
-    get:
-      servers:
-      - url: http://127.0.0.1:8005
-      tags:
-      - Internal
-      operationId: getTraceabilityCatalogBindingBySku
-      summary: Resolve exact SKU to authoritative Product without a saleability dependency
-      description: Owned by Catalog. Read-only exact case-sensitive SKU; include retained hidden or stopped variants,
-        no price requirement, no fuzzy search. Reuse the dedicated Traceability token and version semantics of the
-        existing Product-SKU verifier. Not routed publicly.
-      security:
-      - catalogTraceabilityToken: []
-      parameters:
-      - name: sku_code
-        in: path
-        required: true
-        schema:
-          type: string
-          minLength: 1
-          maxLength: 100
-      responses:
-        '200':
-          description: Authoritative exact Product-SKU binding
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - product_id
-                - sku_code
-                - catalog_version
-                properties:
-                  product_id:
-                    type: string
-                    format: uuid
-                  sku_code:
-                    type: string
-                  catalog_version:
-                    type: string
-                    minLength: 1
-              example:
-                product_id: 22222222-2222-4222-8222-222222222222
-                sku_code: MX-001
-                catalog_version: variant:1:1
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '503':
-          $ref: '#/components/responses/Unavailable'
   /api/v2/admin/trace/batches/{batch_id}/context:
     get:
       tags:
@@ -496,10 +348,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    serviceBearer:
-      type: http
-      scheme: bearer
-      description: Dedicated Order internal credential, TLS required outside isolated local tests
     customerBearer:
       type: http
       scheme: bearer
@@ -509,12 +357,6 @@ components:
       scheme: bearer
       description: Existing authoritative Order detail guest credential only; payment-read grants do not authorize
         this operation. No new credential or header is introduced.
-    catalogTraceabilityToken:
-      type: apiKey
-      in: header
-      name: X-Internal-Token
-      description: Dedicated Traceability-to-Catalog credential; existing verification credential, never exposed
-        to browser.
   parameters:
     ProductId:
       name: product_id
@@ -560,24 +402,6 @@ components:
         warehouseId:
           type: string
           format: uuid
-    Binding:
-      type: object
-      required:
-      - sku_code
-      - source_namespace
-      - batch_id
-      properties:
-        sku_code:
-          type: string
-          minLength: 1
-          maxLength: 100
-        source_namespace:
-          type: string
-          enum:
-          - inventory
-        batch_id:
-          type: string
-          format: uuid
     Error:
       type: object
       required:
@@ -593,63 +417,6 @@ components:
           description: Safe user-visible message
         requestId:
           type: string
-    ResolvedBindingResult:
-      oneOf:
-      - type: object
-        additionalProperties: false
-        required:
-        - sku_code
-        - source_namespace
-        - batch_id
-        - status
-        - qr_url
-        properties:
-          sku_code:
-            type: string
-            minLength: 1
-            maxLength: 100
-          source_namespace:
-            type: string
-            enum:
-            - inventory
-          batch_id:
-            type: string
-            format: uuid
-          status:
-            type: string
-            enum:
-            - AVAILABLE
-            - NO_LONGER_PUBLIC
-          qr_url:
-            type: string
-            format: uri
-      - type: object
-        additionalProperties: false
-        required:
-        - sku_code
-        - source_namespace
-        - batch_id
-        - status
-        - qr_url
-        properties:
-          sku_code:
-            type: string
-            minLength: 1
-            maxLength: 100
-          source_namespace:
-            type: string
-            enum:
-            - inventory
-          batch_id:
-            type: string
-            format: uuid
-          status:
-            type: string
-            enum:
-            - NOT_AVAILABLE
-            - UNAVAILABLE
-          qr_url:
-            type: 'null'
     OrderBatchTraceResult:
       oneOf:
       - type: object
@@ -764,18 +531,6 @@ components:
             NOT_FOUND:
               value:
                 code: NOT_FOUND
-                message: Request cannot be completed.
-                requestId: req-traceability-example
-    Invalid:
-      description: Invalid or incomplete binding; code INVALID_BINDING
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            INVALID_BINDING:
-              value:
-                code: INVALID_BINDING
                 message: Request cannot be completed.
                 requestId: req-traceability-example
     Unavailable:

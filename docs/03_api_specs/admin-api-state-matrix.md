@@ -1,6 +1,10 @@
 # Internal Employee API State Matrix
 
-## Traceability workflow target — 2026-11-21 (draft, not implemented)
+Transport amendment2026-11-27: target0.3.0 uses gRPC for internal business reads/resolver/current grants; Web/BFF REST and UI states below remain unchanged. See [gRPC guide](traceability-workflow-grpc.md) and [report09](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md). Do not use the superseded internal REST proposals from0.2.2.
+
+## Traceability workflow target — 2026-11-21 (draft; backend implemented, UI integration pending)
+
+Backend checkpoint 2026-11-26: scoped v2, context/lookup and workflow are implemented behind explicit flags, with local PostgreSQL and signed-HTTP verification. See [implementation and rollout evidence](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md). Cookie BFF, real IAM/Inventory/Catalog integration and print UI acceptance remain pending; this does not promote stable or mark UI states verified.
 
 Review target0.2.2 (2026-11-25): [BFF adapters](traceability-workflow-bff-draft.openapi.yaml) add explicit cookie transports; cookie mutations require validated Origin, and v2 requires ACTIVE EMPLOYEE. [Batch context](traceability-workflow-draft.openapi.yaml) resolves warehouse-authorized Product/SKU before draft creation; it does not depend on an unimplemented Inventory SKU detail read. Scoped permissions keep exact grant scopeId instead of role-derived ALL. Missing provider context returns an error in the traceability panel without undoing a successful receipt.
 

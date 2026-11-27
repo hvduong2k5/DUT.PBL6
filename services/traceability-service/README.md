@@ -4,11 +4,31 @@
 
 The project [Traceability workflow index](../../docs/03_api_specs/traceability-workflow-README.md)
 owns the new batch-profile, warehouse-scoped staff, label printing and order-source
-integration target (`0.2.2-draft`). Read the [architecture index](../../docs/02_architecture/services/traceability-service/README.md)
+integration target (`0.3.0-draft`). Read the [architecture index](../../docs/02_architecture/services/traceability-service/README.md)
 and [testing index](../../docs/04_testing/traceability-service/README.md) to distinguish
 this target from the v1/P8 baseline described below. The target is authorized for
 direct implementation; it is not a claim of implemented or verified capability.
 Do not treat the historical sandbox/P8 results as acceptance of the new flow.
+
+## Scoped backend checkpoint — 2026-11-26
+
+The Traceability-owned v2 staff API, batch context/lookup, warehouse-bound
+authorization and internal Order link resolver are implemented. The local
+PostgreSQL/signed-HTTP verification scope, feature flags, migration sequence,
+legacy backfill CLI and remaining peer/UI work are documented in the
+[scoped backend report](../../docs/04_testing/traceability-service/08_scoped_backend_2026-11-26.md).
+Both features default off; this checkpoint does not enable shared traffic or
+promote the draft contracts to stable. The new client is generated from the
+approved field-9 candidate until Inventory updates its canonical provider proto.
+
+## gRPC transport checkpoint — 2026-11-27
+
+Target0.3.0 uses TLS gRPC for Catalog binding, Identity current staff grants and
+Order batch-link resolution. The unshipped internal REST resolver is removed.
+Web/BFF/public/admin/customer REST and OIDC HTTPS remain unchanged. Read the
+[gRPC guide](../../docs/03_api_specs/traceability-workflow-grpc.md) and
+[report09 with current env, TLS mounts and owner handoff](../../docs/04_testing/traceability-service/09_grpc_transport_2026-11-27.md).
+The transport/env instructions in report08 are historical.
 
 ## Existing baseline
 

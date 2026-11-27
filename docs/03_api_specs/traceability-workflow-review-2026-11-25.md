@@ -1,5 +1,8 @@
 # Review chéo tài liệu, code và rủi ro truy xuất theo lô
 
+> Historical code/design review0.2.2 dated25/11. Business/security findings remain relevant. Internal REST target examples are superseded by [gRPC0.3.0](traceability-workflow-grpc.md); use current owner handoffs.
+
+
 Ngày25/11/2026 · So sánh `origin/dev@7a80e3f4bc23a1824db91615bfddbd09d8cd3c9b`.
 
 ## Kết luận

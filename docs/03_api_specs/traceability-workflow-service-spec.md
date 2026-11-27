@@ -1,6 +1,6 @@
 # Đặc tả Traceability: hồ sơ theo lô, scope kho và tem QR
 
-Version thiết kế: 0.2.2-draft · 25/11/2026 · Đọc cùng [index](traceability-workflow-README.md). Đây là target triển khai trực tiếp theo chỉ đạo chủ yêu cầu, không cần gửi ACCEPT trước khi code; không phải tuyên bố code v2 đã tồn tại.
+Version thiết kế: 0.3.0-draft · Đọc cùng [index](traceability-workflow-README.md). Checkpoint27/11/2026: phần backend Traceability đã được triển khai sau feature flag; [báo cáo kiểm thử và cách bật](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) phân biệt PostgreSQL/HTTP/TLS gRPC local đã kiểm với peer/UI chưa tích hợp. Contract vẫn draft, chưa promote stable.
 
 ## 1. Ranh giới và dữ liệu authoritative
 
@@ -10,7 +10,7 @@ Traceability sở hữu Profile, Revision, Certificate/Evidence metadata, contri
 | --- | --- | --- |
 | Product UUID ↔ SKU, version | Catalog exact-SKU context resolver và internal Product–SKU verifier | Bootstrap không phụ thuộc Inventory SKU detail/public price; create/submit/publish vẫn kiểm binding chính xác |
 | Batch UUID, SKU, mã lô, NSX/HSD, restricted/depleted, version, warehouse | Inventory BatchSource | Warehouse không tin từ UI/JWT resource claim; không dùng mã lô làm ID |
-| Nhân viên, active status, permission + scope | Keycloak JWT + Identity `/users/me` | Chữ ký/issuer/audience/thời hạn hợp lệ và intersection quyền hiện hành |
+| Nhân viên, active status, permission + scope | Keycloak JWT + Identity gRPC `GetCurrentStaffGrants` | Chữ ký/issuer/audience/thời hạn hợp lệ và intersection quyền hiện hành |
 | Nguồn nguyên liệu, cơ sở/quy trình, chứng nhận | Nội dung nhân viên nhập và reviewer kiểm thủ công | Hiển thị MANUAL; không diễn đạt là cơ quan bên ngoài đã xác minh tự động |
 | Lô thuộc đơn | Fulfillment sealed proof qua Order | Traceability resolver không khẳng định quyền sở hữu đơn; Order chịu trách nhiệm trước gọi resolver |
 
@@ -18,7 +18,7 @@ Binding `(product_id, sku_code, source_namespace, batch_id)` bất biến. Uniqu
 
 ## 2. Actor và kiểm permission/scope
 
-Mỗi thao tác nội bộ yêu cầu `traceability.read_internal` cùng quyền hành động trên **cùng resource warehouse**. Có thể kết hợp grant GLOBAL/WAREHOUSE cho từng permission nếu cả hai đều bao phủ resource; không chỉ intersection text, không tạo cross-product giữa permission và scope của các grant khác nhau. Tuple hiệu lực phải hiện diện/được bao phủ trong token và `/users/me`. Bỏ grant DEPARTMENT hoặc không biết, không nâng thành GLOBAL.
+Mỗi thao tác nội bộ yêu cầu `traceability.read_internal` cùng quyền hành động trên **cùng resource warehouse**. Có thể kết hợp grant GLOBAL/WAREHOUSE cho từng permission nếu cả hai đều bao phủ resource; không chỉ intersection text, không tạo cross-product giữa permission và scope của các grant khác nhau. Tuple hiệu lực phải hiện diện/được bao phủ trong token và RPC current grants Identity. Bỏ grant DEPARTMENT hoặc không biết, không nâng thành GLOBAL.
 
 | Thao tác | Quyền thêm ngoài read_internal | Guard |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ Mỗi thao tác nội bộ yêu cầu `traceability.read_internal` cùng quyền
 | Suspend/archive | suspend/archive | Lý do bắt buộc; không cần live Inventory để dừng công khai khẩn cấp |
 | Đọc evidence.reference | read_evidence | Thêm read_internal, scope đúng; thiếu quyền trả reference rỗng, không làm thay đổi dữ liệu lưu |
 
-Một người vừa có edit vừa approve vẫn không tự duyệt nội dung mình đóng góp. Publisher có thể là reviewer. Không có role-name bypass. Token invalid → 401; verified identity thiếu permission/scope hoặc inactive employee → 403; Identity gián đoạn → 503. Một actor có quyền read nhưng thiếu create không hiện CTA tạo mới; receipt đã thành công vẫn giữ kết quả.
+Một người vừa có edit vừa approve vẫn không tự duyệt nội dung mình đóng góp. Publisher có thể là reviewer. Không có role-name bypass. Token invalid → 401; verified identity thiếu permission/scope hoặc inactive employee → 403; Identity RPC gián đoạn/không có hoặc credential service sai →503; staff token invalid/actor forbidden theo ErrorInfo →401/403. Không fallback /users/me REST hoặc chỉ dùng token stale. Một actor có quyền read nhưng thiếu create không hiện CTA tạo mới; receipt đã thành công vẫn giữ kết quả.
 
 Existing profile: scope dựa trên warehouse binding do server đã xác minh và lưu. Reads thông thường dùng binding đó, không gọi Inventory mỗi lần; binding là quyền của lô gốc, không là ảnh chụp vị trí hiện thời. Inventory phải bảo toàn ý nghĩa kho sở hữu trong đời UUID của candidate contract. Create/lookup/submit/publish xác minh nguồn trong budget 2 giây; source warehouse khác đã lưu → 409 WAREHOUSE_BINDING_CONFLICT, không tự chuyển scope. Việc giao chuyển kho/đa kho cùng UUID là feature ngoài scope; suspend/archive vẫn dùng binding cũ. Không khẳng định rollback được transfer phía provider.
 
@@ -71,13 +71,15 @@ Các optional artisan/ATTP/video hiển thị null/ẩn khi thiếu; không đi�
 
 ## 5. Dữ liệu và migration target
 
-Migration mới, không sửa migration đã commit. Candidate bổ sung:
+Migration `000002_warehouse_scope` bổ sung các thay đổi dưới đây; migration000001 giữ nguyên checksum:
 
 - `traceability_profiles.warehouse_id UUID NULL`: server-derived; null chỉ dữ liệu legacy chưa backfill. Index `(warehouse_id, created_at, id)` phục vụ scoped pagination; unique namespace/batch và unique QR giữ nguyên.
 - Snapshot mới chứa `warehouse_id` trong dependency JSON và hash. Không UPDATE JSON của published/submitted revision lịch sử. Backfill profile metadata ghi nguồn/version/time và audit migration riêng; profile version tăng để stale command bị conflict, QR và public revision không đổi.
 - Approved/submitted legacy snapshot không có kho: không cho publish bằng v2; tạo revision mới và đi qua submit/review để có source hash mới. Public snapshot legacy vẫn đọc theo eligibility baseline; thêm scope không làm mất dữ liệu công khai hợp lệ.
 - Runtime grants/DB guards hiện có phải được mở rộng trong migration mới cho field/index và schema checksum; giữ runtime role không có quyền tự sửa binding/source snapshot.
 - Binding kho có thể từ null → verified warehouse một lần bằng migration/admin maintenance được kiểm soát, không phải PATCH client. Không thêm endpoint public “sửa kho”. Backfill idempotent theo profile ID; fail một profile giữ null và có report, không đoán default kho.
+
+`service_metadata.warehouse_writes_required` mặc định false phục vụ rollout writer theo giai đoạn; chỉ table owner bật một lần bằng `cmd/migrate -require-warehouse-writes`. Trigger chặn INSERT thiếu kho sau khi bật, chặn đổi binding đã có và chặn runtime LOGIN backfill. API v2 chỉ khởi động khi switch này đã bật. `cmd/warehouse-backfill -profile-id UUID` đọc nguồn thật rồi backfill một hồ sơ, tăng version và ghi audit gồm batch version/time bằng maintenance actor hệ thống; không sửa revision/hash/public pointer.
 
 Rollback: deploy code đọc cả legacy/new trước migration enforcement. Khi rollback code chỉ GLOBAL, tắt scoped UI/routes trước; không drop field/backfill hoặc sửa lại public snapshots để ép downgrade. Không bật scoped write nếu proto provider không có kho; health/capability báo thiếu, không silently dùng sandbox.
 
@@ -107,7 +109,7 @@ New integration draft giữ các code riêng của operation đã mô tả; full
 
 ## 7. Resolver, public và print
 
-Resolver POST read-only chỉ cho service identity Order, credential riêng tối thiểu32 bytes, TLS/internal network, không route public wildcard. Budget1.5s, ≤100 bindings, body≤256KiB. Duplicates được giữ số lượng/thứ tự output; có thể dedup query nhưng phải reconstruct theo input. Không audit mỗi read như mutation và không cần Idempotency-Key.
+Resolver unary gRPC `BatchLinkResolver.ResolveBatchLinks` read-only chỉ cho service identity Order, credential riêng tối thiểu32 bytes, TLS/internal network, không route public wildcard. Budget1.5s, ≤100 bindings, message≤256KiB, response≤512KiB. Proto/status/presence và mapping Order REST theo [gRPC guide](traceability-workflow-grpc.md). Internal REST resolver0.2.2 chưa phát hành đã bỏ; không dual transport hoặc HTTP fallback. Duplicates được giữ số lượng/thứ tự output; có thể dedup query nhưng phải reconstruct theo input. Không audit mỗi read như mutation và không cần Idempotency-Key.
 
 AVAILABLE khi BuildPublic đạt → link public. Chưa public/không tồn tại/SKU mismatch → NOT_AVAILABLE, qr_url=null. Từng public nay gone → NO_LONGER_PUBLIC và link cũ có thể dẫn410, không thông tin nội bộ. Corrupt snapshot cho riêng row → UNAVAILABLE, null. Database toàn bộ không đọc được →503, không giả trả tất cả NOT_AVAILABLE. Scope Identity không dùng cho credential service; Order phải kiểm ownership trước gọi.
 
@@ -123,16 +125,16 @@ Receipt thành công → Traceability503 không rollback receipt. Resolver503 kh
 
 ## 9. Cấu hình và điều kiện bắt đầu implement
 
-Giữ các env thật trong `.env.example` cho DB/Keycloak/Identity/Catalog/Inventory/public web base/relay. Credential Order resolver, cursor HMAC và feature flag scoped API là cấu hình mới đề xuất; ghi đúng tên và validation vào `.env.example` khi implement, không giả chúng đã tồn tại. Secret đọc runtime, không ghi file báo cáo.
+Giữ các env trong `.env.example` cho DB/Keycloak/Identity/Catalog/Inventory/public web base/relay. Cấu hình mới đã implement: `TRACEABILITY_SCOPED_API_ENABLED=false`, `TRACEABILITY_CURSOR_HMAC_KEY` tối thiểu32bytes; `TRACEABILITY_ORDER_RESOLVER_ENABLED=false`, `TRACEABILITY_ORDER_RESOLVER_TOKEN` là credential riêng tối thiểu32bytes, không trùng Catalog/Inventory/Identity token. Hai feature bật độc lập, mặc định tắt; resolver có thể triển khai trước scoped admin. Secret đọc runtime, không ghi file báo cáo. Xem runbook trong [báo cáo backend](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md).
 
-Scope implementation bắt đầu trực tiếp từ target0.2.2-draft, không chờ owner khác phản hồi. Tự tái sử dụng hoặc bổ sung domain/repository/transport và contract fixtures trước provider; runtime integration chỉ đóng khi Inventory trả authoritative warehouse và Identity grants thật. [Test IDs và rollout](traceability-workflow-acceptance.md) là Definition of Done. Tài liệu không thay thế fixture bằng mock rồi ghi kết quả provider thật.
+Scope implementation bắt đầu trực tiếp từ target0.3.0-draft, không chờ owner khác phản hồi. Tự tái sử dụng hoặc bổ sung domain/repository/transport và contract fixtures trước provider; runtime integration chỉ đóng khi Inventory trả authoritative warehouse và Identity grants thật. [Test IDs và rollout](traceability-workflow-acceptance.md) là Definition of Done. Tài liệu không thay thế fixture bằng mock rồi ghi kết quả provider thật.
 
 ## 10. Sửa sau review code 25/11 — target0.2.2
 
 [Review và rủi ro](traceability-workflow-review-2026-11-25.md) là bằng chứng cho các thay đổi sau, có hiệu lực khi khác diễn giải bản trước:
 
 - Form sau receipt gọi `GET /api/v2/admin/trace/batches/{batch_id}/context?sku_code=...`. Traceability đọc BatchSource, kiểm quyền warehouse trước, rồi Catalog exact-SKU binding; trả Product/SKU/Batch/kho/mã lô/NSX/HSD/version/flags trong budget chung2s. Không dựa Inventory SKU detail chưa có provider hoặc public Catalog có thể yêu cầu giá. Đây là read, không tự tạo nháp hoặc có Idempotency-Key.
-- Catalog provider đích `GET /api/v1/internal/traceability/skus/{sku_code}` dùng credential Traceability riêng đã có. Trả product_id/sku_code/catalog_version, kể cả variant ẩn/ngừng bán còn lưu, không cần giá; không fuzzy search. Verifier Product–SKU cũ giữ nguyên khi create/submit/publish.
+- Catalog provider đích gRPC `CatalogTraceabilitySource.GetSkuBinding` dùng credential Traceability riêng qua TLS. Trả product_id/sku_code/catalog_version, kể cả variant ẩn/ngừng bán còn lưu, không cần giá/fuzzy search. Traceability tự đối chiếu product_id với binding trong create/submit/publish. Giữ version semantics và legacy REST verifier cho consumer cũ; target0.3.0 không gọi HTTP nội bộ.
 - [BFF adapter contract](traceability-workflow-bff-draft.openapi.yaml) định nghĩa đường cookie Identity → bearer → Kong cho trace v2 và inventory workbench/receipt. Web phải forward Origin đã kiểm tra cho mutation, không disable CSRF. Identity v2 phải guard ACTIVE EMPLOYEE, không chỉ authenticated. Trong OIDC mode dùng bearer server-trusted, không cần cookie adapter.
 - Web thêm permission projection Traceability giữ permission/scopeType/scopeId từ permissionGrants. Không dùng projection role-derived ALL/ASSIGNED_ONLY để suy quyền kho; không để whitelist cũ loại các mã lowercase Traceability.
 - Admin v1/v2 cùng tồn tại phải dùng application writer biết warehouse metadata. Triển khai mọi writer mới trước scoped traffic; migration bổ sung guard INSERT warehouse không null cho profile mới sau khi writers đã tương thích, vẫn giữ null trên row lịch sử. Không cho old writer đang chạy tạo null âm thầm. Rollback tắt scoped traffic trước; old binary không tương thích guard không được tiếp tục làm writer.
@@ -142,3 +144,9 @@ Scope implementation bắt đầu trực tiếp từ target0.2.2-draft, không c
 - Text tem/SVG/HTML phải encode, không chèn raw markup từ product_name/batch_code. Public web origin phải ổn định/HTTPS ngoài sandbox; không thể thu hồi tem offline hoặc đảm bảo scan nếu bỏ domain.
 
 Sandbox v2 fixtures phải có warehouse UUID explicit để test scope; thiếu field là capability unavailable, không gán default kho. Kết quả fixture không là bằng chứng Inventory/Identity thật. BFF proxy có thể nhận cookie session hoặc staff bearer đã verify, đều kiểm ACTIVE EMPLOYEE; browser mode cookie vẫn không được tiếp cận access token và vẫn phải qua Origin/CSRF.
+
+## 11. Amendment transport0.3.0 — 27/11/2026
+
+[Guide gRPC authoritative](traceability-workflow-grpc.md) và ba proto mới trong packages/proto thay internal REST resolver/Catalog và /users/me current-grant call của Traceability. REST public/admin/customer và proxy BFF north-south giữ nguyên; OIDC discovery/JWKS giữ HTTPS. Events chỉ thông báo sau local commit, không thay kiểm nguồn/quyền đồng bộ. Version0.2.2 là lịch sử transport, không dùng làm phiếu giao việc hiện tại.
+
+Runtime thêm TRACEABILITY_CATALOG_ADDR/CA_FILE, TRACEABILITY_IDENTITY_ADDR/CA_FILE/TOKEN; giữ Inventory TLS env. Token service Identity phải khác Catalog/Inventory/Order. Resolver listener GRPC_ADDR, GRPC_TLS_CERT_FILE/KEY_FILE bắt buộc ở integration, flag mặc định tắt. Hai listener drain chung trước khi đóng DB; sandbox chỉ loopback hoặc isolated-container explicit. Không mở insecure integration, không log employee JWT trong x-staff-authorization. Schema DB, backfill và nghiệp vụ không đổi.

@@ -1,5 +1,7 @@
 # MVP contracts — Git integration release mvp-2026-10-26
 
+> **Traceability transport27/11 —0.3.0:** [gRPC guide/shared contracts](../../../docs/03_api_specs/traceability-workflow-grpc.md) thay internal REST của target0.2.2; Web/BFF giữ REST, OIDC giữ HTTPS. Ba proto mới additive; candidate Inventory9/packing14 vẫn theo task provider.
+
 > **Traceability workflow target25/11/2026:** [project document set](../../../docs/03_api_specs/traceability-workflow-README.md) và [required owner outputs](../../../docs/03_api_specs/traceability-workflow-peer-handoff.md) đăng ký trong registry dưới trạng thái `implementation-target-draft`. Có thể triển khai trực tiếp theo target, không chờ ACCEPT trước code; các gate schema/contract tests/runtime verification vẫn áp dụng trước stable. Candidate proto compile riêng, không thay canonical chỉ vì thêm reference. Các trạng thái nghiệm thu cũ bên dưới không xác nhận chức năng scoped v2/in tem/order traceability đã chạy.
 
 Đây là điểm vào chung để cập nhật các service cho luồng **Catalog → Profile/address → Cart/Quote → CheckoutOperation → SePay → Inventory COMMITTED → Fulfillment → Shipping**.

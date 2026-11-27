@@ -147,8 +147,11 @@ Cập nhật25/11/2026 · Target0.2.2-draft. Bắt đầu tại [mục lục wor
 | Bàn giao owner | [Task/OUT và quy trình làm trực tiếp](traceability-workflow-peer-handoff.md), [6 file Markdown gửi riêng](traceability-owner-handoffs/README.md) có link nguồn ghim theo commit; tái sử dụng phần đã có, không chờ phản hồi ACCEPT trước code |
 | Kiểm thử/trạng thái UI | [Acceptance](traceability-workflow-acceptance.md), [admin matrix](admin-api-state-matrix.md), [customer matrix](customer-api-state-matrix.md); [testing index](../04_testing/traceability-service/README.md) tách evidence baseline/target |
 | Review code/rủi ro | [Review25/11](traceability-workflow-review-2026-11-25.md); các thay đổi thiết kế đã ghi và hạn chế còn lại |
+| Backend checkpoint26/11 | [Scoped API/resolver, kiểm thử local và runbook](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md); peer/UI còn pending, contract chưa promote stable |
 
 Quy tắc bảo trì theo `AGENTS.md`: contract và các tài liệu handoff có nội dung Catalog trong bộ này giữ ở `docs/03_api_specs/`; không tạo bản sao Catalog ngoài thư mục. Không cho stable import draft, không promote stable chỉ vì lint xanh. Thay REST/permission/UI state cập nhật đúng OpenAPI+state matrix; không sửa generated rows hoặc snapshot để che khác biệt. Contract canonical tương ứng được cập nhật trước hoặc song song với code, generated artifact làm theo generator/quy trình; chỉ promote stable khi đủ quyết định, quyền, examples và contract tests cùng bằng chứng áp dụng.
 
 Chỉ cập nhật nội dung ở nguồn tương ứng trong bảng; README/kiến trúc/kiểm thử khác chỉ trỏ về nguồn đó để tránh nhiều bản đặc tả mâu thuẫn. Tên file có ngày21/11 là ngày tạo quyết định gốc; version/changelog trong bộ workflow mới là mốc target hiện hành.
 
+
+Traceability amendment27/11: [gRPC0.3.0 guide/shared proto](traceability-workflow-grpc.md), [current backend report](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) and reissued owner snapshots supersede internal REST0.2.2 proposals. North-south REST stays unchanged.

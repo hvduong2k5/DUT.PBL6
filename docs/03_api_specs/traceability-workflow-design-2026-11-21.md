@@ -6,6 +6,8 @@ Ngày: 21/11/2026 (Asia/Ho_Chi_Minh). Đối chiếu code `origin/dev@6f54a4ab`.
 
 **Cách giao việc cho peer:** các bổ sung field/endpoint/projection dưới đây là phương án candidate để đạt đầu ra, không khẳng định owner phải viết mới. Owner tự đối chiếu OUT và triển khai: đã đủ thì tái sử dụng/test, thiếu thì bổ sung, API nội bộ khác wire thì tự map ra contract đích trong phần phụ trách. Không cần báo cáo trước hoặc chờ trả lời. Chỉ thay cách implement nội bộ, không thay ngầm semantics nguồn, scope, lịch sử hoặc wire consumer.
 
+**Amendment27/11 — target0.3.0:** [gRPC guide](traceability-workflow-grpc.md) và ba shared proto mới thay business internal REST của0.2.2. Nghiệp vụ giữ nguyên; Web/BFF vẫn REST và OIDC vẫn HTTPS. Các checkpoint0.2.2 bên dưới là lịch sử, không dùng làm wire contract mới.
+
 ## 1. Hiệu lực và phạm vi
 
 Chủ yêu cầu đã chốt QR theo lô, in tem sau công bố, truy xuất công khai, xem từ lịch sử/chi tiết đơn; ngày 21/11 chốt thêm nhân viên chỉ thao tác trong kho được giao và thiết kế toàn luồng dù triển khai theo đợt. Tích hợp bước lập hồ sơ ngay sau nhập kho trên cùng UI; hai nghiệp vụ vẫn có transaction và vòng đời riêng.
@@ -32,19 +34,19 @@ Chủ yêu cầu đã chốt QR theo lô, in tem sau công bố, truy xuất cô
 | --- | --- | --- |
 | Web → Inventory nhập kho | `features/employee/inventory/server/handler.ts`, `httpapi/receipt.go`: NEW/EXISTING, transaction, idempotency, movement; result thiếu Batch UUID | Giữ nguyên transaction; bổ sung binding lô vào receipt result; Inventory/Web |
 | Identity → Keycloak → Traceability | V20 permission, V21 bootstrap ADMIN, scoped assignments và sync; Traceability `staff.go` chỉ nhận GLOBAL, Principal chỉ có flat permissions | Identity cấu hình role/assignment; Traceability giữ grant scope, kiểm tra từng resource; không cấp GLOBAL thay WAREHOUSE |
-| Traceability → Catalog | REST internal xác minh Product–SKU có version | Tái sử dụng verifier; thêm exact-SKU binding cho bootstrap, không gọi mỗi lượt scan |
+| Traceability → Catalog | Baseline REST verifier có version | Target0.3.0 gRPC CatalogTraceabilitySource.GetSkuBinding, version semantics cũ, hidden/no-price; không gọi mỗi scan |
 | Traceability → Inventory | `BatchSource.GetTraceabilityBatch`, UUID/SKU/version/NSX/HSD, chưa có kho trong response | Bổ sung `warehouse_id` từ Inventory; Traceability lưu binding kho, xác minh server-side |
 | Web → Traceability lập/xem hồ sơ theo lô | CRUD/workflow đã có; list chỉ page_size/cursor | GET lookup binding riêng; trả cùng hồ sơ khi nhập bổ sung; xử lý race bằng unique binding và đọc lại sau conflict |
 | Web → Traceability in tem | Có `qr_url`, API public, chưa có UI in | Dùng read hiện có với scope bổ sung; không cần service tạo ảnh hoặc lệnh cấp QR mới |
 | Web → public QR | `/trace/{code}` → BFF → Kong `/api/v2/trace/{code}` → service v1 | Tái sử dụng public contract, anonymous; thêm `/trace` làm trang nhập mã ở footer, bỏ mã mẫu cứng |
 | Fulfillment → Inventory | `GetCommittedPackingAllocation` và `ValidatePackingAllocation` có line ID, Batch UUID/code, allocated/count | Tái sử dụng; allocation hiện tại không thay thế lịch sử đã niêm phong |
 | Fulfillment → Order | `GetPackageRevision` đúng sealed version; snapshot chứa allocations nhưng response thiếu chúng | Bổ sung packed lines vào proof, Order persist projection; cùng contract gRPC, không query DB chéo |
-| Order → Traceability | Chưa có resolver binding lô | Internal batch resolver read-only, danh tính riêng `order-service`, bounded batch 100 |
+| Order → Traceability | Chưa có resolver binding lô | gRPC BatchLinkResolver read-only, danh tính riêng `order-service`, bounded batch 100 |
 | Web → Order xem nguồn gốc | Detail DTO hiện chưa có binding | GET subresource riêng, không sửa nghĩa commercial snapshot/stable Order detail |
 
 ## 4. Scope kho và mô hình dữ liệu
 
-Identity đã hỗ trợ `permission#WAREHOUSE#warehouseId`; không thêm một hệ IAM mới. Không suy quyền từ role ADMIN/nhân viên kho. Dùng intersection của grant token và grant hiện hành `/users/me` theo từng tuple permission/scope/ID; GLOBAL bao phủ resource, WAREHOUSE chỉ khớp chính kho. Mất Identity trả 503, không fallback sang quyền trong token cũ. Preserve scopeId trong adapter và domain thay vì chỉ flat permission.
+Identity đã hỗ trợ `permission#WAREHOUSE#warehouseId`; không thêm một hệ IAM mới. Không suy quyền từ role ADMIN/nhân viên kho. Dùng intersection của grant token và grant hiện hành qua gRPC Identity GetCurrentStaffGrants theo từng tuple permission/scope/ID; GLOBAL bao phủ resource, WAREHOUSE chỉ khớp chính kho. Mất Identity trả 503, không fallback sang quyền trong token cũ. Preserve scopeId trong adapter và domain thay vì chỉ flat permission.
 
 Inventory đề xuất mở rộng `BatchSnapshot` bằng field mới `string warehouse_id = 9` (không đánh lại số cũ). Giá trị lấy từ quan hệ kho authoritative của lô, không do caller cung cấp. Mã SKU hoặc tổng tồn không đủ chứng minh quyền nếu SKU có nhiều kho; provider phải xác nhận mô hình ánh xạ. Chỉ mở rollout scope khi mỗi UUID có kho xác định được và có test chuyển kho. Thiếu/không xác minh được kho phải từ chối thao tác scoped, không coi là GLOBAL.
 

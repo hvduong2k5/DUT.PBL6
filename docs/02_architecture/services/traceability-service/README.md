@@ -1,6 +1,8 @@
 # Traceability — mục lục thiết kế
 
-Cập nhật25/11/2026. Phân biệt baseline đã có code/bằng chứng với target mới; không lấy trạng thái P8/R1 làm nghiệm thu scoped v2 hoặc nguồn gốc từ đơn hàng.
+**Checkpoint27/11: target0.3.0 gRPC East-West.** [Report09](../../../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) thay transport nội bộ của checkpoint08; nghiệp vụ/REST Web giữ nguyên, peer/UI vẫn pending.
+
+Cập nhật26/11/2026. Phân biệt baseline đã có code/bằng chứng với target mới; không lấy trạng thái P8/R1 làm nghiệm thu scoped v2 hoặc nguồn gốc từ đơn hàng.
 
 ## Thiết kế hiện hành cho nghiệp vụ bổ sung
 
@@ -15,7 +17,7 @@ Cập nhật25/11/2026. Phân biệt baseline đã có code/bằng chứng với
 | Rủi ro đã đối chiếu code | [Review25/11](../../../03_api_specs/traceability-workflow-review-2026-11-25.md) |
 | Kiểm thử phải thực hiện | [Testing index](../../../04_testing/traceability-service/README.md) |
 
-Target có thể được giao triển khai trực tiếp, không chờ owner gửi ACCEPT; runtime vẫn NOT_VERIFIED. Contract/handoff, kể cả nội dung phụ thuộc Catalog, nằm tại `docs/03_api_specs/` theo AGENTS.md; thư mục kiến trúc này chỉ liên kết nguồn, không sao chép lại các bảng wire/schema.
+Backend scoped v2/resolver đã implement và có [bằng chứng PostgreSQL/signed HTTP local](../../../04_testing/traceability-service/08_scoped_backend_2026-11-26.md); peer/UI integration vẫn pending. Target có thể được giao triển khai trực tiếp, không chờ owner gửi ACCEPT. Contract/handoff, kể cả nội dung phụ thuộc Catalog, nằm tại `docs/03_api_specs/` theo AGENTS.md; thư mục kiến trúc này chỉ liên kết nguồn, không sao chép lại các bảng wire/schema.
 
 ## Baseline và lịch sử thiết kế
 

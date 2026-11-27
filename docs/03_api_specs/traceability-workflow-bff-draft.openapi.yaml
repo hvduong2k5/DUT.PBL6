@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Traceability workflow Identity BFF adapters
-  version: 0.2.2-draft
+  version: 0.3.0-draft
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
