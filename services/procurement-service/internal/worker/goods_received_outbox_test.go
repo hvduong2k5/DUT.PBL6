@@ -98,3 +98,23 @@ func TestDispatchOneReturnsWhenOutboxIsEmpty(t *testing.T) {
 		t.Fatalf("DispatchOne() = (%v, %v), want (false, nil)", found, err)
 	}
 }
+
+func TestDispatchOneReplaysExactBytesAfterPublishAckCannotBeRecorded(t *testing.T) {
+	payload := []byte(`{"id":"receipt-line-1","traceparent":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-00","data":{"quantity_received":2.5}}`)
+	store := &fakeOutbox{found: true, markErr: errors.New("database acknowledgement lost"), message: domain.OutboxMessage{
+		ID: "receipt-line-1", Topic: domain.GoodsReceivedEventTopic, Key: "MAT-1", Payload: payload,
+	}}
+	publisher := &fakePublisher{}
+	w := worker.NewGoodsReceivedOutboxWorker(store, publisher, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if _, err := w.DispatchOne(context.Background()); err == nil {
+		t.Fatal("failed acknowledgement must remain visible")
+	}
+	first := append([]byte(nil), publisher.payload...)
+	store.markErr = nil
+	if _, err := w.DispatchOne(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(publisher.payload) || string(payload) != string(publisher.payload) || publisher.key != "MAT-1" || len(store.marked) != 2 {
+		t.Fatal("retry mutated the persisted event, trace or partition key")
+	}
+}

@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -67,6 +68,84 @@ func TestBuildGoodsReceivedEventsCreatesStableLineEventWithAcceptedQuantity(t *t
 	}
 	if string(first) != string(second) {
 		t.Fatalf("same inspected receipt produced different event bytes:\n%s\n%s", first, second)
+	}
+}
+
+func TestGoodsReceivedContractExamples(t *testing.T) {
+	for _, quantities := range [][3]string{{"2.5", "2.5", "0"}, {"2.5", "2", "0.5"}, {"2.5", "0", "2.5"}} {
+		receipt := inspectedReceiptFixture()
+		receipt.Lines[0].QuantityReceived = quantities[0]
+		receipt.Lines[0].QuantityAccepted = quantities[1]
+		receipt.Lines[0].QuantityRejected = quantities[2]
+		if quantities[1] == "0" {
+			receipt.Lines[0].QualityStatus = domain.GoodsReceiptQualityRejected
+		} else if quantities[2] != "0" {
+			receipt.Lines[0].QualityStatus = domain.GoodsReceiptQualityPartial
+		}
+		events, err := domain.BuildGoodsReceivedEvents(receipt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if events[0].Data.QuantityReceived.String() != quantities[0] {
+			t.Fatal("physical receipts must not silently become accepted-only stock")
+		}
+		payload, err := json.Marshal(events[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The contract guard validates actual producer bytes, not a hand-written fixture.
+		t.Logf("CONTRACT_EVENT=%s", payload)
+	}
+}
+
+func TestGoodsReceivedTraceIsStableValidAndLineScoped(t *testing.T) {
+	receipt := inspectedReceiptFixture()
+	events, err := domain.BuildGoodsReceivedEvents(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trace := events[0].Traceparent
+	if !regexp.MustCompile(`^00-[0-9a-f]{32}-[0-9a-f]{16}-00$`).MatchString(trace) {
+		t.Fatalf("invalid unsampled W3C context: %q", trace)
+	}
+	parts := strings.Split(trace, "-")
+	if parts[1] == strings.Repeat("0", 32) || parts[2] == strings.Repeat("0", 16) {
+		t.Fatal("W3C identifiers must not be all zero")
+	}
+	replayed, _ := domain.BuildGoodsReceivedEvents(receipt)
+	if replayed[0].Traceparent != trace {
+		t.Fatal("rebuilding immutable receipt changed its trace")
+	}
+	receipt.Lines[0].ID = uuid.New()
+	next, _ := domain.BuildGoodsReceivedEvents(receipt)
+	if next[0].Traceparent == trace {
+		t.Fatal("different receipt line reused trace context")
+	}
+}
+
+func TestGoodsReceivedUsesExactInventoryUnitsWithoutRounding(t *testing.T) {
+	for _, tc := range []struct {
+		unit, quantity string
+		valid          bool
+	}{
+		{" kg ", "2.501", true}, {"KG", "0.01", true}, {"KG", "0.001", false},
+		{"KG", "1.000001", false}, {"KG", "2147483.647", true}, {"KG", "2147483.648", false},
+		{"G", "1", true}, {"gram", "1.5", false}, {"UNIT", "2", true},
+		{"piece", "2.5", false}, {"UNIT", "2147483648", false}, {"BOX", "1", false},
+	} {
+		t.Run(tc.unit+tc.quantity, func(t *testing.T) {
+			receipt := inspectedReceiptFixture()
+			receipt.Lines[0].Unit = tc.unit
+			receipt.Lines[0].QuantityReceived = tc.quantity
+			receipt.Lines[0].QuantityAccepted = tc.quantity
+			events, err := domain.BuildGoodsReceivedEvents(receipt)
+			if (err == nil) != tc.valid {
+				t.Fatalf("valid=%v, got %v", tc.valid, err)
+			}
+			if tc.valid && events[0].Data.Unit != strings.ToUpper(strings.TrimSpace(tc.unit)) {
+				t.Fatal("unit was not normalized")
+			}
+		})
 	}
 }
 

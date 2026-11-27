@@ -24,6 +24,34 @@ type fakeRepository struct {
 	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
 }
 
+type inspectionWriteSpy struct {
+	*fakeRepository
+	writes int
+}
+
+func (r *inspectionWriteSpy) InspectGoodsReceipt(ctx context.Context, receipt domain.GoodsReceipt, version int64, actor string) (domain.GoodsReceipt, error) {
+	r.writes++
+	return r.fakeRepository.InspectGoodsReceipt(ctx, receipt, version, actor)
+}
+
+func TestInspectionRejectsInexactInventoryQuantityBeforeRepositoryWrite(t *testing.T) {
+	repo := &inspectionWriteSpy{fakeRepository: newFakeRepository()}
+	id, lineID := uuid.New(), uuid.New()
+	repo.receipts[id] = domain.GoodsReceipt{
+		ID: id, PurchaseOrderID: uuid.New(), SupplierID: uuid.New(), PurchaseOrderNumber: "PO-1",
+		SupplierName: "Supplier", WarehouseCode: "WH-1", Status: domain.GoodsReceiptDraft,
+		CreatedAt: time.Now().UTC(), Version: 1,
+		Lines: []domain.GoodsReceiptLine{{ID: lineID, PurchaseOrderLineID: uuid.New(), MaterialCode: "SESAME",
+			Unit: "KG", QuantityReceived: "1.000001", QuantityAccepted: "0", QuantityRejected: "0"}},
+	}
+	_, err := application.NewService(repo).InspectGoodsReceipt(context.Background(), id, "inspector", []domain.GoodsReceiptInspectionLine{
+		{GoodsReceiptLineID: lineID, QuantityAccepted: "1.000001", QuantityRejected: "0"},
+	})
+	if !errors.Is(err, domain.ErrInvalidArgument) || repo.writes != 0 || repo.receipts[id].Status != domain.GoodsReceiptDraft {
+		t.Fatalf("invalid handoff reached repository: err=%v writes=%d", err, repo.writes)
+	}
+}
+
 func newFakeRepository() *fakeRepository {
 	return &fakeRepository{
 		suppliers: make(map[uuid.UUID]domain.Supplier), materials: make(map[uuid.UUID]domain.RawMaterial),

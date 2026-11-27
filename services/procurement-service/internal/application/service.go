@@ -589,6 +589,11 @@ func (s *Service) InspectGoodsReceipt(ctx context.Context, id uuid.UUID, actor s
 	if err := receipt.Inspect(actor, inspections); err != nil {
 		return domain.GoodsReceipt{}, err
 	}
+	// Reject a non-deliverable Inventory handoff before entering the write
+	// transaction; the repository repeats this validation before outbox commit.
+	if _, err := domain.BuildGoodsReceivedEvents(receipt); err != nil {
+		return domain.GoodsReceipt{}, err
+	}
 	return s.repo.InspectGoodsReceipt(ctx, receipt, expectedVersion, actor)
 }
 

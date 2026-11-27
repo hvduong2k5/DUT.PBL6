@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -26,6 +27,7 @@ type GoodsReceivedEvent struct {
 	Subject         string                 `json:"subject"`
 	Time            time.Time              `json:"time"`
 	DataContentType string                 `json:"datacontenttype"`
+	Traceparent     string                 `json:"traceparent"`
 	Data            GoodsReceivedEventData `json:"data"`
 }
 
@@ -80,6 +82,13 @@ func BuildGoodsReceivedEvents(receipt GoodsReceipt) ([]GoodsReceivedEvent, error
 			new(big.Rat).Add(new(big.Rat).Set(accepted), rejected).Cmp(received) != 0 {
 			return nil, ErrInvalidArgument
 		}
+		unit := strings.ToUpper(strings.TrimSpace(line.Unit))
+		if !inventoryReceiptQuantity(received, unit) || len(strings.TrimSpace(line.MaterialCode)) > 50 ||
+			strings.TrimSpace(receipt.PurchaseOrderNumber) == "" || len(receipt.PurchaseOrderNumber) > 256 ||
+			len(receipt.WarehouseCode) > 256 || len(receipt.SupplierName) > 2000 ||
+			receipt.CreatedAt.IsZero() || receipt.InspectedAt.IsZero() {
+			return nil, ErrInvalidArgument
+		}
 		if (line.ManufacturedOn == nil) != (line.ExpiresOn == nil) ||
 			(line.ManufacturedOn != nil && !line.ManufacturedOn.Before(*line.ExpiresOn)) {
 			return nil, ErrInvalidArgument
@@ -90,12 +99,13 @@ func BuildGoodsReceivedEvents(receipt GoodsReceipt) ([]GoodsReceivedEvent, error
 			SpecVersion: "1.0", ID: line.ID.String(), Source: GoodsReceivedEventSource,
 			Type: GoodsReceivedEventType, Subject: "sku:" + strings.TrimSpace(line.MaterialCode),
 			Time: receipt.InspectedAt.UTC(), DataContentType: "application/json",
+			Traceparent: receiptTraceparent(receipt.ID, line.ID),
 			Data: GoodsReceivedEventData{
 				ReceiptID: receipt.ID.String(), ReceiptLineID: line.ID.String(),
 				PurchaseOrderID: receipt.PurchaseOrderID.String(), PurchaseOrderLineID: line.PurchaseOrderLineID.String(),
 				PONumber: receipt.PurchaseOrderNumber, SupplierID: receipt.SupplierID.String(), SupplierName: receipt.SupplierName,
 				SKUCode: strings.TrimSpace(line.MaterialCode), QuantityReceived: json.Number(decimalString(received)),
-				QuantityAccepted: json.Number(decimalString(accepted)), QuantityRejected: json.Number(decimalString(rejected)), Unit: strings.TrimSpace(line.Unit),
+				QuantityAccepted: json.Number(decimalString(accepted)), QuantityRejected: json.Number(decimalString(rejected)), Unit: unit,
 				WarehouseID: strings.TrimSpace(receipt.WarehouseCode), BatchCode: batchCode,
 				SupplierLotCode: strings.TrimSpace(line.SupplierLotCode), ManufacturedOn: dateOnly(line.ManufacturedOn),
 				ExpiresOn: dateOnly(line.ExpiresOn), QualityStatus: string(line.QualityStatus),
@@ -104,6 +114,30 @@ func BuildGoodsReceivedEvents(receipt GoodsReceipt) ([]GoodsReceivedEvent, error
 		})
 	}
 	return events, nil
+}
+
+// The canonical v1 consumer receives physical stock into quarantine, not sellable
+// accepted stock. Match its exact gram/unit conversion without rounding.
+func inventoryReceiptQuantity(quantity *big.Rat, unit string) bool {
+	if quantity.Cmp(big.NewRat(1, 100)) < 0 {
+		return false
+	}
+	converted := new(big.Rat).Set(quantity)
+	switch unit {
+	case "KG":
+		converted.Mul(converted, big.NewRat(1000, 1))
+	case "G", "GRAM", "UNIT", "PIECE":
+	default:
+		return false
+	}
+	return converted.IsInt() && converted.Num().IsInt64() && converted.Num().Int64() <= 2147483647
+}
+
+// A stable, unsampled receipt-local root, not a claim of an incoming request
+// trace. Persisted outbox bytes and rebuilds preserve the same context on retry.
+func receiptTraceparent(receiptID, lineID uuid.UUID) string {
+	digest := sha256.Sum256([]byte(GoodsReceivedEventSource + ":" + receiptID.String() + ":" + lineID.String()))
+	return fmt.Sprintf("00-%x-%x-00", digest[:16], digest[16:24])
 }
 
 func compactUUID(value string) string {

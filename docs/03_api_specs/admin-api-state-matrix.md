@@ -15,6 +15,13 @@ This matrix and the OpenAPI files are the backend handoff. It is intentionally i
 
 Employee APIs require authentication, effective permission and server-side data-scope enforcement. A hidden menu is not authorization.
 
+Procurement receiving handoff (private provider, not a new public frontend route): receipt inspection
+returns 400 INVALID_ARGUMENT for unsupported/inexact physical quantities (minimum 0.01, exact KG-to-gram
+or integral G/GRAM/UNIT/PIECE, int32 bound). The transaction must leave receipt/PO/outbox unchanged on
+failure. UI must preserve the entered inspection and show the validation error, not report success.
+On success, Procurement inspection is recorded, but Inventory stock remains QUARANTINE pending its
+own QC/disposition acceptance. Procurement acceptance does not imply sellable stock or finance settlement.
+
 The Order principal-kind gate retains Employee access to direct admin detail and cancellation-request routes; permission and warehouse checks remain mandatory. Guest, payment-grant and Customer principals cannot access the admin detail projection.
 
 Analytics MVP scoped mode: Dashboard and metric series require `ANALYTICS_DASHBOARD_VIEW#GLOBAL`; all Supply reads require `ANALYTICS_SUPPLY_VIEW#GLOBAL`. Bearer JWT takes the grant from `permission_grants`; Identity session takes structured `permissionGrants`. Flat `permissions`, role `ADMIN`, and WAREHOUSE/DEPARTMENT grants do not authorize these routes. Missing token/session → 401; authenticated actor without matching grant or ACTIVE EMPLOYEE state → 403. Pilot UUID allowlist mode remains dev-only.

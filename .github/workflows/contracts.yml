@@ -7,6 +7,8 @@ on:
     paths:
       - 'packages/proto/**'
       - 'packages/events/**'
+      - 'services/procurement-service/**'
+      - 'scripts/verify-procurement-receipt-contract.py'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
       - '.github/workflows/contracts.yml'
@@ -15,6 +17,8 @@ on:
     paths:
       - 'packages/proto/**'
       - 'packages/events/**'
+      - 'services/procurement-service/**'
+      - 'scripts/verify-procurement-receipt-contract.py'
       - 'packages/contracts/**'
       - 'docs/03_api_specs/**'
       - '.github/workflows/contracts.yml'
@@ -48,6 +52,12 @@ jobs:
       - name: Order proof and negative contract regressions
         run: |
           python packages/contracts/verify_order_design.py --descriptor .system_generated/mvp-contracts/descriptor.pb --output .system_generated/mvp-contracts/order-design-verification.json
+      - name: Procurement receipt producer contract and unit regressions
+        run: |
+          python scripts/verify-procurement-receipt-contract.py
+          cd services/procurement-service
+          go test -race -count=1 ./...
+          go vet ./...
       - name: Upload static contract evidence
         if: always()
         uses: actions/upload-artifact@v4

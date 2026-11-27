@@ -68,10 +68,11 @@ Tất cả các sự kiện bất đồng bộ được quản lý trong thư m�
 - **Tệp Schema:** [`packages/events/schemas/procurement/v1/goods_received.event.json`](../../packages/events/schemas/procurement/v1/goods_received.event.json)
 - **Producer:** `procurement-service`, qua transactional outbox sau khi kiểm định phiếu nhận hàng commit thành công.
 - **Topic:** `procurement.events.v1` | **Partition Key:** `sku_code` | **Một event cho mỗi dòng phiếu nhận**.
-- `id` là ID ổn định của dòng receipt; consumer cần deduplicate theo CloudEvent ID. `quantity_received` là lượng giao thực tế, `quantity_accepted` là lượng đủ điều kiện nhập tồn, `quantity_rejected` chỉ phục vụ đối soát. Inventory chỉ cộng `quantity_accepted` và bỏ qua dòng có lượng chấp nhận bằng 0.
+- `id` là ID ổn định của dòng receipt; consumer cần deduplicate theo source/CloudEvent ID. Theo consumer PR #118 tại `21775d66`, `quantity_received` là lượng vật lý đưa vào QUARANTINE (kể cả dòng bị Procurement từ chối), không phải tồn bán được. `quantity_accepted`/`quantity_rejected` chỉ là bằng chứng kiểm nhận Procurement; consumer không dùng chúng để tự giải phóng QC. Xử lý trả/hủy hàng bị từ chối và QC phải nghiệm thu riêng, không bật tự động bán toàn bộ lô.
+- Envelope bắt buộc có `traceparent`; producer tạo root receipt-local ổn định, unsampled, không giả định có trace HTTP đã lưu. `unit` nhận KG/G/GRAM/UNIT/PIECE (chuẩn hóa hoa); lượng vật lý tối thiểu 0.01, KG đổi chính xác sang gram, các đơn vị còn lại nguyên, không làm tròn và không vượt int32. Inventory vẫn phải cấu hình base unit cho từng SKU và ánh xạ kho.
 - Producer luôn gửi các trường bổ sung `receipt_line_id`, `purchase_order_id`, `purchase_order_line_id`, `quantity_accepted`, `quantity_rejected`, `batch_code`, `quality_status` và `inspected_at`; các trường này là optional trong JSON Schema v1 để payload producer cũ vẫn hợp lệ. Event giữ `supplier_id` dạng UUID, `warehouse_id` là mã kho Procurement để Inventory ánh xạ, `sku_code` là mã vật liệu Procurement. `batch_code` được tạo xác định từ receipt/receipt-line; mã lô nhà cung cấp được truyền riêng. Ngày sản xuất/hết hạn được truyền khi có.
 - **Tác vụ của các Consumer:**
-  - `inventory-service`: Nhập kho và tạo Lot sản xuất mới.
+  - `inventory-service`: Tạo lô nhận hàng QUARANTINE, ngày chưa xác minh để NULL; không gộp lô tùy đoán hoặc cho bán ngay.
   - `finance-service`: Ghi nhận khoản phải trả người bán (Accounts Payable - AP) cho Hợp tác xã mè/đậu Huế.
   - `traceability-service`: Ghi nhận tọa độ và thông tin nông hộ trồng mè sạch phục vụ tem QR OCOP.
 
