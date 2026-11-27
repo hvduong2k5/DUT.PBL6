@@ -1,6 +1,8 @@
 # PBL6 — Bàn giao Order: ORD-TRC-01
 
-Version nghiệp vụ/contract: **0.2.2-draft** · Snapshot tài liệu: **`89e15ca19432749b606c6d0a61700e98fdb7fd67`**.
+Version nghiệp vụ/contract: **0.3.0-draft** · Snapshot tài liệu: **`1d4fba6477032419d894a32b1dd6866490b3e95c`**.
+
+**Bản phát lại0.3.0 thay toàn bộ phiếu0.2.2 cũ:** giữ nghiệp vụ, chuyển business service-to-service sang gRPC. Nếu đã làm REST nội bộ theo bản cũ, tái sử dụng logic và bổ sung gRPC adapter đúng contract. Web/BFF vẫn REST.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -12,20 +14,21 @@ File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu c�
 
 | Tài liệu liên quan trong repository | Link bất biến |
 | --- | --- |
-| `docs/03_api_specs/traceability-workflow-README.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-README.md) |
-| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
-| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-acceptance.md) |
-| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-service-spec.md) |
-| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
-| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-candidates/packing.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/89e15ca19432749b606c6d0a61700e98fdb7fd67/docs/03_api_specs/traceability-workflow-candidates/packing.proto) |
+| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
+| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-acceptance.md) |
+| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-service-spec.md) |
+| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
+| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-grpc.md) |
+| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-candidates/packing.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-candidates/packing.proto) |
+| `packages/proto/traceability/v1/batch_links.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/traceability/v1/batch_links.proto) |
 
 Trong repository đã clone, các lệnh đọc sau không checkout/reset hay ghi đè source đang làm:
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show 89e15ca19432749b606c6d0a61700e98fdb7fd67:docs/03_api_specs/traceability-workflow-README.md
-git show 89e15ca19432749b606c6d0a61700e98fdb7fd67:docs/03_api_specs/traceability-workflow-peer-handoff.md
+git show 1d4fba6477032419d894a32b1dd6866490b3e95c:docs/03_api_specs/traceability-workflow-grpc.md
+git show 1d4fba6477032419d894a32b1dd6866490b3e95c:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
 ## Bắt đầu thực hiện
@@ -49,7 +52,7 @@ Không yêu cầu thay framework, tên hàm hoặc thêm bảng nếu đã đạ
 
 Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạm dữ liệu authoritative, phá contract stable, thiếu dependency/credential không thể cung cấp trong phần phụ trách hoặc cần thay đổi nghiệp vụ ngoài scope. Ghi yêu cầu OUT/test bị chặn, bằng chứng và phần đã làm; tiếp tục phần độc lập. Không coi chưa có phản hồi của owner khác là blocker để dừng code: dùng fixture đúng contract có nhãn để phát triển/test, ghi runtime integration còn chờ khi provider chưa sẵn sàng. Không tự bịa dữ liệu hoặc báo test thật đã PASS bằng mock.
 
-- Wire/case/ID và permission là contract đích, không đổi tên cho giống convention riêng. Không fake provider verification bằng mock, không sửa stable/generated examples hoặc migration cũ.
+- Business calls giữa service dùng gRPC; REST Web/BFF và OIDC protocol giữ nguyên theo guide. Wire/case/ID và permission là contract đích, không đổi tên cho giống convention riêng. Không fake provider verification bằng mock, không sửa stable/generated examples hoặc migration cũ.
 - HTTP error chuẩn mới `{code,message,requestId}`; mutation mới có Idempotency-Key. Legacy route giữ contract riêng. Internal RPC/call dùng danh tính service và transport tin cậy, không tin X-User-ID/role do browser tự gửi.
 - Không kích hoạt/publish QR khi nhận packing hoặc GoodsReceived. Không thêm trừ kho, tạo profile, cấp mã hoặc payment side effect trong read flow.
 
@@ -59,7 +62,7 @@ Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạ
 
 **Đầu ra bắt buộc:** ORD-OUT-01: Web lấy được từng line/batch/quantity và link/trạng thái truy xuất đúng đơn; ORD-OUT-02: chỉ chủ đơn hoặc guest capability hợp lệ được đọc; ORD-OUT-03: proof/Traceability thiếu hoặc lỗi không phá detail/lifecycle, không gắn nhầm lô. Owner đối chiếu API/read model hiện có trước; endpoint riêng bên dưới là contract đích để triển khai. Có thể dùng logic/read model hiện có phía sau route/adapter đúng contract đó; không cần consumer duyệt phương án nội bộ. Không tự thêm field vào stable detail hoặc đổi response ngoài phạm vi.
 
-**Consumer:** Fulfillment proof candidate và Traceability internal resolver. **Provider đích:** `GET /api/v1/orders/{order_id}/traceability` trong OpenAPI tích hợp, endpoint riêng; không sửa frozen commercial snapshot hoặc lifecycle chỉ vì lookup nguồn gốc lỗi.
+**Consumer:** Fulfillment proof candidate và gRPC `BatchLinkResolver.ResolveBatchLinks` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/traceability/v1/batch_links.proto), [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-grpc.md). Không gọi internal REST resolver0.2.2 nữa. **Provider đích:** `GET /api/v1/orders/{order_id}/traceability` trong OpenAPI tích hợp, endpoint riêng; không sửa frozen commercial snapshot hoặc lifecycle chỉ vì lookup nguồn gốc lỗi.
 
 1. Dùng proof exact version từ luồng notification hiện có hoặc read model đã được kiểm chứng. Kiểm order/task/package/sealed version/generation/digest/warehouse và invariant dòng-lô-số lượng. Đầu ra nhận diện theo `(order, package, sealed_version, order_line_id, batch_id)`; duplicate input không cộng số lượng lần hai, event cũ không ghi lùi phiên bản. Persist projection là một phương án; owner có thể tái sử dụng projection/proof reader đã có nếu bảo đảm cùng semantics, ownership, deadline và không lấy latest/live allocation thay lịch sử. GET không tạo command nghiệp vụ để “bù” dữ liệu thiếu.
 
@@ -67,8 +70,10 @@ Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạ
 2. line_id lấy từ frozen Order snapshot; customer projection hiện không gán ItemID nên UI có thể dùng orderId-index. Subresource trả canonical order_line_id và sku_code. Current manifest unique SKU: Web/BFF giữ typed skuCode từ raw detail và map exact unique SKU, kiểm tổng quantity trước gắn link; không parse skuLabel, không join index/tên. Nếu duplicate/không chứng minh mapping, state UNAVAILABLE; không gắn tạm SKU khác. Không cần sửa frozen commercial snapshot hoặc stable detail để có bridge này.
 3. Root state: không có proof và đơn chưa bị hủy trước packing → PACKING_PENDING; hủy trước packing → NOT_APPLICABLE; có proof hợp lệ → READY; proof/capability không xác minh được → UNAVAILABLE. Có sealed proof rồi hủy/hoàn sau đó vẫn cho đọc lô lịch sử; không xóa lịch sử. items rỗng có total0; READY không đồng nghĩa mọi link AVAILABLE.
 4. Kiểm auth/ownership trước mọi peer call. Dùng cơ chế customer/guest detail của đúng release; tại dev1564a7bc guest session do Order cấp có issuer `order-service-guest-session`,audience `order-storefront`,typ `guest-session+jwt`,live session được xác minh. Payment read token issuer `order-service-guest`/aud `order-payment` không đủ đọc nguồn gốc đơn. Không thêm token/OTP/challenge mới.
-5. Resolver input chỉ `source_namespace=inventory`, batch UUID và SKU từ proof. ≤100/request, chia chunk và reconstruct output. Không cần product_id vì Traceability unique namespace+batch và đã verify product lúc publish. Timeout ≤1.5s/call, outer request budget5s; không retry đồng bộ trong cùng request, UI có thể retry read sau. Không gửi PII/actor token customer cho internal resolver. Concurrency≤2 và total budget5s, chunk chưa xong báoUNAVAILABLE. Quá1000line-batch rows hoặc response512KiB → rootUNAVAILABLE, không truncate thành READY.
+5. Resolver là unary gRPC qua TLS với credential Order riêng trong authorization metadata. Response dùng items[].binding + enum status + optional qr_url; map absence sang null và bỏ prefix enum khi dựng DTO customer REST, không phát proto JSON thẳng ra Web. RESOURCE_EXHAUSTED/UNIMPLEMENTED/auth/timeout làm row UNAVAILABLE; không fallback HTTP. Resolver input chỉ `source_namespace=inventory`, batch UUID và SKU từ proof. ≤100/request, chia chunk và reconstruct output. Không cần product_id vì Traceability unique namespace+batch và đã verify product lúc publish. Timeout ≤1.5s/call, outer request budget5s; không retry đồng bộ trong cùng request, UI có thể retry read sau. Không gửi PII/actor token customer cho internal resolver. Concurrency≤2 và total budget5s, chunk chưa xong báoUNAVAILABLE. Quá1000line-batch rows hoặc response512KiB → rootUNAVAILABLE, không truncate thành READY.
 6. AVAILABLE/NOT_AVAILABLE/NO_LONGER_PUBLIC/UNAVAILABLE từ resolver map nguyên nghĩa. Resolver auth/config lỗi làm các row UNAVAILABLE và có operational log an toàn, không biến thành NOT_AVAILABLE. Full Order DB lỗi trả503. Root total là số line-batch row, không là số sản phẩm.
+
+ORD-OUT-04: triển khai gRPC client TLS theo canonical batch_links.proto và guide0.3.0; exact response echo/count, switch enum tường minh, optional qr_url presence, deadline/chunk budget và fail-closed mapping. Nếu đã làm REST consumer0.2.2, giữ application/proof/ownership logic và thay transport adapter; không thêm HTTP fallback. Nộp codegen/version + GRPC-RES-01…03 evidence, không cần chờ Traceability lên để code/test bằng fixture đúng proto có nhãn.
 
 Historical mặc định không backfill từ allocation live. Đơn cũ thiếu verified proof báo UNAVAILABLE và hướng dẫn scan QR trên bao bì; không chặn order lifecycle, không yêu cầu xóa đơn. Backfill có thể dùng exact sealed snapshot provider nếu đã chứng minh, nhưng là job có review riêng, không tự chạy khi khách GET.
 
@@ -93,10 +98,105 @@ Nhân viên chỉ thao tác trong kho được giao. Role là bundle permission;
 | ORD-05 | 101+line-batch rows, legacy no proof | Chunk≤100 và reconstruct; không backfill bằng live stock |
 | ORD-06 | 1000+rows, response vượt512KiB, chunk chưa hoàn thành budget | RootUNAVAILABLE khi quá cap, không truncate; chunk chưa resolveUNAVAILABLE, detail/lifecycle vẫn chạy |
 | ORD-07 | Base proof hợp lệ nhưng packed_lines thiếu/sai; sau đó thử base proof sai thật | Chỉ extension lỗi → traceUNAVAILABLE, PACKING_SEALED/shipping baseline vẫn tiến; base proof sai vẫn bị từ chối, không nới guard cũ |
+| GRPC-RES-01 | Duplicates/exact input echo, enum và optional qr_url |1:1 thứ tự; absent→null khi Order map REST; không UNSPECIFIED hoặc proto JSON trực tiếp |
+| GRPC-RES-02 |1/100/101bindings, 256KiB/512KiB caps, wrong/missing/duplicate credential | Invalid count→INVALID_ARGUMENT, byte cap→RESOURCE_EXHAUSTED, auth→UNAUTHENTICATED; chỉ Order credential, không route HTTP cũ |
+| GRPC-RES-03 | Deadline, DB down, corrupt/old/unpublished/withdrawn rows |gRPC storage/budget lỗi, per-row status đúng; không block Order lifecycle và không query peer |
 
 Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/bổ sung, mapping adapter nếu có, PASS/FAIL/SKIPPED từng test và bằng chứng đã lọc. Chưa có peer chạy thật vẫn code/test bằng fixture đúng contract, ghi `IMPLEMENTED_NOT_INTEGRATED`; không báo full E2E bằng mock. Chỉ báo blocker vượt scope, không gửi phương án rồi chờ duyệt trước sửa code.
 
 Đọc AGENTS.md và rule service trong repository trước khi sửa. Commit mới dùng tiếng Anh, giữ một type/scope; contract thay trước hoặc cùng code, không sửa migration cũ/generated rows sai quy trình. Không tự push dev/release hoặc deploy production; tạo PR theo quy trình nhóm.
+
+## Quy định transport mới và contract gRPC
+
+Chốt27/11/2026 theo định hướng nhóm: business calls East-West dùng gRPC; REST là bề mặt Web/Mobile. Bản này thay transport nội bộ của target0.2.2, giữ nguyên nghiệp vụ, scope kho, state machine, nguồn dữ liệu, snapshot/hash và dữ liệu public. Các phiếu0.2.2 cũ chỉ là lịch sử; phát lại phiếu0.3.0 từ commit nguồn mới, không dùng lẫn contract giữa hai bản.
+
+## Ranh giới và contract authoritative
+
+| Kết nối | Contract đích | Owner |
+| --- | --- | --- |
+| Traceability → Inventory | `GetTraceabilityBatch`, candidate field9 warehouse hiện có | Inventory |
+| Traceability → Catalog | [CatalogTraceabilitySource.GetSkuBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/catalog/v1/traceability_source.proto) | Catalog |
+| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/identity/v1/staff_authorization.proto) | Identity |
+| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/traceability/v1/batch_links.proto) | Traceability |
+| Order → Fulfillment | packing gRPC exact sealed proof, candidate field14 hiện có | Fulfillment/Order |
+| Web/Mobile → public/admin/customer APIs | REST/OpenAPI hiện có; scoped staff vẫn v2 | Web/Gateway và backend tương ứng |
+
+Ba file proto mới trong `packages/proto/` là shared integration target, chưa phải tuyên bố provider đã chạy. Không đổi service/method/field cũ trong catalog.proto hoặc identity.proto. Owner thêm implementation/copies/codegen của file mới bằng pipeline hiện có, không sửa tay generated code.
+
+Catalog và Identity hiện đã có `sourceSets.main.proto.srcDir '../../packages/proto'`: lấy đúng file canonical mới từ source commit/khối proto trong phiếu vào đường dẫn ghi ở bảng, rồi chạy pipeline `generateProto`/build của service. Không chép thêm một bản cùng definition vào src/main/proto. Identity implementation cần google.rpc.ErrorInfo + io.grpc.protobuf.StatusProto để tạo rich status details; tái sử dụng dependency đang có hoặc bổ sung dependency tương thích gRPC/protobuf đã pin, không đổi wire để né detail bắt buộc.
+
+Pipeline Java hiện pin protoc3.25.3/gRPC1.62.2; ba proto mới đã được kiểm codegen với đúng hai version này. Không dùng toolchain Python của Traceability để thay pin Java.
+
+### Listener TLS mới và tương thích deployment
+
+Baseline Catalog9005 cấu hình security.enabled=false; Identity9016 chưa có TLS trong application.yml. Không đổi transport của các port legacy và làm hỏng client đang dùng. Chốt listener TLS riêng cho hai RPC mới: Catalog mặc định9105 (`CATALOG_TRACEABILITY_GRPC_PORT`), Identity mặc định9116 (`IDENTITY_TRACEABILITY_GRPC_PORT`); cho phép override env khi hạ tầng yêu cầu, ghi địa chỉ thực trong delivery. Chỉ bind/register service mới trên listener TLS đó, không mở thêm plaintext bản sao của RPC mới qua annotation auto-registration lên legacy listener.
+
+Server env: Catalog dùng `CATALOG_TRACEABILITY_GRPC_TLS_CERT_FILE/KEY_FILE/TOKEN`, Identity dùng `IDENTITY_TRACEABILITY_GRPC_TLS_CERT_FILE/KEY_FILE/TOKEN`. TOKEN là credential caller Traceability riêng≥32bytes (có thể map alias tới secret Traceability hiện có đã riêng), không dùng checkout/financial token chung. Cert SAN khớp DNS service, key chỉ service đọc. New server phải tự gắn interceptor xác thực; annotation global interceptor của server legacy không tự bảo vệ một manual TLS server. Gắn lifecycle vào ứng dụng để drain rồi stop khi shutdown và fail startup nếu bật mà thiếu TLS/secret. Không publish host/public port ở deployment; chỉ network nội bộ.
+
+Traceability client cấu hình theo địa chỉ thực, ví dụ trong Docker network `catalog-service:9105` và `identity-service:9116`, trusted CA tương ứng. Owner cung cấp env example/port/CA contract và test legacy RPC còn hoạt động. Có thể tái sử dụng TLS listener riêng đã tồn tại nếu bảo đảm cùng kết quả, không yêu cầu consumer đổi method/message/auth hoặc hỏi duyệt trước.
+
+Proxy BFF cookie-to-bearer tiếp tục chuyển tiếp request REST của Web tới Gateway theo north-south contract, giữ Origin/CSRF. Nó không phải domain read East-West. OIDC discovery/JWKS vẫn HTTPS theo giao thức xác thực; không đổi sang gRPC. Kafka/outbox tiếp tục thông báo publication/status sau local transaction; không dùng event để tự tạo hồ sơ, publish QR hoặc thay kiểm quyền/nguồn đồng bộ. Không thêm request/reply bằng Kafka trong đợt này.
+
+## Catalog — CAT-OUT-01/02
+
+RPC full method: `/omamx.catalog.v1.CatalogTraceabilitySource/GetSkuBinding`.
+
+- Input exact `sku_code`,1–100 ký tự, giữ case, không trim/fuzzy; canonical response product UUID, đúng SKU và opaque `catalog_version` không rỗng.
+- Bao gồm SKU ẩn/ngừng bán còn lưu; không yêu cầu giá, trạng thái public hoặc checkout eligibility. Tái sử dụng query/verifier nội bộ đã có.
+- Traceability dùng cùng RPC khi bootstrap và create/submit/publish, tự đối chiếu product_id với binding đã lưu. Version phải khớp semantics verifier cũ; không thay version bằng thời gian hoặc giá trị hằng.
+- CatalogAccess hiện chỉ bảo vệ prefix CatalogService/ bằng token chung x-internal-token. RPC mới phải được thêm guard riêng đúng full method + dedicated Traceability Bearer; test không credential phải fail closed, không để service mới lọt nhánh không kiểm auth.
+- TLS, credential Traceability riêng qua một metadata `authorization: Bearer ...`. Không dùng staff JWT làm service credential. Giữ credential hiện có nếu đã riêng và đủ an toàn; chuyển cách truyền từ X-Internal-Token sang gRPC metadata.
+- INVALID_ARGUMENT: input sai; NOT_FOUND: SKU không tồn tại chính xác; UNAUTHENTICATED: credential invalid; PERMISSION_DENIED: known caller không có capability; UNAVAILABLE: DB/provider lỗi. Reply≤8KiB. Context Inventory+Catalog có budget chung2s; không retry vô hạn.
+
+`GetProductVariant` hiện có thiếu catalog_version và phụ thuộc saleability/price; không được dùng thay RPC này khi chưa đáp ứng đủ semantics. Legacy Catalog internal REST có consumer khác vẫn giữ tương thích; target mới không gọi các endpoint đó và không yêu cầu bổ sung REST exact-SKU nữa.
+
+## Identity — IAM-OUT-05
+
+RPC full method: `/omamx.identity.v1.StaffAuthorization/GetCurrentStaffGrants`.
+
+Hai credential riêng qua TLS:
+
+| Metadata | Mục đích |
+| --- | --- |
+| `authorization: Bearer <Traceability-to-Identity credential>` | Xác thực caller service; chỉ Traceability được gọi RPC này |
+| `x-staff-authorization: Bearer <employee access token>` | Xác thực actor nhân viên; không nhận principalId/role từ caller để bỏ qua kiểm JWT |
+
+Mỗi metadata đúng một giá trị, không log/interceptor dump token. Employee JWT≤16KiB. Request message rỗng; Identity tự xác minh JWT issuer/audience/signature/expiry, suy principal từ mapping authoritative, kiểm EMPLOYEE/ACTIVE, đọc effective grants hiện hành bằng query IAM hiện có. Lọc assignment expired/revoked, disabled role và giữ scopeId; không gọi lại Traceability, không role ADMIN bypass. Không sửa claims/refresh semantics hiện có.
+
+Response gồm principal_id/idp_subject/principal_type/provisioning_status và đầy đủ grant traceability.* hiện hành, tối đa128grant/32KiB; vượt cap trả RESOURCE_EXHAUSTED, không truncate. GLOBAL scope_id rỗng, WAREHOUSE có UUID. Traceability vẫn xác minh JWT cục bộ, đối chiếu response ID/subject và intersection token/current grants theo permission+scope; không dùng response để mở rộng token hoặc bỏ kiểm hiện hành. Call budget2s, không cache grants qua request.
+
+Auth failures phải có `google.rpc.ErrorInfo`, domain `identity.omama.internal` để phân biệt lỗi service với actor:
+
+| gRPC code | ErrorInfo.reason | Consumer xử lý |
+| --- | --- | --- |
+| UNAUTHENTICATED | STAFF_UNAUTHENTICATED | HTTP401, xác thực lại nhân viên |
+| PERMISSION_DENIED | STAFF_FORBIDDEN | HTTP403, actor không có capability/EMPLOYEE ACTIVE |
+| UNAUTHENTICATED | SERVICE_AUTHENTICATION_FAILED | HTTP503, sai cấu hình service; không bắt nhân viên login để che lỗi |
+| PERMISSION_DENIED | SERVICE_PERMISSION_DENIED | HTTP503, service không được cấp RPC |
+| UNAVAILABLE / DEADLINE_EXCEEDED / RESOURCE_EXHAUSTED / UNIMPLEMENTED | Không yêu cầu detail | HTTP503, fail closed |
+
+Auth error thiếu detail/unknown reason →503. JWT hỏng phát hiện cục bộ →401 trước RPC. Grant rỗng cho nhân viên hợp lệ trả200/RPC OK; action không đủ quyền trả403 tại Traceability. ID/subject mismatch hoặc response malformed →503. Không dùng `CheckSpecializedPermission` tài chính để thay current grants.
+
+## Traceability resolver — ORD-OUT-04
+
+RPC full method: `/omamx.traceability.v1.BatchLinkResolver/ResolveBatchLinks`.
+
+- Order kiểm ownership/guest capability trước RPC, dùng credential Order riêng≥32bytes qua đúng một authorization Bearer trên TLS. Không route qua Kong/public wildcard; không gửi token qua URL.
+- Input1–100 bindings, inventory namespace, canonical Batch UUID, exact SKU; body≤256KiB. Read-only, không Idempotency-Key. Deadline caller≤1.5s, server tự giới hạn1.5s; Order vẫn giữ budget toàn5s/concurrency≤2 và response caps đã chốt.
+- Response `items[i].binding` lặp lại input i; enum status không UNSPECIFIED; total=len(input), giữ duplicates/thứ tự. qr_url có presence chỉ AVAILABLE/NO_LONGER_PUBLIC. Map protobuf absence → JSON null cho NOT_AVAILABLE/UNAVAILABLE; map enum prefix sang bốn status REST đã chốt. Không phát proto JSON trực tiếp ra customer vì tên enum/wrapper khác DTO customer.
+- Order dùng switch enum tường minh: AVAILABLE→AVAILABLE, NOT_AVAILABLE→NOT_AVAILABLE/null, NO_LONGER_PUBLIC→NO_LONGER_PUBLIC, UNAVAILABLE→UNAVAILABLE/null. UNSPECIFIED/unknown enum, thiếu URL bắt buộc, total/length/binding echo sai → chunk UNAVAILABLE; không cắt prefix rồi chấp nhận status lạ hoặc ghép theo index không đối chiếu binding. URL phải hợp lệ theo public origin đã cấu hình, không dựng từ batchCode/PII.
+- AVAILABLE chỉ khi public revision eligible; NOT_AVAILABLE cho missing/unpublished/SKU mismatch; NO_LONGER_PUBLIC có URL đã public nếu dựng an toàn; corrupt public row→UNAVAILABLE. DB lỗi toàn bộ→UNAVAILABLE gRPC status, không giả reply toàn NOT_AVAILABLE. Không gọi peer khi resolve và không chặn Order lifecycle/shipping nếu lỗi trace.
+- INVALID_ARGUMENT: binding/count sai; RESOURCE_EXHAUSTED: vượt message cap; UNAUTHENTICATED: credential absent/invalid; UNAVAILABLE/DEADLINE_EXCEEDED: storage/budget; PERMISSION_DENIED chỉ khi đã biết caller nhưng thiếu capability. Safe status messages, không lộ SQL/credential/evidence. Header `x-request-id` cho RPC được xử lý, sinh mới khi thiếu/invalid; runtime decoding/size rejection có thể do gRPC runtime trả trước handler.
+
+Internal REST resolver của0.2.2 chưa phát hành không được đăng ký nữa. Không thêm REST fallback hoặc dual-write. Public QR/admin/customer REST vẫn giữ error/header/body riêng như OpenAPI.
+
+## Cấu hình, rollout và đầu ra owner
+
+Traceability bổ sung Catalog/Identity gRPC target+CA+credential; giữ OIDC issuer HTTPS và Inventory TLS. Resolver có listener nội bộ `GRPC_ADDR` (ví dụ9003), TLS cert/key bắt buộc ở integration khi bật; sandbox chỉ loopback có thể dùng plaintext explicit. Feature flags scoped/resolver vẫn độc lập và mặc định false. Không mở insecure integration hoặc fallback HTTP khi RPC thiếu.
+
+Owner Catalog triển khai RPC GetSkuBinding; Identity triển khai current staff grants + auth details và giữ phần BFF/assignments; Order chuyển consumer resolver sang generated gRPC và map đúng DTO. Inventory/Fulfillment giữ đầu ra đã chốt. Web tiếp tục REST; không cần gRPC client trong browser.
+
+Nghiệm thu mới: TLS/auth/credentials riêng; exact SKU hidden/no-price; JWT/current-grant intersection và revoke; ID mismatch; RPC timeout/UNIMPLEMENTED fail closed; resolver100/101/byte caps/duplicates/status/presence/DB down; lifecycle/shutdown hai listener; kiểm không còn internal business REST trong live adapters. Peer fixtures phải ghi nhãn; provider thật vẫn cần test trước bật flags. Không yêu cầu owner phản hồi ACCEPT trước code.
 
 ## Contract HTTP nhúng — không cần tải thêm file để đọc schema
 
@@ -106,11 +206,11 @@ Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi
 openapi: 3.1.0
 info:
   title: PBL6 Order traceability handoff
-  version: 0.2.2-draft
+  version: 0.3.0-draft
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: Distribution snapshot from documentation commit 89e15ca19432749b606c6d0a61700e98fdb7fd67. Direct
+  description: Distribution snapshot from documentation commit 1d4fba6477032419d894a32b1dd6866490b3e95c. Direct
     implementation target, not runtime acceptance. All references are local to this embedded contract.
 tags:
 - name: Order
@@ -254,97 +354,6 @@ paths:
       security:
       - Workflow_customerBearer: []
       - Workflow_guestCapability: []
-  /api/v1/internal/traceability/batch-links/resolve:
-    post:
-      tags:
-      - Order
-      operationId: resolveOrderBatchTraceabilityDraft
-      summary: Resolve published links for exact batch bindings
-      description: Read-only bounded bulk lookup. Authenticated order-service identity with a dedicated credential
-        over trusted internal transport; never public Kong routing. Does not create records, publish, or mutate
-        stock, so no create Idempotency-Key is required. Preserve input order and one output per input. Unknown
-        and unpublished bindings both return NOT_AVAILABLE. No internal profile IDs, evidence or actor data. Cache-Control
-        no-store. AVAILABLE requires eligible public revision and qr_url; NO_LONGER_PUBLIC returns only the previously
-        public URL; if it cannot be reconstructed safely, return UNAVAILABLE. Other states have null qr_url.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - items
-              properties:
-                items:
-                  type: array
-                  minItems: 1
-                  maxItems: 100
-                  items:
-                    $ref: '#/components/schemas/Workflow_Binding'
-      responses:
-        '200':
-          description: One result per binding; per-item source failures remain UNAVAILABLE
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                enum:
-                - no-store
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - items
-                - total
-                properties:
-                  items:
-                    type: array
-                    maxItems: 100
-                    items:
-                      $ref: '#/components/schemas/Workflow_ResolvedBindingResult'
-                    minItems: 1
-                  total:
-                    type: integer
-                    minimum: 1
-                    maximum: 100
-              examples:
-                mixed:
-                  value:
-                    items:
-                    - sku_code: MX-001
-                      source_namespace: inventory
-                      batch_id: 33333333-3333-4333-8333-333333333333
-                      status: AVAILABLE
-                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
-                    - sku_code: MX-001
-                      source_namespace: inventory
-                      batch_id: 44444444-4444-4444-8444-444444444444
-                      status: NOT_AVAILABLE
-                      qr_url: null
-                    - sku_code: MX-002
-                      source_namespace: inventory
-                      batch_id: 55555555-5555-4555-8555-555555555555
-                      status: NO_LONGER_PUBLIC
-                      qr_url: https://shop.example.test/trace/zyxwvutsrqponmlkjihgfe
-                    - sku_code: MX-003
-                      source_namespace: inventory
-                      batch_id: 66666666-6666-4666-8666-666666666666
-                      status: UNAVAILABLE
-                      qr_url: null
-                    total: 4
-        '401':
-          $ref: '#/components/responses/Workflow_Unauthorized'
-        '403':
-          $ref: '#/components/responses/Workflow_Forbidden'
-        '422':
-          $ref: '#/components/responses/Workflow_Invalid'
-        '503':
-          $ref: '#/components/responses/Workflow_Unavailable'
-      security:
-      - Workflow_serviceBearer: []
-      servers:
-      - url: http://127.0.0.1:8003
 components:
   schemas:
     Workflow_OrderBatchTraceResult:
@@ -441,81 +450,6 @@ components:
           description: Safe user-visible message
         requestId:
           type: string
-    Workflow_Binding:
-      type: object
-      required:
-      - sku_code
-      - source_namespace
-      - batch_id
-      properties:
-        sku_code:
-          type: string
-          minLength: 1
-          maxLength: 100
-        source_namespace:
-          type: string
-          enum:
-          - inventory
-        batch_id:
-          type: string
-          format: uuid
-    Workflow_ResolvedBindingResult:
-      oneOf:
-      - type: object
-        additionalProperties: false
-        required:
-        - sku_code
-        - source_namespace
-        - batch_id
-        - status
-        - qr_url
-        properties:
-          sku_code:
-            type: string
-            minLength: 1
-            maxLength: 100
-          source_namespace:
-            type: string
-            enum:
-            - inventory
-          batch_id:
-            type: string
-            format: uuid
-          status:
-            type: string
-            enum:
-            - AVAILABLE
-            - NO_LONGER_PUBLIC
-          qr_url:
-            type: string
-            format: uri
-      - type: object
-        additionalProperties: false
-        required:
-        - sku_code
-        - source_namespace
-        - batch_id
-        - status
-        - qr_url
-        properties:
-          sku_code:
-            type: string
-            minLength: 1
-            maxLength: 100
-          source_namespace:
-            type: string
-            enum:
-            - inventory
-          batch_id:
-            type: string
-            format: uuid
-          status:
-            type: string
-            enum:
-            - NOT_AVAILABLE
-            - UNAVAILABLE
-          qr_url:
-            type: 'null'
   responses:
     Workflow_Unauthorized:
       description: Absent, expired or invalid authentication; code UNAUTHENTICATED
@@ -565,18 +499,6 @@ components:
                 code: DEPENDENCY_UNAVAILABLE
                 message: Request cannot be completed.
                 requestId: req-traceability-example
-    Workflow_Invalid:
-      description: Invalid or incomplete binding; code INVALID_BINDING
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Workflow_Error'
-          examples:
-            INVALID_BINDING:
-              value:
-                code: INVALID_BINDING
-                message: Request cannot be completed.
-                requestId: req-traceability-example
   securitySchemes:
     Workflow_customerBearer:
       type: http
@@ -587,19 +509,15 @@ components:
       scheme: bearer
       description: Existing authoritative Order detail guest credential only; payment-read grants do not authorize
         this operation. No new credential or header is introduced.
-    Workflow_serviceBearer:
-      type: http
-      scheme: bearer
-      description: Dedicated Order internal credential, TLS required outside isolated local tests
-x-source-commit: 89e15ca19432749b606c6d0a61700e98fdb7fd67
+x-source-commit: 1d4fba6477032419d894a32b1dd6866490b3e95c
 ```
 
 ## Proto target nhúng: `docs/03_api_specs/traceability-workflow-candidates/packing.proto`
 
-Không compile cạnh proto canonical cùng package/message vì đây là candidate full definition. Khi implement cập nhật canonical/copies/codegen theo contract, giữ field/method cũ; không hand-edit generated code.
+Candidate full definition: compile riêng, cập nhật canonical/copies/codegen khi implement; không compile cạnh canonical cùng message. Không hand-edit generated code.
 
 ```proto
-// Implementation target 0.2.2-draft, 2026-11-25. NOT canonical/runtime code.
+// Implementation target 0.3.0-draft, 2026-11-27. NOT canonical/runtime code.
 // Compile this directory separately; do not compile beside the canonical files.
 syntax = "proto3";
 
@@ -777,6 +695,51 @@ message PackedBatchLine {
 }
 ```
 
+## Proto target nhúng: `packages/proto/traceability/v1/batch_links.proto`
+
+Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng. Không hand-edit generated code.
+
+```proto
+// Integration target 0.3.0-draft. Provider: Traceability; consumer: Order.
+syntax = "proto3";
+package omamx.traceability.v1;
+option go_package = "github.com/omamx/proto/traceability/v1;traceabilityv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.traceability.v1";
+
+// Internal TLS plus a dedicated Order credential. Read-only, no idempotency key.
+// Budget <= 1.5s, 1..100 items, <=256KiB request, <=512KiB response.
+service BatchLinkResolver {
+  rpc ResolveBatchLinks(ResolveBatchLinksRequest) returns (ResolveBatchLinksResponse);
+}
+message ResolveBatchLinksRequest {
+  repeated TraceabilityBatchBinding items = 1;
+}
+message TraceabilityBatchBinding {
+  string source_namespace = 1;
+  string batch_id = 2;
+  string sku_code = 3;
+}
+enum BatchLinkStatus {
+  BATCH_LINK_STATUS_UNSPECIFIED = 0;
+  BATCH_LINK_STATUS_AVAILABLE = 1;
+  BATCH_LINK_STATUS_NOT_AVAILABLE = 2;
+  BATCH_LINK_STATUS_NO_LONGER_PUBLIC = 3;
+  BATCH_LINK_STATUS_UNAVAILABLE = 4;
+}
+message ResolvedBatchLink {
+  TraceabilityBatchBinding binding = 1;
+  BatchLinkStatus status = 2;
+  // Present only for AVAILABLE/NO_LONGER_PUBLIC. No internal IDs or evidence.
+  optional string qr_url = 3;
+}
+message ResolveBatchLinksResponse {
+  // Exactly one result per input, including duplicates, in the original order.
+  repeated ResolvedBatchLink items = 1;
+  int32 total = 2;
+}
+```
+
 ## Tính toàn vẹn bản gửi
 
-Nguồn commit: `89e15ca19432749b606c6d0a61700e98fdb7fd67`. SHA-256 tập source: `fbd951d3a39c452b41ab6cd7101cfe22e23f8f7d57714a66c06c65c1129bad47`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.
+Nguồn commit: `1d4fba6477032419d894a32b1dd6866490b3e95c`. SHA-256 tập source: `69f49c1a733a497e33f56bdd76ba357be65d1ef01d6b996facf95dc2ad7480c7`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.

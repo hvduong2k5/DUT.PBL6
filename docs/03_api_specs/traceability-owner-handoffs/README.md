@@ -1,6 +1,6 @@
 # Bản Markdown gửi riêng cho từng owner
 
-Source commit `89e15ca19432749b606c6d0a61700e98fdb7fd67`, target0.2.2-draft. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.
+Source commit `1d4fba6477032419d894a32b1dd6866490b3e95c`, target0.3.0-draft. Bản này thay phiếu0.2.2 cũ về transport East-West; giữ nghiệp vụ, REST Web và BFF. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.
 
 - [Inventory — INV-TRC-01](01-inventory.md)
 - [Catalog — CAT-TRC-01](02-catalog.md)
@@ -9,4 +9,4 @@ Source commit `89e15ca19432749b606c6d0a61700e98fdb7fd67`, target0.2.2-draft. G�
 - [Order — ORD-TRC-01](05-order.md)
 - [Frontend / Gateway — WEB-TRC-01](06-web-gateway.md)
 
-Sinh lại từ repo root (Python có PyYAML): `python scripts/export-traceability-owner-handoffs.py --source-commit 89e15ca19432749b606c6d0a61700e98fdb7fd67`. Kiểm snapshot khớp source bằng thêm `--check`. Không tạo PDF/Word/ZIP.
+Sinh lại từ repo root (Python có PyYAML): `python scripts/export-traceability-owner-handoffs.py --source-commit 1d4fba6477032419d894a32b1dd6866490b3e95c`. Kiểm snapshot khớp source bằng thêm `--check`. Không tạo PDF/Word/ZIP.
