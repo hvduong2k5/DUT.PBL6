@@ -39,6 +39,8 @@ type Repository interface {
 	GetPurchaseOrderByIdempotency(context.Context, string, string) (domain.PurchaseOrder, error)
 	CreatePurchaseOrderFromSupplyPlan(context.Context, domain.SupplyPlan, domain.PurchaseOrder, int64, string) (domain.PurchaseOrder, error)
 	GetPurchaseOrder(context.Context, uuid.UUID) (domain.PurchaseOrder, error)
+	GetPurchaseOrderActionResult(context.Context, string, string) (domain.PurchaseOrderActionResult, error)
+	SavePurchaseOrderAction(context.Context, domain.PurchaseOrder, domain.PurchaseOrderStatus, domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error)
 	ListPurchaseOrders(context.Context, uuid.UUID, domain.PurchaseOrderStatus, int, int) ([]domain.PurchaseOrder, error)
 	SavePurchaseOrder(context.Context, domain.PurchaseOrder, int64, domain.PurchaseOrderStatus, string, string, string) (domain.PurchaseOrder, error)
 	RevisePurchaseOrder(context.Context, domain.PurchaseOrder, int64, string, string) (domain.PurchaseOrder, error)

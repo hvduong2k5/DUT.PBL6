@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -96,15 +97,140 @@ func TestPublishInspectedReceiptsE2E(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.SubmitPurchaseOrder(ctx, po.ID, "buyer"); err != nil {
+	// Fail after PO/history writes, precisely at the durable command boundary.
+	if _, err := db.Exec(ctx, `CREATE FUNCTION reject_test_po_action() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected PO action failure'; END $$;
+CREATE TRIGGER reject_test_po_action BEFORE INSERT ON purchase_order_action_results FOR EACH ROW EXECUTE FUNCTION reject_test_po_action()`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = service.ApprovePurchaseOrder(ctx, po.ID, "approver"); err != nil {
+	if _, err := service.ExecutePurchaseOrderAction(ctx, po.ID, "buyer", "e2e-po-submit-0001", "SUBMIT", po.Version, ""); err == nil || !strings.Contains(err.Error(), "injected PO action failure") {
+		t.Fatalf("PO command fault not observed: %v", err)
+	}
+	afterFailure, err := repo.GetPurchaseOrder(ctx, po.ID)
+	if err != nil || afterFailure.Version != po.Version || afterFailure.Status != domain.PurchaseOrderDraft {
+		t.Fatalf("PO command did not roll back: %v", err)
+	}
+	var commands int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_action_results`).Scan(&commands); err != nil || commands != 0 {
+		t.Fatalf("failed command consumed key: %v", err)
+	}
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_status_history WHERE purchase_order_id=$1 AND action='SUBMITTED'`, po.ID).Scan(&commands); err != nil || commands != 0 {
+		t.Fatalf("PO command history leaked: %v", err)
+	}
+	if _, err := db.Exec(ctx, `DROP TRIGGER reject_test_po_action ON purchase_order_action_results; DROP FUNCTION reject_test_po_action()`); err != nil {
 		t.Fatal(err)
 	}
-	po, err = service.MarkPurchaseOrderSent(ctx, po.ID, "sender")
-	if err != nil {
-		t.Fatal(err)
+	type actionResult struct {
+		order domain.PurchaseOrder
+		err   error
+	}
+	concurrentAction := func(current domain.PurchaseOrder, actor, key, action, reason string) domain.PurchaseOrder {
+		t.Helper()
+		results := make(chan actionResult, 2)
+		start := make(chan struct{})
+		for i := 0; i < 2; i++ {
+			go func() {
+				<-start
+				order, err := application.NewService(postgres.New(db)).ExecutePurchaseOrderAction(ctx, current.ID, actor, key, action, current.Version, reason)
+				results <- actionResult{order, err}
+			}()
+		}
+		close(start)
+		var committed domain.PurchaseOrder
+		for i := 0; i < 2; i++ {
+			got := <-results
+			if got.err != nil || got.order.Version != current.Version+1 {
+				t.Fatalf("concurrent PO action: %v version=%d", got.err, got.order.Version)
+			}
+			committed = got.order
+		}
+		replay, err := application.NewService(postgres.New(db)).ExecutePurchaseOrderAction(ctx, current.ID, actor, key, action, current.Version, reason)
+		if err != nil || replay.Version != committed.Version {
+			t.Fatalf("PO command restart replay: %v", err)
+		}
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_action_results WHERE actor_id=$1 AND idempotency_key=$2`, actor, key).Scan(&commands); err != nil || commands != 1 {
+			t.Fatalf("PO command duplicate: %v count=%d", err, commands)
+		}
+		historyAction := map[string]string{"SUBMIT": "SUBMITTED", "APPROVE": "APPROVED", "REJECT": "REJECTED", "SEND": "SENT"}[action]
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_status_history WHERE purchase_order_id=$1 AND action=$2`, current.ID, historyAction).Scan(&commands); err != nil || commands != 1 {
+			t.Fatalf("PO command history duplicate: %v count=%d", err, commands)
+		}
+		return committed
+	}
+	initialVersion := po.Version
+	po = concurrentAction(po, "buyer", "e2e-po-submit-0001", "SUBMIT", "")
+	if _, err := service.ExecutePurchaseOrderAction(ctx, po.ID, "buyer", "e2e-po-self-approve-0001", "APPROVE", po.Version, ""); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("self approval accepted: %v", err)
+	}
+	po = concurrentAction(po, "approver", "e2e-po-approve-0001", "APPROVE", "")
+	po = concurrentAction(po, "sender", "e2e-po-send-0001", "SEND", "")
+	oldSubmit, err := service.ExecutePurchaseOrderAction(ctx, po.ID, "buyer", "e2e-po-submit-0001", "SUBMIT", initialVersion, "")
+	if err != nil || oldSubmit.Status != domain.PurchaseOrderPendingApproval || oldSubmit.Version != initialVersion+1 {
+		t.Fatalf("old PO result was not frozen: %v", err)
+	}
+	// Two different POs race on one actor/key. Only the winning PO may change;
+	// the other's already-attempted UPDATE/history must be rolled back.
+	poRequest := application.PurchaseOrderRequest{SupplierID: supplier.ID, Lines: []application.PurchaseOrderLineRequest{{MaterialID: material.ID, Quantity: "10"}}}
+	var racing []domain.PurchaseOrder
+	for _, key := range []string{"e2e-racing-po-create-0001", "e2e-racing-po-create-0002"} {
+		order, err := service.CreatePurchaseOrderWithIdempotency(ctx, poRequest, "race-buyer", key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		racing = append(racing, order)
+	}
+	results := make(chan actionResult, 2)
+	start := make(chan struct{})
+	for _, order := range racing {
+		go func(current domain.PurchaseOrder) {
+			<-start
+			r, e := application.NewService(postgres.New(db)).ExecutePurchaseOrderAction(ctx, current.ID, "race-buyer", "e2e-shared-po-action-0001", "SUBMIT", current.Version, "")
+			results <- actionResult{r, e}
+		}(order)
+	}
+	close(start)
+	wins, conflicts := 0, 0
+	for i := 0; i < 2; i++ {
+		got := <-results
+		if got.err == nil {
+			wins++
+		} else if errors.Is(got.err, domain.ErrConflict) {
+			conflicts++
+		} else {
+			t.Fatal(got.err)
+		}
+	}
+	if wins != 1 || conflicts != 1 {
+		t.Fatalf("cross-resource key race: wins=%d conflicts=%d", wins, conflicts)
+	}
+	changed := 0
+	for _, order := range racing {
+		current, err := repo.GetPurchaseOrder(ctx, order.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if current.Status == domain.PurchaseOrderPendingApproval {
+			changed++
+		} else {
+			if current.Status != domain.PurchaseOrderDraft || current.Version != order.Version {
+				t.Fatal("losing PO changed")
+			}
+			if err := db.QueryRow(ctx, `SELECT count(*) FROM purchase_order_status_history WHERE purchase_order_id=$1 AND action='SUBMITTED'`, current.ID).Scan(&commands); err != nil || commands != 0 {
+				t.Fatal("losing PO history leaked")
+			}
+		}
+	}
+	if changed != 1 {
+		t.Fatal("cross-resource race mutated both POs")
+	}
+	// The loser is still a draft; prove concurrent rejection on another submitted PO.
+	for _, order := range racing {
+		current, err := repo.GetPurchaseOrder(ctx, order.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if current.Status == domain.PurchaseOrderPendingApproval {
+			concurrentAction(current, "rejector", "e2e-po-reject-0001", "REJECT", "Synthetic rejection")
+		}
 	}
 	create := func(quantity, key string) domain.GoodsReceipt {
 		t.Helper()

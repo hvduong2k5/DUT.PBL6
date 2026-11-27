@@ -548,6 +548,28 @@ func (r *Repository) ListPurchaseOrders(ctx context.Context, supplierID uuid.UUI
 }
 
 func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, previousStatus domain.PurchaseOrderStatus, action, actor, reason string) (domain.PurchaseOrder, error) {
+	return r.savePurchaseOrder(ctx, order, expectedVersion, previousStatus, action, actor, reason, nil)
+}
+
+func (r *Repository) SavePurchaseOrderAction(ctx context.Context, order domain.PurchaseOrder, previousStatus domain.PurchaseOrderStatus, command domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
+	return r.savePurchaseOrder(ctx, order, command.ExpectedVersion, previousStatus, command.HistoryAction, command.Actor, command.Reason, &command)
+}
+
+func (r *Repository) GetPurchaseOrderActionResult(ctx context.Context, actor, key string) (domain.PurchaseOrderActionResult, error) {
+	var result domain.PurchaseOrderActionResult
+	var snapshot []byte
+	err := r.pool.QueryRow(ctx, `SELECT request_hash,result_snapshot FROM purchase_order_action_results WHERE actor_id=$1 AND idempotency_key=$2`, actor, key).Scan(&result.RequestHash, &snapshot)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return result, domain.ErrNotFound
+	}
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(snapshot, &result.Snapshot)
+	return result, err
+}
+
+func (r *Repository) savePurchaseOrder(ctx context.Context, order domain.PurchaseOrder, expectedVersion int64, previousStatus domain.PurchaseOrderStatus, action, actor, reason string, command *domain.PurchaseOrderActionCommand) (domain.PurchaseOrder, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return domain.PurchaseOrder{}, err
@@ -582,6 +604,15 @@ func (r *Repository) SavePurchaseOrder(ctx context.Context, order domain.Purchas
 	}
 	if err := insertPurchaseOrderHistory(ctx, tx, order.ID, string(previousStatus), string(order.Status), action, actor, reason); err != nil {
 		return domain.PurchaseOrder{}, err
+	}
+	if command != nil {
+		snapshot, err := json.Marshal(order)
+		if err != nil {
+			return domain.PurchaseOrder{}, err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO purchase_order_action_results (actor_id,idempotency_key,purchase_order_id,revision,action,expected_version,request_hash,result_snapshot) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, command.Actor, command.Key, order.ID, order.Revision, command.Kind, command.ExpectedVersion, command.RequestHash, snapshot); err != nil {
+			return domain.PurchaseOrder{}, mapError(err)
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return domain.PurchaseOrder{}, err

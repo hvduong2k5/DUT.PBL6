@@ -22,6 +22,7 @@ type fakeRepository struct {
 	plans         map[uuid.UUID]domain.SupplyPlan
 	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
 	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
+	actionResults map[string]domain.PurchaseOrderActionResult
 }
 
 type inspectionWriteSpy struct {

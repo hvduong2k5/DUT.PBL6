@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.2.0
+  version: 2.3.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -44,6 +44,183 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: submitProcurementPurchaseOrder
+      summary: Submit a draft PO with versioned, durable command idempotency
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Requires DRAFT and matching
+        expected_version. Idempotency-Key is scoped to the signed employee across
+        these four PO action endpoints. PO ID, action, expected version and trimmed
+        rejection reason are bound to the key. Same command replays its immutable
+        committed result with 200, even after the PO advances or is revised; it does
+        not apply to the new version. Different resource/action/version/reason under
+        the key returns 409. Failed validation and rolled-back transactions consume
+        no key. Read GET detail for current state after a replay. Migration 000015
+        is required; command results are retained without TTL.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: SUBMIT
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOAction'}
+            example: {expected_version: 1}
+      responses:
+        '200':
+          description: Committed SUBMIT result (PENDING_APPROVAL), frozen for identical replays; not necessarily the current PO state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: PENDING_APPROVAL, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', submitted_by: '80000000-0000-0000-0000-000000000001', submitted_at: '2026-11-27T00:01:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:01:00Z', version: 2}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: approveProcurementPurchaseOrder
+      summary: Approve a submitted PO without self-approval
+      description: >-
+        EMPLOYEE with PROCUREMENT_APPROVE#GLOBAL, PENDING_APPROVAL and matching
+        expected_version. The PO creator cannot approve it (409 CONFLICT). Role
+        ADMIN does not bypass this rule or grant checks. Uses the same durable
+        command policy as submit: actor-scoped key binds PO/action/version/reason;
+        replay returns the frozen APPROVED snapshot, not the latest resource. A
+        new key with a stale version cannot approve another revision. No supplier
+        dispatch occurs. Requires migration 000015 before deployment.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_APPROVE#GLOBAL]
+      x-po-action: APPROVE
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOAction'}
+            example: {expected_version: 2}
+      responses:
+        '200':
+          description: Frozen APPROVE result; subsequent reads must use GET detail for current state.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: APPROVED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', approved_by: '80000000-0000-0000-0000-000000000002', approved_at: '2026-11-27T00:02:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:02:00Z', version: 3}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: rejectProcurementPurchaseOrder
+      summary: Reject a submitted PO with an audited reason
+      description: >-
+        EMPLOYEE with PROCUREMENT_APPROVE#GLOBAL, PENDING_APPROVAL and matching
+        expected_version. The creator cannot reject their own PO (409). A nonblank
+        reason is required and trimmed before hashing/storing. Actor/key binds
+        PO/action/version/reason; changed reason conflicts. Identical retries return
+        the frozen REJECTED snapshot without another history entry. Failed validation,
+        database failure or maker-checker denial does not consume the key.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_APPROVE#GLOBAL]
+      x-po-action: REJECT
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOReject'}
+            example: {expected_version: 2, reason: Correct quantities before resubmitting}
+      responses:
+        '200':
+          description: Frozen REJECT result with the signed rejecting actor and normalized reason.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: REJECTED, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', rejected_by: '80000000-0000-0000-0000-000000000002', rejection_reason: Correct quantities before resubmitting, rejected_at: '2026-11-27T00:02:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:02:00Z', version: 3}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+  /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send:
+    parameters:
+    - name: purchaseOrderID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: sendProcurementPurchaseOrder
+      summary: Record issue of an approved PO exactly once per command
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL, APPROVED and matching expected_version.
+        Records SENT and its actor/time; this endpoint does not email or invoke an
+        external supplier transport. Same actor/key/PO/action/version replays its
+        frozen SENT result. A new key on an already sent PO is rejected (409); the
+        old internal helper's broad post-send shortcut is not this HTTP contract.
+        Concurrent commands cannot add duplicate history. Current JWT authorization
+        is still required before every replay. Requires migration 000015.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: SEND
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPOAction'}
+            example: {expected_version: 3}
+      responses:
+        '200':
+          description: Frozen SENT result; supplier communication remains a separate operational responsibility.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}
+              example: {id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: SENT, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', sent_by: '80000000-0000-0000-0000-000000000003', sent_at: '2026-11-27T00:03:00Z', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:03:00Z', version: 4}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/procurement/purchase-orders:
     post:
       operationId: createProcurementPurchaseOrder
@@ -11828,7 +12005,7 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: Required for retryable creation/inspection; retain the same key when retrying an unchanged command. A successful replay returns the current resource, not a frozen HTTP snapshot.
+      description: Required for retryable operations; retain the same key when retrying an unchanged command. PO lifecycle actions replay frozen committed results; creates and receipt inspection return current resources as documented per operation.
       schema: {type: string, minLength: 16, maxLength: 128, pattern: '^[!-~]+$'}
       example: procurement-command-00001
     ProcurementLimit:
@@ -11849,6 +12026,19 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementPOAction:
+      type: object
+      additionalProperties: false
+      required: [expected_version]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1, description: Version from the PO detail; part of the command fingerprint.}
+    ProcurementPOReject:
+      type: object
+      additionalProperties: false
+      required: [expected_version, reason]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        reason: {type: string, minLength: 1, pattern: '\S', description: Nonblank rejection reason; surrounding whitespace is trimmed.}
     ProcurementPurchaseOrderCreate:
       type: object
       additionalProperties: false

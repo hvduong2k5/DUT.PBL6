@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +41,7 @@ type httpRepository struct {
 	plans         map[uuid.UUID]domain.SupplyPlan
 	planRevisions map[uuid.UUID][]domain.SupplyPlanRevision
 	planHistory   map[uuid.UUID][]domain.SupplyPlanStatusEvent
+	actionResults map[string]domain.PurchaseOrderActionResult
 }
 
 func newHTTPRepository() *httpRepository {
@@ -388,6 +390,8 @@ func employeeToken(user, role string) string {
 		grants = []string{"PROCUREMENT_VIEW#WAREHOUSE#WH-01"}
 	case "WAREHOUSE_MIXED":
 		grants = []string{"PROCUREMENT_VIEW#WAREHOUSE#WH-02", "PROCUREMENT_RECEIVE#WAREHOUSE#WH-01"}
+	case "PO_APPROVER":
+		grants = []string{"PROCUREMENT_APPROVE#GLOBAL"}
 	}
 	principalID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(user)).String()
 	claims := map[string]any{
@@ -551,15 +555,15 @@ func TestPurchaseOrderHTTPWorkflowAndSelfApprovalGuard(t *testing.T) {
 		t.Fatalf("unexpected created PO: %+v", order)
 	}
 
-	submitted := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/submit", "", "creator", "PROCUREMENT_MANAGER")
+	submitted := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/submit", fmt.Sprintf(`{"expected_version":%d}`, order.Version), "creator", "PROCUREMENT_MANAGER", "purchase-order-submit-0001")
 	if submitted.Code != http.StatusOK {
 		t.Fatalf("submit status = %d, body=%s", submitted.Code, submitted.Body.String())
 	}
-	selfApproval := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "creator", "PROCUREMENT_MANAGER")
+	selfApproval := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", fmt.Sprintf(`{"expected_version":%d}`, repo.orders[order.ID].Version), "creator", "PROCUREMENT_MANAGER", "purchase-order-self-0001")
 	if selfApproval.Code != http.StatusConflict {
 		t.Fatalf("self approval status = %d, want 409", selfApproval.Code)
 	}
-	approved := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", "", "approver", "PROCUREMENT_MANAGER")
+	approved := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/approve", fmt.Sprintf(`{"expected_version":%d}`, repo.orders[order.ID].Version), "approver", "PROCUREMENT_MANAGER", "purchase-order-approve-0001")
 	if approved.Code != http.StatusOK {
 		t.Fatalf("approval status = %d, body=%s", approved.Code, approved.Body.String())
 	}
@@ -584,13 +588,13 @@ func TestPurchaseOrderSupplierResponseRevisionAndSendRetryHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, path := range []string{"/submit", "/approve", "/send"} {
-		rec := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+path, "", "staff", "PROCUREMENT_MANAGER")
+		rec := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+path, fmt.Sprintf(`{"expected_version":%d}`, repo.orders[order.ID].Version), "staff", "PROCUREMENT_MANAGER", "po-lifecycle-"+strings.TrimPrefix(path, "/")+"-0001")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s status=%d body=%s", path, rec.Code, rec.Body.String())
 		}
 	}
 	sentVersion := repo.orders[order.ID].Version
-	retry := performRequest(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/send", "", "staff", "PROCUREMENT_MANAGER")
+	retry := performRequestWithIdempotency(handler, http.MethodPost, "/api/v1/admin/procurement/purchase-orders/"+order.ID.String()+"/send", fmt.Sprintf(`{"expected_version":%d}`, sentVersion-1), "staff", "PROCUREMENT_MANAGER", "po-lifecycle-send-0001")
 	if retry.Code != http.StatusOK || repo.orders[order.ID].Version != sentVersion {
 		t.Fatalf("send retry status=%d version=%d want %d", retry.Code, repo.orders[order.ID].Version, sentVersion)
 	}

@@ -36,6 +36,11 @@ services:
           - '~/api/v1/admin/procurement/goods-receipts/[^/]+/inspect$'
         strip_path: false
         methods: [POST, OPTIONS]
+      - name: procurement-po-lifecycle
+        paths:
+          - '~/api/v1/admin/procurement/purchase-orders/[^/]+/(submit|approve|reject|send)$'
+        strip_path: false
+        methods: [POST, OPTIONS]
   - name: traceability-public
     url: http://traceability-service:8003/api/v1/trace
     routes:

@@ -60,18 +60,18 @@ PostgreSQL JDBC URL, including test credentials, before running Identity's Gradl
 test suite. The two database migration cases are explicitly skipped when that
 variable is absent; a unit-only green result is not migration execution evidence.
 
-### Kong integration: management reads and idempotent receiving
+### Kong integration: management reads, PO actions and idempotent receiving
 
-The shared `admin-stable.openapi.yaml` version 2.2.0 documents eleven operations:
+The shared `admin-stable.openapi.yaml` version 2.3.0 documents fifteen operations:
 six supplier/material/offer GETs, PO create/detail, receipt create/detail and receipt
-inspection. Kong routes the exact contracted GET/POST/OPTIONS path shapes to
+inspection, plus PO submit/approve/reject/send. Kong routes the exact contracted GET/POST/OPTIONS path shapes to
 `http://procurement-service:8008`, without stripping the path, retrying business
 requests or injecting credentials. Procurement verifies the employee bearer JWT
 and operation permission/scope; the gateway does
 not exchange a cookie for a token. A browser's Identity session alone is not enough
 until the separate BFF relay is implemented.
 
-PO approval/send/revisions/cancel/close, variance resolution, plan/contract APIs and
+PO supplier responses/revisions/cancel/close, variance resolution, plan/contract APIs and
 master-data mutations are **not** exposed. Their implementation remains private;
 full contracts and retry/idempotency acceptance are needed before gateway expansion.
 In particular, creating a PO does not yet provide the whole approval/dispatch UI.
@@ -103,7 +103,7 @@ none of these commands has been run against a shared/live deployment here.
 
 From the repository root, run `python scripts/verify-procurement-admin-contract.py`
 with the MVP Python dependencies. It validates actual Go HTTP/JWT response fixtures,
-all eleven operation examples, denied methods/paths and network wiring. Separately
+all fifteen operation examples, denied methods/paths and network wiring. Separately
 validate the real Kong 3.9.3 parser with:
 
 ```powershell
@@ -114,7 +114,7 @@ For real router-selection coverage, CI also starts a disposable Kong with debug
 headers enabled **only in that test**, admin listener off, and the Procurement
 hostname mapped to the container's loopback (no application or live upstream).
 `verify-procurement-admin-contract.py --gateway-url http://127.0.0.1:<test-port>`
-checks the selected route for eleven operations, 55 rejected method combinations and eleven
+checks the selected route for fifteen operations, 75 rejected method combinations and eleven
 non-allowlisted paths. Expected upstream connection failures are not service
 failures in this routing-only test. Never enable Kong debug headers on the live
 gateway for this purpose. See `.github/workflows/contracts.yml` for the test setup.
@@ -152,17 +152,34 @@ Supplier types: `FARMER`, `COOPERATIVE`, `OCOP_BUSINESS`, `COMPANY`. Contracts u
 - `POST /api/v1/admin/procurement/purchase-orders` creates a `DRAFT` from active supplier offers and requires an `Idempotency-Key` header (16–128 visible ASCII characters). The key is scoped to the authenticated user; retrying the same key and payload returns the original PO, while reusing it with a changed payload returns `409 CONFLICT`.
 - `GET /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}` returns the PO, price snapshots, version, and current lifecycle metadata.
 - `PUT /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}` replaces a draft's supplier/lines/notes/delivery date. Only drafts can be edited.
-- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit` submits for approval.
-- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve` approves a pending PO. The creator cannot approve their own PO.
-- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject` rejects a pending PO and requires `{"reason":"..."}`.
-- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send` records that an approved PO was sent to the supplier. Repeating the request after it was sent returns the current PO without adding another transition.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/submit` submits for approval; requires MANAGE GLOBAL.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/approve` approves a pending PO; requires APPROVE GLOBAL. The creator cannot approve their own PO.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/reject` rejects a pending PO; requires APPROVE GLOBAL and a nonblank `reason`. The creator cannot reject their own PO.
+- `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/send` records that an approved PO was sent; requires MANAGE GLOBAL. It does not deliver email or invoke supplier transport.
+
+All four actions require `Idempotency-Key` (16–128 visible ASCII characters) and
+`{"expected_version":1}` using the version returned by the latest PO read. Reject
+also requires `reason`; other actions reject a reason or unknown body fields.
+Existing private HTTP clients must adopt these requirements. Apply migration
+`000015_purchase_order_action_idempotency` before deploying this binary.
+
+The signed employee and key identify one command across these four actions. Its
+hash binds PO ID, action, expected version and trimmed reason. Matching retries
+return the immutable committed PO snapshot, even after later actions/revisions;
+use GET for current state. Changed payload/resource/action with that key returns
+409. A new key with a stale version or invalid state also returns 409, including
+SEND on an already SENT PO. JWT and action permission checks still apply to replay.
+PO changes, history and result evidence commit atomically; validation or rollback
+does not consume the key. Evidence has no TTL and must not be independently pruned.
+The down migration removes replay evidence, not business history; stop these
+endpoints before rollback and do not claim replay guarantees after removing it.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/supplier-response` records a supplier response: `ACKNOWLEDGED`, `CHANGE_REQUESTED`, or `DECLINED`. Change requests and declines require a note.
 - `GET /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions` lists immutable snapshots of prior issued revisions.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/revisions` creates the next draft revision after `CHANGE_REQUESTED`; it requires a reason and revised lines. The supplier cannot change. The old revision is archived before the PO is updated, in one transaction.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/cancel` cancels an eligible PO and requires a reason.
 - `POST /api/v1/admin/procurement/purchase-orders/{purchaseOrderID}/close` closes the outstanding quantity for a `SENT`, `ACKNOWLEDGED`, or `PARTIALLY_RECEIVED` PO and requires a reason. Quantities already received remain recorded; further receipts are rejected.
 
-The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sending, the supplier may acknowledge, request changes, or decline. A change request can be revised into a new `DRAFT` revision and must pass approval again. The old issued revision is kept in `purchase_order_revision_snapshots`; the live PO row represents the latest revision. A sent request retry is idempotent while the PO remains in a post-send state and does not create another status-history entry. A partially received PO can be closed to cancel its remaining quantity; received quantities are preserved. Eligible pre-issue states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
+The lifecycle is `DRAFT → PENDING_APPROVAL → APPROVED → SENT`. After sending, the supplier may acknowledge, request changes, or decline. A change request can be revised into a new `DRAFT` revision and must pass approval again. The old issued revision is kept in `purchase_order_revision_snapshots`; the live PO row represents the latest revision. A matching action retry returns its committed result without adding another history entry. A partially received PO can be closed to cancel its remaining quantity; received quantities are preserved. Eligible pre-issue states may transition to `CANCELLED`. Every create/update/transition is written to `purchase_order_status_history`. Version-checked updates reject stale concurrent writes. Unit-price times decimal quantity is rounded half-up to the nearest minor currency unit. Decimal quantities support up to six fractional digits.
 
 ## Supply planning preview
 
@@ -237,7 +254,9 @@ The pinned commit must exist in local Git objects. Procurement uses its real mig
 application/repository, inspection transaction, outbox worker and Kafka producer. Inventory
 uses the pinned real migrations and consumer. Each service has its own generated DB schema.
 
-Coverage: migration rerun, receipt-create idempotency, partial and fully rejected receipts,
+Coverage: migration rerun; concurrent submit/approve/reject/send, restart replay,
+cross-PO key races and injected journal failure with PO/history rollback;
+receipt-create idempotency, partial and fully rejected receipts,
 injected outbox failure with receipt/PO/history rollback, real broker acknowledgement, receipt
 provenance, exact 3500-gram physical stock in two undated QUARANTINE batches, zero sellable stock,
 replayed-message dedupe, committed offsets and invalid-quantity DLQ without stock mutation.

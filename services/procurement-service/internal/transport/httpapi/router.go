@@ -744,33 +744,54 @@ func (h *Router) getPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) submitPurchaseOrder(w http.ResponseWriter, r *http.Request) {
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
-		return h.service.SubmitPurchaseOrder(r.Context(), id, actor)
-	})
+	h.executePurchaseOrderAction(w, r, "SUBMIT")
 }
 
 func (h *Router) approvePurchaseOrder(w http.ResponseWriter, r *http.Request) {
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
-		return h.service.ApprovePurchaseOrder(r.Context(), id, actor)
-	})
+	h.executePurchaseOrderAction(w, r, "APPROVE")
 }
 
 func (h *Router) rejectPurchaseOrder(w http.ResponseWriter, r *http.Request) {
-	var request struct {
-		Reason string `json:"reason"`
-	}
-	if !decodeJSON(w, r, &request) {
-		return
-	}
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
-		return h.service.RejectPurchaseOrder(r.Context(), id, actor, request.Reason)
-	})
+	h.executePurchaseOrderAction(w, r, "REJECT")
 }
 
 func (h *Router) markPurchaseOrderSent(w http.ResponseWriter, r *http.Request) {
-	h.transitionPurchaseOrder(w, r, func(id uuid.UUID, actor, _ string) (any, error) {
-		return h.service.MarkPurchaseOrderSent(r.Context(), id, actor)
-	})
+	h.executePurchaseOrderAction(w, r, "SEND")
+}
+
+func (h *Router) executePurchaseOrderAction(w http.ResponseWriter, r *http.Request, action string) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
+	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
+	if !ok {
+		return
+	}
+	var request struct {
+		ExpectedVersion int64  `json:"expected_version"`
+		Reason          string `json:"reason,omitempty"`
+	}
+	if action == "REJECT" {
+		if !decodeJSON(w, r, &request) {
+			return
+		}
+	} else {
+		var versionOnly struct {
+			ExpectedVersion int64 `json:"expected_version"`
+		}
+		if !decodeJSON(w, r, &versionOnly) {
+			return
+		}
+		request.ExpectedVersion = versionOnly.ExpectedVersion
+	}
+	order, err := h.service.ExecutePurchaseOrderAction(r.Context(), id, actorID(r), key, action, request.ExpectedVersion, request.Reason)
+	if err != nil {
+		h.writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, order)
 }
 
 func (h *Router) recordSupplierResponse(w http.ResponseWriter, r *http.Request) {
