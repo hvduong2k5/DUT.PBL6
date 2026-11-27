@@ -14,8 +14,9 @@ import (
 
 func main() {
 	role := flag.String("runtime-role", "", "existing unprivileged login to grant service DML (optional)")
+	enforce := flag.Bool("require-warehouse-writes", false, "permanently reject new profiles without warehouse; use only after upgrading all writers")
 	flag.Parse()
-	if err := run(*role); err != nil {
+	if err := run(*role, *enforce); err != nil {
 		// Connection errors can embed credentials/host details. Never log raw errors.
 		slog.Error("migration failed; check mode, database access, schema checksum and runtime role")
 		os.Exit(1)
@@ -23,7 +24,7 @@ func main() {
 	slog.Info("migration completed")
 }
 
-func run(role string) error {
+func run(role string, enforce bool) error {
 	if os.Getenv("DATABASE_URL") == "" {
 		return errors.New("DATABASE_URL is required")
 	}
@@ -41,7 +42,12 @@ func run(role string) error {
 		return err
 	}
 	if role != "" {
-		return migrations.GrantRuntime(ctx, conn, role)
+		if err = migrations.GrantRuntime(ctx, conn, role); err != nil {
+			return err
+		}
+	}
+	if enforce {
+		return migrations.RequireWarehouseWrites(ctx, conn)
 	}
 	return nil
 }

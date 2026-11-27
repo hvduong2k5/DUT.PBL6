@@ -27,6 +27,7 @@ type HandlerConfig struct {
 	Drafts    *application.Drafts
 	Workflow  *application.Workflow
 	Metrics   HTTPMetrics
+	Scoped    *application.Scoped
 }
 
 func NewHandler(cfg HandlerConfig) http.Handler {
@@ -121,6 +122,7 @@ func NewHandler(cfg HandlerConfig) http.Handler {
 		respondCommand(w, result, err)
 	})
 	registerWorkflow(mux, cfg)
+	registerScoped(mux, cfg)
 	return withMiddleware(mux, cfg.Logger, cfg.Metrics)
 }
 
@@ -154,11 +156,19 @@ func permitted(w http.ResponseWriter, p domain.Principal, permission string) boo
 	return true
 }
 func metadata(w http.ResponseWriter, r *http.Request) domain.CommandMetadata {
-	return domain.CommandMetadata{Key: r.Header.Get("X-Idempotency-Key"), RequestID: w.Header().Get("X-Request-Id"), TraceParent: w.Header().Get("Traceparent")}
+	key := r.Header.Get("X-Idempotency-Key")
+	if isV2(w) {
+		key = r.Header.Get("Idempotency-Key")
+	}
+	return domain.CommandMetadata{Key: key, RequestID: w.Header().Get("X-Request-Id"), TraceParent: w.Header().Get("Traceparent"), Scoped: isV2(w)}
 }
 
 func decodeRequest(w http.ResponseWriter, r *http.Request, target any, required ...string) bool {
-	if len(r.Header.Values("X-Idempotency-Key")) != 1 {
+	header := "X-Idempotency-Key"
+	if isV2(w) {
+		header = "Idempotency-Key"
+	}
+	if len(r.Header.Values(header)) != 1 || (isV2(w) && (len(r.Header.Values("X-Idempotency-Key")) != 0 || !v2KeyPattern.MatchString(r.Header.Get(header)))) {
 		respondError(w, domain.ErrInvalidCommand)
 		return false
 	}
@@ -218,12 +228,20 @@ func respondError(w http.ResponseWriter, err error) {
 		status, code, message = 410, gone.Reason, "Published record is no longer eligible"
 	case errors.Is(err, domain.ErrConflict):
 		status, code, message = 409, "CONFLICT", "Version, binding or state conflict"
+	case errors.Is(err, domain.ErrWarehouseConflict):
+		status, code, message = 409, "WAREHOUSE_BINDING_CONFLICT", "Authoritative warehouse binding changed"
+	case errors.Is(err, domain.ErrInvalidCursor):
+		status, code, message = 400, "INVALID_CURSOR", "Restart pagination with current authorization"
 	case errors.Is(err, domain.ErrIdempotencyConflict):
 		status, code, message = 409, "IDEMPOTENCY_CONFLICT", "Idempotency key already used for a different request"
 	case errors.Is(err, domain.ErrInvalidCommand) || errors.As(err, &validation):
 		status, code, message = 400, "INVALID_INPUT", "Invalid request"
 	case errors.Is(err, domain.ErrUnavailable) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled):
 		status, code, message = 503, "DEPENDENCY_UNAVAILABLE", "Required dependency unavailable"
+	}
+	if isV2(w) {
+		writeJSON(w, status, map[string]string{"code": code, "message": message, "requestId": w.Header().Get("X-Request-Id")})
+		return
 	}
 	writeJSON(w, status, map[string]string{"error_code": code, "user_message": message, "request_id": w.Header().Get("X-Request-Id")})
 }

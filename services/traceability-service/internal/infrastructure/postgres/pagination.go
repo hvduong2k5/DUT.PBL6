@@ -2,8 +2,11 @@ package postgres
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/domain"
@@ -26,7 +29,19 @@ func (s *Profiles) List(ctx context.Context, query domain.ListQuery) (domain.Pro
 	var since any
 	var id any
 	if query.Cursor != "" {
-		data, err := base64.RawURLEncoding.Strict().DecodeString(query.Cursor)
+		raw := query.Cursor
+		if query.Scoped {
+			parts := strings.Split(raw, ".")
+			if len(parts) != 2 || len(s.CursorKey) < 32 {
+				return domain.ProfilePage{}, domain.ErrInvalidCursor
+			}
+			signature, err := base64.RawURLEncoding.Strict().DecodeString(parts[1])
+			if err != nil || !hmac.Equal(signature, s.cursorMAC(parts[0], query)) {
+				return domain.ProfilePage{}, domain.ErrInvalidCursor
+			}
+			raw = parts[0]
+		}
+		data, err := base64.RawURLEncoding.Strict().DecodeString(raw)
 		if err != nil {
 			return domain.ProfilePage{}, ErrInvalidCommand
 		}
@@ -45,7 +60,11 @@ func (s *Profiles) List(ctx context.Context, query domain.ListQuery) (domain.Pro
 		defer cancel()
 		_ = tx.Rollback(clean)
 	}()
-	rows, err := tx.Query(ctx, `SELECT id::text,created_at FROM traceability_profiles WHERE ($1::timestamptz IS NULL OR (created_at,id)>($1::timestamptz,$2::uuid)) ORDER BY created_at,id LIMIT $3`, since, id, query.PageSize+1)
+	warehouses := query.Warehouses
+	if warehouses == nil {
+		warehouses = []string{}
+	}
+	rows, err := tx.Query(ctx, `SELECT id::text,created_at FROM traceability_profiles WHERE ($4::boolean OR warehouse_id=ANY($5::uuid[])) AND ($1::timestamptz IS NULL OR (created_at,id)>($1::timestamptz,$2::uuid)) ORDER BY created_at,id LIMIT $3`, since, id, query.PageSize+1, !query.Scoped || query.Global, warehouses)
 	if err != nil {
 		return domain.ProfilePage{}, err
 	}
@@ -71,6 +90,12 @@ func (s *Profiles) List(ctx context.Context, query domain.ListQuery) (domain.Pro
 			return page, err
 		}
 		next := base64.RawURLEncoding.EncodeToString(data)
+		if query.Scoped {
+			if len(s.CursorKey) < 32 {
+				return page, domain.ErrUnavailable
+			}
+			next += "." + base64.RawURLEncoding.EncodeToString(s.cursorMAC(next, query))
+		}
 		page.NextCursor = &next
 	}
 	for _, cursor := range cursors {
@@ -81,4 +106,11 @@ func (s *Profiles) List(ctx context.Context, query domain.ListQuery) (domain.Pro
 		page.Items = append(page.Items, profile)
 	}
 	return page, tx.Commit(ctx)
+}
+
+func (s *Profiles) cursorMAC(payload string, q domain.ListQuery) []byte {
+	mac := hmac.New(sha256.New, s.CursorKey)
+	data, _ := json.Marshal([]string{payload, strings.ToLower(q.ActorID), q.AuthorizationDigest})
+	_, _ = mac.Write(data)
+	return mac.Sum(nil)
 }

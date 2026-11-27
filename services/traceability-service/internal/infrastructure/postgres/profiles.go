@@ -20,6 +20,7 @@ type Profiles struct {
 	ID         func() (string, error)
 	QR         func() (string, error)
 	VideoHosts []string
+	CursorKey  []byte
 }
 
 func NewProfiles(db *pgxpool.Pool, mode string) (*Profiles, error) {
@@ -75,8 +76,8 @@ func (s *Profiles) CreateDraft(ctx context.Context, meta domain.CommandMetadata,
 			if err != nil {
 				return Outcome{}, err
 			}
-			_, err = nested.Exec(ctx, `INSERT INTO traceability_profiles(id,mode,product_id,sku_code,source_namespace,batch_id,qr_code,created_at,updated_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8)`, id, s.Mode, request.ProductID, request.SKUCode, request.SourceNamespace, request.BatchID, qr, now)
+			_, err = nested.Exec(ctx, `INSERT INTO traceability_profiles(id,mode,product_id,sku_code,source_namespace,batch_id,qr_code,created_at,updated_at,warehouse_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8,$9)`, id, s.Mode, request.ProductID, request.SKUCode, request.SourceNamespace, request.BatchID, qr, now, nullableWarehouse(meta.WarehouseID))
 			if err != nil {
 				if rollbackErr := nested.Rollback(ctx); rollbackErr != nil {
 					return Outcome{}, rollbackErr
@@ -110,8 +111,10 @@ func (s *Profiles) EditDraft(ctx context.Context, meta domain.CommandMetadata, i
 	if !domain.ValidUUID(id) || revision < 1 || request.ExpectedVersion < 1 {
 		return domain.CommandResult{}, ErrInvalidCommand
 	}
-	if err := request.Content.ValidateDraft(s.VideoHosts); err != nil {
-		return domain.CommandResult{}, err
+	if !meta.Scoped {
+		if err := request.Content.ValidateDraft(s.VideoHosts); err != nil {
+			return domain.CommandResult{}, err
+		}
 	}
 	resource := struct {
 		ID       string
@@ -135,7 +138,8 @@ func (s *Profiles) EditDraft(ctx context.Context, meta domain.CommandMetadata, i
 			return Outcome{}, domain.ErrConflict
 		}
 		var state string
-		err = tx.QueryRow(ctx, `SELECT status FROM traceability_revisions WHERE profile_id=$1 AND number=$2 FOR UPDATE`, id, revision).Scan(&state)
+		var stored []byte
+		err = tx.QueryRow(ctx, `SELECT status,content FROM traceability_revisions WHERE profile_id=$1 AND number=$2 FOR UPDATE`, id, revision).Scan(&state, &stored)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Outcome{}, domain.ErrNotFound
 		}
@@ -144,6 +148,28 @@ func (s *Profiles) EditDraft(ctx context.Context, meta domain.CommandMetadata, i
 		}
 		if state != "DRAFT" {
 			return Outcome{}, domain.ErrConflict
+		}
+		if meta.Scoped {
+			request.Content.Evidence = append([]domain.Evidence(nil), request.Content.Evidence...)
+			var previous domain.Content
+			if err = json.Unmarshal(stored, &previous); err != nil {
+				return Outcome{}, err
+			}
+			references := map[string]string{}
+			for _, e := range previous.Evidence {
+				references[strings.ToLower(e.ID)] = e.Reference
+			}
+			// The dedup fingerprint above intentionally uses the normalized client
+			// request, before resolving preserve markers under the aggregate lock.
+			for i := range request.Content.Evidence {
+				e := &request.Content.Evidence[i]
+				if e.Reference == "" {
+					e.Reference = references[strings.ToLower(e.ID)]
+				}
+			}
+			if err = request.Content.ValidateDraft(s.VideoHosts); err != nil {
+				return Outcome{}, err
+			}
 		}
 		now := s.Clock().UTC()
 		content, err := json.Marshal(request.Content)
@@ -168,6 +194,12 @@ func (s *Profiles) EditDraft(ctx context.Context, meta domain.CommandMetadata, i
 func draftCommand(meta domain.CommandMetadata, action string, resource, request any) (Command, error) {
 	if !textRequestID(meta.RequestID) {
 		return Command{}, ErrInvalidCommand
+	}
+	if meta.Scoped {
+		if len(meta.Key) < 16 {
+			return Command{}, ErrInvalidCommand
+		}
+		action = "v2." + action
 	}
 	// Resource is encoded structurally so revision boundaries cannot collide.
 	encoded, err := json.Marshal(resource)
@@ -227,7 +259,7 @@ type querier interface {
 
 func readProfile(ctx context.Context, q querier, id string) (domain.Profile, error) {
 	var p domain.Profile
-	err := q.QueryRow(ctx, `SELECT id::text,mode,product_id::text,sku_code,source_namespace,batch_id,qr_code,status,version,public_revision,ever_published,created_at,updated_at FROM traceability_profiles WHERE id=$1`, id).Scan(&p.ID, &p.Mode, &p.ProductID, &p.SKUCode, &p.SourceNamespace, &p.BatchID, &p.QRCode, &p.Status, &p.Version, &p.PublicRevision, &p.EverPublished, &p.CreatedAt, &p.UpdatedAt)
+	err := q.QueryRow(ctx, `SELECT id::text,mode,product_id::text,sku_code,source_namespace,batch_id,qr_code,status,version,public_revision,ever_published,created_at,updated_at,warehouse_id::text FROM traceability_profiles WHERE id=$1`, id).Scan(&p.ID, &p.Mode, &p.ProductID, &p.SKUCode, &p.SourceNamespace, &p.BatchID, &p.QRCode, &p.Status, &p.Version, &p.PublicRevision, &p.EverPublished, &p.CreatedAt, &p.UpdatedAt, &p.WarehouseID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, domain.ErrNotFound
 	}
@@ -257,6 +289,13 @@ func readProfile(ctx context.Context, q querier, id string) (domain.Profile, err
 		p.Revisions = append(p.Revisions, r)
 	}
 	return p, rows.Err()
+}
+
+func nullableWarehouse(id string) any {
+	if id == "" {
+		return nil
+	}
+	return id
 }
 func profileOutcome(ctx context.Context, tx pgx.Tx, id string, status int) (Outcome, error) {
 	p, err := readProfile(ctx, tx, id)

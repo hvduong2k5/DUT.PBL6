@@ -1,0 +1,22 @@
+# Integration-only override. Keep the gRPC listener on the internal network;
+# do not publish it through Kong or host ports. Mount readable service-owned PEMs.
+services:
+  traceability-service:
+    environment:
+      TRACEABILITY_ORDER_RESOLVER_ENABLED: "true"
+      GRPC_ADDR: 0.0.0.0:9003
+      GRPC_TLS_CERT_FILE: /run/traceability/resolver-cert.pem
+      GRPC_TLS_KEY_FILE: /run/traceability/resolver-key.pem
+    volumes:
+      - type: bind
+        source: ${GRPC_TLS_CERT_FILE:?Set the host path to the resolver TLS certificate}
+        target: /run/traceability/resolver-cert.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${GRPC_TLS_KEY_FILE:?Set the host path to the resolver TLS private key}
+        target: /run/traceability/resolver-key.pem
+        read_only: true
+        bind:
+          create_host_path: false

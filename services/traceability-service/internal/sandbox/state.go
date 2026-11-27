@@ -120,10 +120,10 @@ func Initialize(ctx context.Context, mode, migratorURL, dir, webURL string, now 
 		"runtime-url.txt": []byte(runtime.String() + "\n"),
 		"compose.env":     []byte("TRACEABILITY_RUNTIME_DATABASE_URL=" + internal.String() + "\nOUTBOX_RELAY_ENABLED=false\nEXPIRY_WORKER_ENABLED=true\n"),
 	}
-	binding := domain.Binding{ProductID: "44444444-4444-4444-8444-444444444444", SKUCode: "SYNTHETIC-SKU-001", SourceNamespace: "fixture", BatchID: "synthetic-batch-" + state.ID}
+	binding := domain.Binding{ProductID: "44444444-4444-4444-8444-444444444444", SKUCode: "SYNTHETIC-SKU-001", SourceNamespace: "fixture", BatchID: state.ID}
 	local := now.In(time.FixedZone("Asia/Ho_Chi_Minh", 7*60*60))
 	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
-	batch := domain.DependencySnapshot{Binding: binding, BatchCode: "SYNTHETIC-LOT-" + state.ID[:8], ProductionDate: today.Format("2006-01-02"), ExpiryDate: today.AddDate(0, 0, 90).Format("2006-01-02"), BestBefore: today.AddDate(0, 0, 91).UTC(), CatalogVersion: "synthetic-catalog-1", BatchVersion: "synthetic-batch-1"}
+	batch := domain.DependencySnapshot{Binding: binding, WarehouseID: "77777777-7777-4777-8777-777777777777", BatchCode: "SYNTHETIC-LOT-" + state.ID[:8], ProductionDate: today.Format("2006-01-02"), ExpiryDate: today.AddDate(0, 0, 90).Format("2006-01-02"), BestBefore: today.AddDate(0, 0, 91).UTC(), CatalogVersion: "synthetic-catalog-1", BatchVersion: "synthetic-batch-1"}
 	source, _ := json.MarshalIndent(map[string]any{"batches": []domain.DependencySnapshot{batch}}, "", "  ")
 	files["batches.json"] = source
 	certID, err := domain.NewUUID()

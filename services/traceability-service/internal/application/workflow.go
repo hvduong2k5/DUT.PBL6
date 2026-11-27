@@ -37,7 +37,7 @@ func (s *Workflow) NewRevision(ctx context.Context, p domain.Principal, meta dom
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Workflow) Submit(ctx context.Context, p domain.Principal, meta domain.CommandMetadata, id string, revision int, request domain.RevisionCommand) (domain.CommandResult, error) {
@@ -53,7 +53,7 @@ func (s *Workflow) Submit(ctx context.Context, p domain.Principal, meta domain.C
 		return domain.CommandResult{}, err
 	}
 	if found {
-		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 	}
 	profile, err := s.Store.Get(ctx, id)
 	if err != nil {
@@ -86,13 +86,18 @@ func (s *Workflow) Submit(ctx context.Context, p domain.Principal, meta domain.C
 	if err = verifiedSnapshot(snapshot, profile.Binding, s.Clock()); err != nil {
 		return domain.CommandResult{}, err
 	}
+	if meta.Scoped || profile.WarehouseID != nil {
+		if err = domain.CheckWarehouse(profile, snapshot); err != nil {
+			return domain.CommandResult{}, err
+		}
+	}
 	// Store re-locks and checks expected version, content and source freshness.
 	// No network call takes place inside the store's local transaction.
 	result, err = s.Store.SubmitRevision(ctx, meta, id, revision, request, snapshot)
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Workflow) Decide(ctx context.Context, p domain.Principal, meta domain.CommandMetadata, id string, revision int, action string, request domain.RevisionCommand) (domain.CommandResult, error) {
@@ -110,7 +115,7 @@ func (s *Workflow) Decide(ctx context.Context, p domain.Principal, meta domain.C
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func verifiedSnapshot(snapshot domain.DependencySnapshot, binding domain.Binding, now time.Time) error {
@@ -130,7 +135,7 @@ func (s *Workflow) Publish(ctx context.Context, p domain.Principal, meta domain.
 		return domain.CommandResult{}, err
 	}
 	if found {
-		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 	}
 	profile, err := s.Store.Get(ctx, id)
 	if err != nil {
@@ -163,11 +168,16 @@ func (s *Workflow) Publish(ctx context.Context, p domain.Principal, meta domain.
 	if err = verifiedSnapshot(snapshot, profile.Binding, s.Clock()); err != nil {
 		return domain.CommandResult{}, err
 	}
+	if meta.Scoped || profile.WarehouseID != nil {
+		if err = domain.CheckWarehouse(profile, snapshot); err != nil {
+			return domain.CommandResult{}, err
+		}
+	}
 	result, err = s.Store.PublishRevision(ctx, meta, id, revision, request, snapshot)
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Workflow) SetStatus(ctx context.Context, p domain.Principal, meta domain.CommandMetadata, id, status string, request domain.RevisionCommand) (domain.CommandResult, error) {
@@ -188,7 +198,7 @@ func (s *Workflow) SetStatus(ctx context.Context, p domain.Principal, meta domai
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Workflow) Public(ctx context.Context, code string) (domain.PublicRecord, error) {

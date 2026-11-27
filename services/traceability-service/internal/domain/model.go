@@ -87,6 +87,7 @@ type Profile struct {
 	ID   string `json:"id"`
 	Mode string `json:"mode"`
 	Binding
+	WarehouseID    *string    `json:"warehouse_id,omitempty"`
 	QRCode         string     `json:"qr_code"`
 	QRURL          string     `json:"qr_url,omitempty"`
 	Status         string     `json:"status"`
@@ -99,6 +100,7 @@ type Profile struct {
 }
 type DependencySnapshot struct {
 	Binding
+	WarehouseID    string    `json:"warehouse_id,omitempty"`
 	BatchCode      string    `json:"batch_code"`
 	ProductionDate string    `json:"production_date"`
 	ExpiryDate     string    `json:"expiry_date"`

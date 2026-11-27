@@ -9,5 +9,5 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 traceability
 COPY --from=build /out/traceability /usr/local/bin/traceability
 USER 10001
-EXPOSE 8003
+EXPOSE 8003 9003
 ENTRYPOINT ["/usr/local/bin/traceability"]

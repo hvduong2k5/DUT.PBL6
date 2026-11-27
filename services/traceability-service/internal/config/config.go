@@ -12,13 +12,20 @@ import (
 )
 
 type Config struct {
-	Mode              string
-	ListenAddress     string
-	DatabaseURL       string
-	PublicWebURL      string
-	IsolatedContainer bool
-	ShutdownTimeout   time.Duration
-	VideoHosts        []string
+	Mode                 string
+	ListenAddress        string
+	DatabaseURL          string
+	PublicWebURL         string
+	IsolatedContainer    bool
+	ShutdownTimeout      time.Duration
+	VideoHosts           []string
+	ScopedAPIEnabled     bool
+	CursorHMACKey        string
+	OrderResolverEnabled bool
+	OrderResolverToken   string
+	GRPCAddress          string
+	GRPCCertFile         string
+	GRPCKeyFile          string
 }
 
 // Load takes an injectable environment reader; it never includes secret values in errors.
@@ -81,6 +88,46 @@ func Load(getenv func(string) string) (Config, error) {
 		}
 	}
 	c.PublicWebURL = strings.TrimRight(c.PublicWebURL, "/")
+	for _, flag := range []struct {
+		name   string
+		target *bool
+	}{{"TRACEABILITY_SCOPED_API_ENABLED", &c.ScopedAPIEnabled}, {"TRACEABILITY_ORDER_RESOLVER_ENABLED", &c.OrderResolverEnabled}} {
+		if raw := getenv(flag.name); raw != "" {
+			value, err := strconv.ParseBool(raw)
+			if err != nil {
+				return Config{}, fmt.Errorf("%s must be a boolean", flag.name)
+			}
+			*flag.target = value
+		}
+	}
+	c.CursorHMACKey = getenv("TRACEABILITY_CURSOR_HMAC_KEY")
+	c.OrderResolverToken = getenv("TRACEABILITY_ORDER_RESOLVER_TOKEN")
+	if c.ScopedAPIEnabled && len(c.CursorHMACKey) < 32 {
+		return Config{}, errors.New("TRACEABILITY_CURSOR_HMAC_KEY requires at least 32 bytes for scoped API")
+	}
+	if c.OrderResolverEnabled && (len(c.OrderResolverToken) < 32 || strings.TrimSpace(c.OrderResolverToken) != c.OrderResolverToken || strings.ContainsAny(c.OrderResolverToken, "\r\n\t ") || c.OrderResolverToken == getenv("TRACEABILITY_CATALOG_TOKEN") || c.OrderResolverToken == getenv("TRACEABILITY_INVENTORY_TOKEN") || c.OrderResolverToken == getenv("TRACEABILITY_IDENTITY_TOKEN")) {
+		return Config{}, errors.New("TRACEABILITY_ORDER_RESOLVER_TOKEN requires a dedicated credential of at least 32 bytes")
+	}
+	c.GRPCAddress = getenv("GRPC_ADDR")
+	if c.GRPCAddress == "" {
+		c.GRPCAddress = "127.0.0.1:9003"
+	}
+	c.GRPCCertFile = getenv("GRPC_TLS_CERT_FILE")
+	c.GRPCKeyFile = getenv("GRPC_TLS_KEY_FILE")
+	if c.OrderResolverEnabled {
+		host, port, err := net.SplitHostPort(c.GRPCAddress)
+		ip := net.ParseIP(host)
+		p, portErr := strconv.Atoi(port)
+		if err != nil || portErr != nil || ip == nil || p < 1 || p > 65535 {
+			return Config{}, errors.New("GRPC_ADDR must be a numeric IP and valid port")
+		}
+		if c.Mode == "sandbox" && !ip.IsLoopback() && !c.IsolatedContainer {
+			return Config{}, errors.New("sandbox gRPC must bind loopback unless explicitly isolated")
+		}
+		if c.Mode == "integration" && (c.GRPCCertFile == "" || c.GRPCKeyFile == "") {
+			return Config{}, errors.New("integration resolver requires GRPC_TLS_CERT_FILE and GRPC_TLS_KEY_FILE")
+		}
+	}
 	if raw := getenv("VIDEO_ALLOWED_HOSTS"); raw != "" {
 		seen := map[string]bool{}
 		for _, host := range strings.Split(raw, ",") {
