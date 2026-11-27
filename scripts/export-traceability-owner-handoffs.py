@@ -334,7 +334,7 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
     for proto in protos:
         instruction = ("Candidate full definition: compile riêng, cập nhật canonical/copies/codegen khi implement; không compile cạnh canonical cùng message." if proto.startswith(BASE) else "Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng.")
         result += f"\n## Proto target nhúng: `{proto}`\n\n{instruction} Không hand-edit generated code.\n\n```proto\n{sources.text(proto).rstrip()}\n```\n"
-    result += f"\n## Tính toàn vẹn bản gửi\n\nNguồn commit: `{sources.commit}`. SHA-256 tập source: `{checksum}`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.\n"
+    result += f"\n## Tính toàn vẹn bản gửi\n\nNguồn commit: `{sources.commit}`. SHA-256 tập source: `{checksum}`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn đặc tả và nội dung nhúng dùng cùng commit; liên kết bằng chứng Git/PR lịch sử ghi SHA provider riêng trong phần đối chiếu. Không có token/password trong file.\n"
     return result
 
 
