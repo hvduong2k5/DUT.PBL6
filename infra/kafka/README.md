@@ -66,3 +66,13 @@ spring:
   kafka:
     bootstrap-servers: localhost:9094
 ```
+
+## Inventory Procurement topics (2026-11-21)
+
+Run `provision-inventory-topics.sh` with the Apache Kafka CLI before enabling
+Inventory receiving. Supply KAFKA_BOOTSTRAP_SERVERS and the cluster-appropriate
+KAFKA_REPLICATION_FACTOR (1 locally, typically 3 on a three-broker production cluster).
+It creates procurement.events.v1 and procurement.events.dlq.v1 and sets DLQ
+retention to 90 days. Grant the Inventory principal source READ/group access and
+DLQ WRITE; grant monitoring access to read group offsets. Do not depend on topic
+auto-creation. Alert on the Inventory private operations endpoint and broker group lag.

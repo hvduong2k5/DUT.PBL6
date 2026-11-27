@@ -247,8 +247,8 @@ func (h *InventoryGRPCHandler) GetBatchFEFODetails(ctx context.Context, req *inv
 
 		protoBatches = append(protoBatches, &inventoryv1.BatchItemDetail{
 			BatchCode:         b.BatchCode,
-			ManufacturedAt:    timestamppb.New(b.MfgDate),
-			BestBefore:        timestamppb.New(b.ExpDate),
+			ManufacturedAt:    optionalBatchDate(b.MfgDate),
+			BestBefore:        optionalBatchDate(b.ExpDate),
 			DaysUntilExpiry:   daysUntil,
 			RemainingQuantity: int32(b.AvailableQty()),
 			QualityStatus:     qualityStatus,
@@ -260,4 +260,11 @@ func (h *InventoryGRPCHandler) GetBatchFEFODetails(ctx context.Context, req *inv
 		SkuCode: sku,
 		Batches: protoBatches,
 	}, nil
+}
+
+func optionalBatchDate(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
 }

@@ -26,6 +26,7 @@ import (
 	"dut-pbl6/inventory-service/internal/infrastructure/worker"
 	presentationgrpc "dut-pbl6/inventory-service/internal/presentation/grpc"
 	presentationkafka "dut-pbl6/inventory-service/internal/presentation/kafka"
+	"dut-pbl6/inventory-service/migrations"
 	inventoryv1 "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packingv1 "dut-pbl6/inventory-service/pkg/proto/packing/v1"
 	traceabilityv1 "dut-pbl6/inventory-service/pkg/proto/traceability/v1"
@@ -93,6 +94,11 @@ func main() {
 	redisAddr := getEnv("REDIS_ADDR", "localhost:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "redispassword")
 	kafkaBrokersStr := getEnv("KAFKA_BROKERS", "") // e.g. "localhost:9092"
+	procurementEnabled := getEnv("INVENTORY_PROCUREMENT_ENABLED", "false") == "true"
+	procurementWarehouseMap := os.Getenv("INVENTORY_PROCUREMENT_WAREHOUSE_MAP")
+	if procurementEnabled && kafkaBrokersStr == "" {
+		log.Fatal("Procurement consumer requires KAFKA_BROKERS")
+	}
 
 	log.Printf("[InventoryService] Starting gRPC service on port %s...", portStr)
 
@@ -106,6 +112,13 @@ func main() {
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
+
+	schemaCtx, cancelSchema := context.WithTimeout(context.Background(), 30*time.Second)
+	err = migrations.Verify(schemaCtx, db)
+	cancelSchema()
+	if err != nil {
+		log.Fatalf("[InventoryService] Schema verification failed: %v", err)
+	}
 
 	// 2. Initialize Redis Client & Distributed Lock Adapter
 	rdb := goredis.NewClient(&goredis.Options{
@@ -145,6 +158,35 @@ func main() {
 	// 6. Launch Background Workers
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
+
+	if procurementEnabled {
+		mappings, err := presentationkafka.ProcurementWarehouseMap(procurementWarehouseMap)
+		if err != nil {
+			log.Fatal(err)
+		}
+		units, err := presentationkafka.ProcurementUnitMap(os.Getenv("INVENTORY_PROCUREMENT_UNIT_MAP"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		go presentationkafka.RunProcurementConsumer(workerCtx, strings.Split(kafkaBrokersStr, ","), db, mappings, units)
+	}
+
+	if !procurementEnabled {
+		log.Print("[Inventory Procurement] consumer disabled: INVENTORY_PROCUREMENT_ENABLED=false")
+	}
+	if addr := os.Getenv("INVENTORY_METRICS_ADDR"); addr != "" {
+		metricsServer := &http.Server{Addr: addr, Handler: presentationkafka.ProcurementMonitor(procurementEnabled), ReadHeaderTimeout: 5 * time.Second}
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer metricsServer.Close()
+		go func() {
+			if err := metricsServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("Inventory metrics server: %v", err)
+			}
+		}()
+	}
 
 	// 6.1 Transactional Outbox Publisher Worker
 	outboxWorker := worker.NewOutboxPublisherWorker(outboxRepo, eventPublisher)

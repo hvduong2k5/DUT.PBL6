@@ -3,31 +3,162 @@
   "title": "GoodsReceivedEvent",
   "description": "Sự kiện phát ra khi xưởng Hương Thủy nhập nguyên liệu mè/đậu từ Hợp tác xã Huế hoặc nhập kẹo thành phẩm. Topic: procurement.events.v1. Partition Key: sku_code",
   "type": "object",
-  "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "traceparent", "data"],
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "traceparent",
+    "data"
+  ],
   "properties": {
-    "specversion": { "type": "string", "enum": ["1.0"] },
-    "id": { "type": "string" },
-    "source": { "type": "string", "format": "uri", "example": "https://omama.vn/services/procurement-service" },
-    "type": { "type": "string", "enum": ["vn.omama.procurement.goods.received.v1"] },
-    "subject": { "type": "string", "example": "sku:NGUYEN-LIEU-ME-TRANG-HUE" },
-    "time": { "type": "string", "format": "date-time" },
-    "datacontenttype": { "type": "string", "enum": ["application/json"] },
-    "traceparent": { "type": "string" },
+    "specversion": {
+      "type": "string",
+      "enum": [
+        "1.0"
+      ]
+    },
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "format": "uri",
+      "example": "https://omama.vn/services/procurement-service"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "vn.omama.procurement.goods.received.v1"
+      ]
+    },
+    "subject": {
+      "type": "string",
+      "example": "sku:NGUYEN-LIEU-ME-TRANG-HUE"
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "datacontenttype": {
+      "type": "string",
+      "enum": [
+        "application/json"
+      ]
+    },
+    "traceparent": {
+      "type": "string"
+    },
     "data": {
       "type": "object",
-      "required": ["receipt_id", "po_number", "supplier_id", "sku_code", "quantity_received", "unit", "warehouse_id", "received_at"],
+      "required": [
+        "receipt_id",
+        "po_number",
+        "supplier_id",
+        "sku_code",
+        "quantity_received",
+        "unit",
+        "warehouse_id",
+        "received_at"
+      ],
       "properties": {
-        "receipt_id": { "type": "string" },
-        "po_number": { "type": "string", "example": "PO-2026-0881" },
-        "supplier_id": { "type": "string", "example": "SUP-HTX-QUANG-THO" },
-        "supplier_name": { "type": "string", "example": "Hợp Tác Xã Nông Nghiệp Quảng Thọ - Thừa Thiên Huế" },
-        "sku_code": { "type": "string" },
-        "quantity_received": { "type": "number", "minimum": 0.01 },
-        "unit": { "type": "string", "example": "KG" },
-        "warehouse_id": { "type": "string", "example": "KHO-HUONG-THUY" },
-        "raw_material_origin_region": { "type": "string", "example": "Vùng mè cát Quảng Điền, Thừa Thiên Huế" },
-        "received_at": { "type": "string", "format": "date-time" }
-      }
+        "receipt_id": {
+          "type": "string"
+        },
+        "po_number": {
+          "type": "string",
+          "example": "PO-2026-0881"
+        },
+        "supplier_id": {
+          "type": "string",
+          "example": "SUP-HTX-QUANG-THO"
+        },
+        "supplier_name": {
+          "type": "string",
+          "example": "Hợp Tác Xã Nông Nghiệp Quảng Thọ - Thừa Thiên Huế"
+        },
+        "sku_code": {
+          "type": "string"
+        },
+        "quantity_received": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "unit": {
+          "type": "string",
+          "example": "KG",
+          "pattern": "^(?:[Kk][Gg]|[Gg]|[Gg][Rr][Aa][Mm]|[Uu][Nn][Ii][Tt]|[Pp][Ii][Ee][Cc][Ee])$",
+          "description": "Case-insensitive KG/G/GRAM for gram-counted SKUs; UNIT/PIECE for unit-counted SKUs. Inventory rejects inexact conversion and int32 overflow. Per-SKU base unit is configured by Inventory."
+        },
+        "warehouse_id": {
+          "type": "string",
+          "example": "KHO-HUONG-THUY"
+        },
+        "raw_material_origin_region": {
+          "type": "string",
+          "example": "Vùng mè cát Quảng Điền, Thừa Thiên Huế"
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "unit": {
+                "pattern": "^(?:[Uu][Nn][Ii][Tt]|[Pp][Ii][Ee][Cc][Ee])$"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quantity_received": {
+                "multipleOf": 1,
+                "maximum": 2147483647
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "unit": {
+                "pattern": "^[Kk][Gg]$"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quantity_received": {
+                "multipleOf": 0.001,
+                "maximum": 2147483.647
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "unit": {
+                "pattern": "^(?:[Gg]|[Gg][Rr][Aa][Mm])$"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "quantity_received": {
+                "multipleOf": 1,
+                "maximum": 2147483647
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
