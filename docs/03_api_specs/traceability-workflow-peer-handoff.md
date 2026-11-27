@@ -1,5 +1,7 @@
 # Phiếu bàn giao contract theo service
 
+**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
+
 Version 0.4.0-draft · 27/11/2026. Owner nghiệp vụ: Traceability. **Chế độ giao việc đã được chủ yêu cầu chốt: triển khai trực tiếp từ tài liệu, không cần gửi ACCEPT, đề xuất giải pháp hoặc chờ xác nhận trước khi sửa code.** Mỗi owner nhận section của mình, bảo đảm đầu ra và contract đích; đã có thì tái sử dụng, thiếu thì bổ sung. [Index](traceability-workflow-README.md), artifacts và [test IDs](traceability-workflow-acceptance.md) là một bộ đầu vào, không cần lịch sử chat. Không gửi secrets hoặc tài khoản cá nhân trong tài liệu.
 
 **Bản 0.4.0 theo plan Dương và dev@ac5395c5 (PR #175):** thay phiếu 0.3.0/0.2.2 về Catalog, dùng CatalogService.GetTraceabilityBinding và MediaInternalService đã có. Gỡ target GetSkuBinding chưa phát hành; không giao lại việc viết RPC đó. Tích hợp Media validate trước submit/publish, durable binding sau commit; Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng chưa có trong plan Dương.

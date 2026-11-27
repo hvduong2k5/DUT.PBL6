@@ -31,6 +31,7 @@ STABLE = BASE + "admin-stable.openapi.yaml"
 LEGACY = BASE + "traceability-service.openapi.yaml"
 BATCH_PROTO = BASE + "traceability-workflow-candidates/batch_source.proto"
 PACKING_PROTO = BASE + "traceability-workflow-candidates/packing.proto"
+SUPPLEMENT = BASE + "traceability-workflow-supplement.md"
 GRPC_GUIDE = BASE + "traceability-workflow-grpc.md"
 MEDIA_PROTO = "packages/proto/media/v1/media_service.proto"
 CATALOG_PROTO = "packages/proto/catalog/v1/catalog.proto"
@@ -264,7 +265,7 @@ def render(sources: Sources, owner) -> str:
         for path in ["/api/v1/media/upload-sessions", "/api/v1/media/upload-sessions/{uploadSessionId}/complete"]:
             bundle.add(CUSTOMER_STABLE, path, "post")
 
-    source_list = [HANDOFF, ACCEPTANCE,
+    source_list = [HANDOFF, ACCEPTANCE, SUPPLEMENT,
                    BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md", GRPC_GUIDE]
     source_list += sorted(bundle.files) + protos
     if number == 5:
@@ -320,6 +321,8 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
 
 Đọc AGENTS.md và rule service trong repository trước khi sửa. Commit mới dùng tiếng Anh, giữ một type/scope; contract thay trước hoặc cùng code, không sửa migration cũ/generated rows sai quy trình. Không tự push dev/release hoặc deploy production; tạo PR theo quy trình nhóm.
 """
+    supplement = sources.pin_links(sources.text(SUPPLEMENT), SUPPLEMENT).split("\n", 1)[1].strip()
+    result += "\n## Phần bổ sung riêng và ranh giới phối hợp\n\n" + supplement + "\n"
     guide = sources.pin_links(sources.text(GRPC_GUIDE), GRPC_GUIDE).split("\n", 1)[1].strip()
     result += "\n## Quy định transport mới và contract gRPC\n\n" + guide + "\n"
     if bundle.paths:
