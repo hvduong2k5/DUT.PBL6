@@ -654,20 +654,31 @@ func (h *Router) createPurchaseOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Router) updatePurchaseOrderDraft(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if !validIdempotencyKey(key) {
+		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "Idempotency-Key must contain 16-128 visible ASCII characters")
+		return
+	}
 	id, ok := pathUUID(w, chi.URLParam(r, "purchaseOrderID"))
 	if !ok {
 		return
 	}
-	request, ok := decodePurchaseOrderRequest(w, r)
-	if !ok {
+	var request struct {
+		ExpectedVersion      int64                      `json:"expected_version"`
+		SupplierID           string                     `json:"supplier_id"`
+		ExpectedDeliveryDate string                     `json:"expected_delivery_date,omitempty"`
+		Notes                string                     `json:"notes,omitempty"`
+		Lines                []purchaseOrderLineRequest `json:"lines"`
+	}
+	if !decodeJSON(w, r, &request) {
 		return
 	}
-	input, err := request.applicationInput()
+	input, err := (purchaseOrderRequest{SupplierID: request.SupplierID, ExpectedDeliveryDate: request.ExpectedDeliveryDate, Notes: request.Notes, Lines: request.Lines}).applicationInput()
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", err.Error())
 		return
 	}
-	order, err := h.service.UpdatePurchaseOrderDraft(r.Context(), id, input, actorID(r))
+	order, err := h.service.UpdatePurchaseOrderDraftWithIdempotency(r.Context(), id, input, actorID(r), key, request.ExpectedVersion)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
@@ -716,8 +727,8 @@ func (h *Router) listPurchaseOrders(w http.ResponseWriter, r *http.Request) {
 	if raw := strings.TrimSpace(r.URL.Query().Get("supplier_id")); raw != "" {
 		var err error
 		supplierID, err = uuid.Parse(raw)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a UUID")
+		if err != nil || supplierID == uuid.Nil {
+			writeError(w, http.StatusBadRequest, "INVALID_ARGUMENT", "supplier_id must be a nonzero UUID")
 			return
 		}
 	}

@@ -144,6 +144,7 @@ CREATE TRIGGER reject_test_revision_command BEFORE INSERT ON purchase_order_acti
 	if err != nil || third.Revision != 3 {
 		t.Fatalf("second revision: %v", err)
 	}
+	assertPODraftEditE2E(t, ctx, db, repo, service, third, supplierID, materialID, offerID)
 	all, err := repo.ListPurchaseOrderRevisions(ctx, p.ID, 100, 0)
 	if err != nil || len(all) != 2 || all[0].Revision != 2 || all[1].Revision != 1 {
 		t.Fatal("archive order is not descending")

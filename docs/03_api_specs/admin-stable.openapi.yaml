@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Internal Employee Web API - Stable
-  version: 2.5.0
+  version: 2.6.0
   description: Implementation-ready contract for employee sessions, permission-scoped
     management views, and approved workbench operations. Authorization MUST use effective
     permissions and data scopes; role names alone are insufficient. The provisional
@@ -452,6 +452,47 @@ paths:
         '409': {$ref: '#/components/responses/ProcurementConflict'}
         '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/procurement/purchase-orders:
+    get:
+      operationId: listProcurementPurchaseOrders
+      summary: List purchase orders with supplier and lifecycle filters
+      description: >-
+        EMPLOYEE with PROCUREMENT_VIEW#GLOBAL. Optional supplier_id and status
+        filters combine with AND; supplier_id must be a nonzero UUID when supplied.
+        Unknown supplier returns an empty page, not 404.
+        Ordered by created_at descending, then UUID ascending. Limit 1..100 and
+        nonnegative offset; items is always an array. No global total or frozen
+        cross-page snapshot is promised; orders may change while staff paginate.
+        status is trimmed and case-insensitive at runtime; examples use canonical
+        uppercase values. Invalid status/UUID/pagination returns 400, DB failure 500.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_VIEW#GLOBAL]
+      x-ui-states: [success, loading, empty, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementLimit'
+      - $ref: '#/components/parameters/ProcurementOffset'
+      - name: supplier_id
+        in: query
+        schema: {type: string, format: uuid}
+      - name: status
+        in: query
+        schema: {type: string, enum: [DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, SENT, ACKNOWLEDGED, CHANGE_REQUESTED, SUPPLIER_DECLINED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED, CLOSED]}
+      responses:
+        '200':
+          description: Current PO page, empty for no matching records.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProcurementPOPage'}
+              examples:
+                empty:
+                  value: {items: [], limit: 50, offset: 0}
+                success:
+                  value: {items: [{id: '40000000-0000-0000-0000-000000000001', number: PO-DEMO, revision: 1, supplier_id: '10000000-0000-0000-0000-000000000001', supplier_name: Demo supplier, status: DRAFT, currency: VND, lines: [{id: '50000000-0000-0000-0000-000000000001', line_number: 1, material_id: '20000000-0000-0000-0000-000000000001', material_code: RICE, material_name: Rice, quantity: '10', received_quantity: '0', accepted_quantity: '0', unit: KG, unit_price_minor: 25000, line_amount_minor: 250000}], total_amount_minor: 250000, created_by: '80000000-0000-0000-0000-000000000001', created_at: '2026-11-27T00:00:00Z', updated_at: '2026-11-27T00:00:00Z', version: 1}], limit: 50, offset: 0}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
     post:
       operationId: createProcurementPurchaseOrder
       summary: Create an idempotent draft purchase order
@@ -492,7 +533,7 @@ paths:
     get:
       operationId: getProcurementPurchaseOrder
       summary: Read a purchase order and its current lifecycle state
-      description: Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Does not expose approval or dispatch actions through this gateway slice.
+      description: Requires EMPLOYEE and PROCUREMENT_VIEW#GLOBAL. Returns current state; use separately authorized action endpoints for mutations.
       tags: [Procurement]
       security: [{bearerAuth: []}]
       x-lifecycle: stable
@@ -504,6 +545,47 @@ paths:
         '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
         '403': {$ref: '#/components/responses/ProcurementForbidden'}
         '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '500': {$ref: '#/components/responses/ProcurementInternalError'}
+    put:
+      operationId: replaceProcurementPurchaseOrderDraft
+      summary: Replace draft terms with versioned durable retry protection
+      description: >-
+        EMPLOYEE with PROCUREMENT_MANAGE#GLOBAL. Only DRAFT at matching
+        expected_version may be edited; submitted/issued POs require their own
+        lifecycle workflow. Fully replaces supplier, lines, notes and delivery
+        date; omitted optional notes/date clear them. Supplier may change while
+        draft, subject to current active offers, units, MOQ and currency rules.
+        Preserves PO ID/number, creator, revision and supply-plan linkage; editing
+        is not a new revision or approval. Existing creator-only maker-checker
+        policy is unchanged; this does not impose a new editor-exclusion policy.
+        Requires migration 000018 after 000015/000016/000017 and Idempotency-Key.
+        Shared actor/key namespace binds EDIT_DRAFT, PO, expected_version, supplier,
+        date, trimmed notes and ordered lines. Quantity text and line order remain
+        significant. Same command replays the original frozen DRAFT before reading
+        current offers, even after submit/revision; GET detail for current state.
+        Changed payload or stale/new-key commands return 409. Live PO/lines, history
+        and result commit atomically; failed transactions consume no key. No TTL.
+      tags: [Procurement]
+      security: [{bearerAuth: []}]
+      x-lifecycle: stable
+      x-required-grants: [PROCUREMENT_MANAGE#GLOBAL]
+      x-po-action: EDIT_DRAFT
+      x-ui-states: [success, loading, error, auth]
+      parameters:
+      - $ref: '#/components/parameters/ProcurementIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProcurementPODraftEdit'}
+            example: {expected_version: 1, supplier_id: '10000000-0000-0000-0000-000000000001', notes: Draft correction, lines: [{material_id: '20000000-0000-0000-0000-000000000001', quantity: '8'}]}
+      responses:
+        '200': {$ref: '#/components/responses/ProcurementPurchaseOrderResult'}
+        '400': {$ref: '#/components/responses/ProcurementBadRequest'}
+        '401': {$ref: '#/components/responses/ProcurementUnauthenticated'}
+        '403': {$ref: '#/components/responses/ProcurementForbidden'}
+        '404': {$ref: '#/components/responses/ProcurementNotFound'}
+        '409': {$ref: '#/components/responses/ProcurementConflict'}
         '500': {$ref: '#/components/responses/ProcurementInternalError'}
   /api/v1/admin/procurement/goods-receipts:
     post:
@@ -12256,6 +12338,33 @@ components:
         type: string
         format: uuid
   schemas:
+    ProcurementPOPage:
+      type: object
+      additionalProperties: false
+      required: [items, limit, offset]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/ProcurementPurchaseOrder'}}
+        limit: {type: integer, minimum: 1, maximum: 100}
+        offset: {type: integer, minimum: 0}
+    ProcurementPODraftEdit:
+      type: object
+      additionalProperties: false
+      required: [expected_version, supplier_id, lines]
+      properties:
+        expected_version: {type: integer, format: int64, minimum: 1}
+        supplier_id: {type: string, format: uuid}
+        expected_delivery_date: {type: string, format: date}
+        notes: {type: string}
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [material_id, quantity]
+            properties:
+              material_id: {type: string, format: uuid}
+              quantity: {type: string, pattern: '^[0-9]+(\.[0-9]{1,6})?$'}
     ProcurementPORevisionPage:
       type: object
       additionalProperties: false

@@ -426,7 +426,11 @@ func (s *Service) ListPurchaseOrders(ctx context.Context, supplierID uuid.UUID, 
 	if status != "" && !validPurchaseOrderStatus(status) {
 		return nil, domain.ErrInvalidArgument
 	}
-	return s.repo.ListPurchaseOrders(ctx, supplierID, status, limit, offset)
+	items, err := s.repo.ListPurchaseOrders(ctx, supplierID, status, limit, offset)
+	if err == nil && items == nil {
+		items = []domain.PurchaseOrder{}
+	}
+	return items, err
 }
 
 func (s *Service) SubmitPurchaseOrder(ctx context.Context, id uuid.UUID, actor string) (domain.PurchaseOrder, error) {

@@ -194,6 +194,9 @@ func (o *PurchaseOrder) ReplaceDraft(updated PurchaseOrder) error {
 	updated.Status = o.Status
 	updated.CreatedBy = o.CreatedBy
 	updated.CreatedAt = o.CreatedAt
+	updated.Revision = o.Revision
+	updated.SourceSupplyPlanID, updated.SourceSupplyPlanRevision = o.SourceSupplyPlanID, o.SourceSupplyPlanRevision
+	updated.IdempotencyKey, updated.RequestHash = o.IdempotencyKey, o.RequestHash
 	updated.Version = o.Version + 1
 	updated.UpdatedAt = time.Now().UTC()
 	*o = updated

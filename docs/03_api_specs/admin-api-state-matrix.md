@@ -52,7 +52,7 @@ capability, never invented dates, revision, impact or status. Existing CRUD APIs
 are not silently aliased to the new projections. Role mutations remain owned by
 task 2. Common BFF errors include code, safe message, requestId and errors.
 
-## Procurement service authorization, PO actions and receiving gateway (2.5.0)
+## Procurement service authorization, PO actions and receiving gateway (2.6.0)
 
 Identity migration `V28__seed_procurement_permissions.sql` adds the five permissions
 below to existing enabled, non-archived ADMIN roles. It creates no account, role or
@@ -63,11 +63,11 @@ employees (`forceRelogin=false`) and refresh/login: an existing token is unchang
 During rollout an employee with a stale token still receives 403, not a role-based
 bypass. This seed alone does not deploy a gateway route, BFF relay or Web screen.
 
-Kong configuration now allowlists twenty operations in `admin-stable.openapi.yaml`:
+Kong configuration now allowlists twenty-two operations in `admin-stable.openapi.yaml`:
 six supplier/material/offer GETs, PO create/detail, receipt create/detail and inspection.
 PO submit/approve/reject/send/supplier-response/cancel/close are also exposed.
 Revision create/history are exposed too. OPTIONS is preflight only.
-PO list/draft editing, receipt variance resolution,
+PO list/draft editing are exposed too. Receipt variance resolution,
 plan/contract paths, master-data mutations, health probes and arbitrary suffixes are
 not exposed by these routes. Authorization is Bearer
 JWT only; the contract's global cookie alternative does not apply to these operations.
@@ -80,6 +80,8 @@ Web session relay/UI is not implemented by this change.
 | GET supplier/material offers | 200 items array; known parent without offers returns []; all price versions included, no pagination/effective filter | Price comparison pending | Same JWT/GLOBAL gate | 400 malformed UUID; 404 unknown parent; 500 dependency failure |
 | POST purchase-orders | 201 new DRAFT or existing current PO on same creator/key/payload; no automatic approval/send | Disable duplicate submit; retain Idempotency-Key across retry | MANAGE GLOBAL; signed employee supplies creator | 400 invalid JSON/key/fields; 404 missing references; 409 changed payload or lifecycle/offer conflict; 500 dependency failure |
 | GET purchase-orders/{id} | 200 current lifecycle and price snapshots for the current revision | Detail pending | VIEW GLOBAL | 400 invalid UUID; 404 missing PO; 500 dependency failure |
+| GET purchase-orders | 200 items/limit/offset; empty array for no matches or unknown supplier; created_at DESC then UUID ASC; no global total | Retain supplier/status filters and pagination; no cross-page frozen snapshot | VIEW GLOBAL, not warehouse-only VIEW | 400 invalid/nonzero supplier UUID, status, limit or offset; 401/403 auth; 500 dependency failure, never fabricated empty data |
+| PUT purchase-orders/{id} | 200 edited DRAFT or frozen committed edit; preserves revision/creator/plan linkage; no archive or approval | Retain Idempotency-Key/expected_version/full replacement body; GET current detail after replay | MANAGE GLOBAL; original creator retained, creator-only maker-checker unchanged | 400 invalid key/version/body/offer quantity; 401/403 auth; 404 missing PO/reference; 409 non-draft, stale version or key conflict; 500 failure rolls back PO/lines/history/result |
 | POST purchase-orders/{id}/submit | 200 PENDING_APPROVAL or original committed action snapshot on matching replay | Retain key and expected_version; disable duplicate action | MANAGE GLOBAL | 400 invalid key/body/version; 401 invalid JWT; 403 missing grant; 404 missing PO; 409 stale version/state or reused key with changed command; 500 dependency failure |
 | POST purchase-orders/{id}/approve | 200 APPROVED or original committed action snapshot | Retain key/version; refresh current PO after completion | APPROVE GLOBAL; creator cannot approve | Same errors as submit; self-approval is 409 |
 | POST purchase-orders/{id}/reject | 200 REJECTED or original committed action snapshot | Retain key/version and reason | APPROVE GLOBAL; creator cannot reject | Same errors as submit; blank reason is 400; self-rejection is 409 |
@@ -105,7 +107,7 @@ The four PO actions require migration 000015, Idempotency-Key and expected_versi
 Reject additionally requires a nonblank reason; other actions do not accept reason.
 Unlike create/inspect replay, PO action replay returns a frozen committed snapshot,
 not current PO state; GET the PO before displaying current workflow controls.
-Signed actor/key is shared across all eight PO action endpoints and binds resource, action,
+Signed actor/key is shared across all nine PO action endpoints and binds resource, action,
 expected version and trimmed reason. Changed command returns 409. Evidence and
 PO/history commit atomically, with no TTL; failures do not consume the key.
 Current JWT and operation permissions are required even for replay. Existing
@@ -127,6 +129,14 @@ Archived snapshots are protected against ordinary UPDATE/DELETE/TRUNCATE; databa
 owners can still deliberately disable those guards. Rollback refuses to discard
 completed revision evidence. The read page contains only prior archived revisions,
 newest-first, limit 1..100 and nonnegative offset; it is not the live current PO.
+
+Draft PUT requires migration 000018 and uses EDIT_DRAFT in the same journal. Same
+request replays before consulting offers even after submit; it cannot create a
+new revision or silently overwrite a competing edit. Supplier/lines/notes/date
+are full replacements; omitted optional values clear them. Revision and original
+creator/supply-plan linkage are preserved. No new editor-exclusion approval policy
+is introduced. Existing private PUT callers must add key/version. Previously lost
+revision numbering is not reconstructed; no live data repair is performed.
 
 All Procurement HTTP errors, including private operations, now use the shared flat
 `Error` envelope (`code`, safe `message`, `requestId`), replacing the unpublished
@@ -151,7 +161,7 @@ is configurable; align it with Identity (currently expected to be `omama-api`).
 
 Missing/invalid credentials produce 401. A valid employee token missing the
 required permission or matching warehouse scope produces 403. These operations
-other than the twenty operations above remain absent from frontend OpenAPI paths
+other than the twenty-two operations above remain absent from frontend OpenAPI paths
 and the Procurement Kong allowlist. The policy summary for those private operations
 is retained in the draft OpenAPI metadata. A gateway read route does not create a
 Web session adapter or make private mutations a stable frontend contract.

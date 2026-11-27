@@ -23,6 +23,7 @@ services:
         methods: [GET, OPTIONS]
       - name: procurement-document-reads
         paths:
+          - '~/api/v1/admin/procurement/purchase-orders$'
           - '~/api/v1/admin/procurement/(purchase-orders|goods-receipts)/[^/]+$'
           - '~/api/v1/admin/procurement/purchase-orders/[^/]+/revisions$'
         strip_path: false
@@ -42,6 +43,11 @@ services:
           - '~/api/v1/admin/procurement/purchase-orders/[^/]+/(submit|approve|reject|send|supplier-response|cancel|close|revisions)$'
         strip_path: false
         methods: [POST, OPTIONS]
+      - name: procurement-po-draft-edit
+        paths:
+          - '~/api/v1/admin/procurement/purchase-orders/[^/]+$'
+        strip_path: false
+        methods: [PUT, OPTIONS]
   - name: traceability-public
     url: http://traceability-service:8003/api/v1/trace
     routes:

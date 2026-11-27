@@ -35,6 +35,7 @@ func TestEmbeddedMigrationsAreOrderedAndIncludeSupplierManagement(t *testing.T) 
 		"000015_purchase_order_action_idempotency.up.sql",
 		"000016_purchase_order_terminal_actions.up.sql",
 		"000017_purchase_order_revision_evidence.up.sql",
+		"000018_purchase_order_draft_edit_commands.up.sql",
 	}
 	if strings.Join(names, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected embedded migration sequence: %v", names)
@@ -93,6 +94,23 @@ func TestPORevisionMigrationProtectsArchivedEvidence(t *testing.T) {
 	}
 	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") || strings.Contains(string(down), "DROP TABLE") {
 		t.Fatal("rollback must retain archives and completed commands")
+	}
+}
+
+func TestDraftEditMigrationRetainsPriorCommands(t *testing.T) {
+	up, err := files.ReadFile("000018_purchase_order_draft_edit_commands.up.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(up), "'EDIT_DRAFT'") || !strings.Contains(string(up), "'REVISION'") || strings.Contains(string(up), "DROP TABLE") {
+		t.Fatal("draft edit migration lost existing journal")
+	}
+	down, err := os.ReadFile("000018_purchase_order_draft_edit_commands.down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(down), "RAISE EXCEPTION") || strings.Contains(string(down), "DELETE FROM") {
+		t.Fatal("rollback must refuse completed edits, not erase evidence")
 	}
 }
 

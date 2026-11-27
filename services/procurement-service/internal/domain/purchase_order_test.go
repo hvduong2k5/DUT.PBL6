@@ -203,11 +203,18 @@ func TestReplaceDraftPreservesIdentityAndRejectsSubmittedOrder(t *testing.T) {
 	order := newTestPurchaseOrder(t)
 	id, number, createdAt, version := order.ID, order.Number, order.CreatedAt, order.Version
 	updated := newTestPurchaseOrder(t)
+	order.Revision = 3
+	planID := uuid.New()
+	order.SourceSupplyPlanID, order.SourceSupplyPlanRevision = &planID, new(int)
+	*order.SourceSupplyPlanRevision = 2
 	if err := order.ReplaceDraft(updated); err != nil {
 		t.Fatal(err)
 	}
 	if order.ID != id || order.Number != number || !order.CreatedAt.Equal(createdAt) || order.Version != version+1 {
 		t.Fatalf("draft replacement failed to preserve identity/version: %+v", order)
+	}
+	if order.Revision != 3 || order.SourceSupplyPlanID == nil || *order.SourceSupplyPlanID != planID || *order.SourceSupplyPlanRevision != 2 {
+		t.Fatal("draft replacement lost revision/plan lineage")
 	}
 	if err := order.Submit("creator-1"); err != nil {
 		t.Fatal(err)
