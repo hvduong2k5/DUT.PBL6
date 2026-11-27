@@ -1,8 +1,8 @@
-# PBL6 — Bàn giao Catalog: CAT-TRC-01
+# PBL6 — Bàn giao Catalog / Media: CAT-TRC-01
 
-Version nghiệp vụ/contract: **0.3.0-draft** · Snapshot tài liệu: **`1d4fba6477032419d894a32b1dd6866490b3e95c`**.
+Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`b5ab16e36a841ecb02204651db0d4e9d83d17476`**.
 
-**Bản phát lại0.3.0 thay toàn bộ phiếu0.2.2 cũ:** giữ nghiệp vụ, chuyển business service-to-service sang gRPC. Nếu đã làm REST nội bộ theo bản cũ, tái sử dụng logic và bổ sung gRPC adapter đúng contract. Web/BFF vẫn REST.
+**Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -14,19 +14,23 @@ File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu c�
 
 | Tài liệu liên quan trong repository | Link bất biến |
 | --- | --- |
-| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
-| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-acceptance.md) |
-| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-service-spec.md) |
-| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
-| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-grpc.md) |
-| `packages/proto/catalog/v1/traceability_source.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/catalog/v1/traceability_source.proto) |
+| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
+| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-acceptance.md) |
+| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-service-spec.md) |
+| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
+| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-grpc.md) |
+| `docs/03_api_specs/customer-stable.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/customer-stable.openapi.yaml) |
+| `packages/proto/catalog/v1/catalog.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/catalog/v1/catalog.proto) |
+| `packages/proto/media/v1/media_service.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/media/v1/media_service.proto) |
+| `packages/proto/common/v1/types.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/common/v1/types.proto) |
+| `packages/proto/common/v1/errors.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/common/v1/errors.proto) |
 
 Trong repository đã clone, các lệnh đọc sau không checkout/reset hay ghi đè source đang làm:
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show 1d4fba6477032419d894a32b1dd6866490b3e95c:docs/03_api_specs/traceability-workflow-grpc.md
-git show 1d4fba6477032419d894a32b1dd6866490b3e95c:docs/03_api_specs/traceability-workflow-peer-handoff.md
+git show b5ab16e36a841ecb02204651db0d4e9d83d17476:docs/03_api_specs/traceability-workflow-grpc.md
+git show b5ab16e36a841ecb02204651db0d4e9d83d17476:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
 ## Bắt đầu thực hiện
@@ -54,17 +58,23 @@ Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạ
 - HTTP error chuẩn mới `{code,message,requestId}`; mutation mới có Idempotency-Key. Legacy route giữ contract riêng. Internal RPC/call dùng danh tính service và transport tin cậy, không tin X-User-ID/role do browser tự gửi.
 - Không kích hoạt/publish QR khi nhận packing hoặc GoodsReceived. Không thêm trừ kho, tạo profile, cấp mã hoặc payment side effect trong read flow.
 
-## Phần việc của Catalog
+## Phần việc của Catalog / Media
 
-### Catalog: CAT-TRC-01 — triển khai trực tiếp
+### Catalog / Media: CAT-TRC-01 — tái sử dụng provider đã merge
 
-CAT-OUT-01: triển khai `/omamx.catalog.v1.CatalogTraceabilitySource/GetSkuBinding` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/catalog/v1/traceability_source.proto). Input exact sku_code; output product_id/sku_code/catalog_version, không phụ thuộc giá hoặc trạng thái public, có hidden/stopped variants còn lưu. Traceability dùng cùng RPC bootstrap và reverify binding khi create/submit/publish. Version semantics giữ như verifier Product–SKU cũ; tái sử dụng query/domain/mapping, không sửa public variant response hoặc checkout RPC chỉ để bootstrap.
+CAT-OUT-01: giữ [CatalogService.GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/catalog/v1/catalog.proto) của PR #175; input product_id + exact sku_code, output version_fingerprint và echo authoritative. Traceability dùng fingerprint nguyên trạng cho catalog_version. Không thêm CatalogTraceabilitySource/GetSkuBinding hoặc khôi phục REST đã gỡ.
 
-CAT-OUT-02: chỉ credential Traceability riêng được đọc qua TLS và một authorization Bearer metadata. INVALID_ARGUMENT/NOT_FOUND/UNAUTHENTICATED/PERMISSION_DENIED/UNAVAILABLE theo [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/docs/03_api_specs/traceability-workflow-grpc.md#catalog--cat-out-0102), reply≤8KiB, budget trong tổng2s source check. Giữ REST verifier cũ cho legacy consumers nếu cần; target mới không gọi hoặc yêu cầu thêm REST exact-SKU nữa. Không gọi Catalog khi khách scan QR hoặc Order resolve links.
+CAT-OUT-02: bootstrap từ SKU dùng GetProductVariant(channel UNSPECIFIED) lấy product_id rồi GetTraceabilityBinding xác minh/version. Đảm bảo hidden/stopped/no-price còn đọc được, exact SKU, không fuzzy; không buộc UI biết trước Product UUID. Hai read + Inventory dùng budget 2 giây và cap reply 8 KiB; source thay đổi chặn submit/publish theo source hash cũ.
 
-**CAT-OUT-03 — guard RPC mới:** CatalogAccess hiện chỉ kiểm prefix CatalogService/ và x-internal-token chung. Service mới `CatalogTraceabilitySource/` không được tự đi qua nhánh không kiểm auth; mở guard cho đúng full method và credential Traceability riêng theo contract, không tái sử dụng token checkout chung hoặc cho token đó đọc mặc định. Giữ auth cũ của các method khác. Nghiệm thu CAT-01…03 và GRPC-CAT-01/02, gồm missing/wrong/duplicate credential, wrong caller, hidden/no-price/version và DB timeout. Thêm canonical proto vào pipeline copy/codegen/service registration hiện có; không hand-edit generated Java.
+CAT-OUT-03: giữ x-internal-token theo CatalogAccess và CATALOG_INTERNAL_TOKEN ≥32 ký tự; không bỏ credential trong Traceability. Giữ port thực mặc định9005 thay ví dụ9090 trong plan. TLS nếu đã cấu hình, hoặc explicit private plaintext như guide; không mở RPC public. Nộp test provider thật cho binding/missing SKU/credential/hidden-no-price/fingerprint; không viết lại module đã đáp ứng.
 
-Nếu đã làm REST0.2.2, giữ application/query logic và thêm adapter gRPC đúng wire; không yêu cầu owner phải viết lại DB hoặc phản hồi ACCEPT trước code.
+MED-OUT-01: giữ [MediaInternalService](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/media/v1/media_service.proto), purpose OCOP_CERTIFICATE, fileId/READY/MIME/size/checksum theo [guide](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-grpc.md#media--chứng-nhận-ocop-theo-plan-dương). Traceability không nhận binary/raw object key; evidence.reference=document:<UUID> ánh xạ sang file_id. Không đổi schema certificates đã frozen.
+
+MED-OUT-02: BindMediaToEntity(file_id, TraceabilityProfile, profile_id) phải retry/idempotent được; ràng buộc file không bị GC sau gắn kết. Traceability enqueue media_bind_jobs cùng publish transaction, worker gọi sau commit. Media hiện chỉ có một bound_entity: giữ file được bảo vệ khi dùng chung qua nhiều lô; không dùng trường đó làm quyền sở hữu thay IAM của Traceability.
+
+MED-OUT-03: ghi rõ OCOP_CERTIFICATE baseline PUBLIC_READ và RPC9007 chưa có auth/TLS interceptor. Chỉ upload bản scan được phép công khai, chỉ expose RPC trong mạng tin cậy. Không gọi PublishMedia để đổi sang bucket Catalog. Nếu triển khai có policy khác, cung cấp cấu hình/test chính xác, không coi việc giấu reference trong Traceability là thu hồi file đã public.
+
+**Đầu ra cuối:** SHA/provider config đang dùng, test IDs CAT-*/GRPC-CAT-*/MED-* và bằng chứng đã lọc. Provider có sẵn thì test/tái sử dụng; chỉ sửa gap thực sự trong phần phụ trách, không viết proposal RPC thay thế hoặc chờ ACCEPT.
 
 ## Luồng chung cần giữ đúng
 
@@ -80,8 +90,14 @@ Nhân viên chỉ thao tác trong kho được giao. Role là bundle permission;
 | CAT-02 | Credential sai, SKU không tồn tại, khác case, DB lỗi | Không fuzzy match; RPC INVALID_ARGUMENT/UNAUTHENTICATED/PERMISSION_DENIED/NOT_FOUND/UNAVAILABLE đúng nguyên nhân; Traceability map sang HTTP theo guide, không lộ internal binding public |
 | CAT-03 | Bootstrap Product rồi verifier cũ phát hiện SKU đổi binding/version | Create/submit/publish chặn conflict, không tin context cũ từ browser |
 | T-CTX-01 | Batch ở kho khác gọicontext, expired/restricted draft source, peer timeout | Kiểm Inventory và scope trước trả Product;403 ngoài kho; context không đồng nghĩa publish; timeout503, receipt giữ nguyên |
-| GRPC-CAT-01 | Exact SKU active/hidden/stopped/no-price, wrong/missing/duplicate service credential | Product/SKU/version authoritative, TLS + authorization Bearer riêng; interceptor bảo vệ cả full method mới |
+| GRPC-CAT-01 | GetProductVariant UNSPECIFIED → GetTraceabilityBinding, hidden/stopped/no-price, sai x-internal-token | Bootstrap/verify dùng canonical Dương, fingerprint nguyên trạng; credential được kiểm theo CatalogAccess |
 | GRPC-CAT-02 | NOT_FOUND/timeout/UNIMPLEMENTED/DB failure, version đổi | Phân biệt absent/conflict/503, không HTTP fallback hoặc constant version |
+| MED-01 | OCOP evidence document:<UUID>, duplicate fileId, raw object key/URL | Dedup fileId; raw URL/key không vượt kiểm Media, giữ schema certificates cũ |
+| MED-02 | READY đúng purpose/MIME/size/SHA và file missing/processing/wrong purpose | READY hợp lệ mới submit/publish; invalid400, malformed/provider lỗi503, không đổi receipt |
+| MED-03 | Publish enqueue job lỗi; retry cùng key; repeated publication replay | Rollback cả publish nếu không ghi job; retry giữ một publication/obligation; hash/QR không đổi |
+| MED-04 | Bind RPC lỗi/crash/restart/concurrent workers | Pending được giữ; lease độc quyền, retry sau lỗi/lease hết; success không bị reset, peer call idempotent |
+| MED-05 | Legacy frozen evidence reference và Media flag | Không sửa snapshot cũ; muốn publish với Media enabled phải draft/reference/review hợp lệ |
+| MED-06 | OCOP file PUBLIC_READ, worker/media port private | Chỉ upload scan được phép public; không coi evidence permission là bảo vệ object public; không PublishMedia sang bucket Catalog |
 
 Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/bổ sung, mapping adapter nếu có, PASS/FAIL/SKIPPED từng test và bằng chứng đã lọc. Chưa có peer chạy thật vẫn code/test bằng fixture đúng contract, ghi `IMPLEMENTED_NOT_INTEGRATED`; không báo full E2E bằng mock. Chỉ báo blocker vượt scope, không gửi phương án rồi chờ duyệt trước sửa code.
 
@@ -89,47 +105,42 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
 
 ## Quy định transport mới và contract gRPC
 
-Chốt27/11/2026 theo định hướng nhóm: business calls East-West dùng gRPC; REST là bề mặt Web/Mobile. Bản này thay transport nội bộ của target0.2.2, giữ nguyên nghiệp vụ, scope kho, state machine, nguồn dữ liệu, snapshot/hash và dữ liệu public. Các phiếu0.2.2 cũ chỉ là lịch sử; phát lại phiếu0.3.0 từ commit nguồn mới, không dùng lẫn contract giữa hai bản.
+Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR #175, `dev@ac5395c5`. Bản này thay phiếu 0.3.0 về Catalog và bổ sung tích hợp Media. Nghiệp vụ nhập kho độc lập hồ sơ, scope kho, duyệt độc lập và QR theo lô giữ nguyên. Không yêu cầu Dương triển khai CatalogTraceabilitySource/GetSkuBinding; target chưa phát hành đó đã được gỡ.
 
-## Ranh giới và contract authoritative
+## Contract và ranh giới
 
-| Kết nối | Contract đích | Owner |
+| Kết nối | Canonical/target | Mức sẵn sàng |
 | --- | --- | --- |
-| Traceability → Inventory | `GetTraceabilityBatch`, candidate field9 warehouse hiện có | Inventory |
-| Traceability → Catalog | [CatalogTraceabilitySource.GetSkuBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/catalog/v1/traceability_source.proto) | Catalog |
-| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/identity/v1/staff_authorization.proto) | Identity |
-| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/1d4fba6477032419d894a32b1dd6866490b3e95c/packages/proto/traceability/v1/batch_links.proto) | Traceability |
-| Order → Fulfillment | packing gRPC exact sealed proof, candidate field14 hiện có | Fulfillment/Order |
-| Web/Mobile → public/admin/customer APIs | REST/OpenAPI hiện có; scoped staff vẫn v2 | Web/Gateway và backend tương ứng |
+| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
+| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
+| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
+| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
+| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
+| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/b5ab16e36a841ecb02204651db0d4e9d83d17476/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
+| Web/BFF/admin/customer/public | REST/OpenAPI | Không viết gRPC browser client |
 
-Ba file proto mới trong `packages/proto/` là shared integration target, chưa phải tuyên bố provider đã chạy. Không đổi service/method/field cũ trong catalog.proto hoặc identity.proto. Owner thêm implementation/copies/codegen của file mới bằng pipeline hiện có, không sửa tay generated code.
+Không thay canonical Catalog/Media method/message để khớp proposal riêng. Generate clients từ đúng file và common imports. Root AGENTS.md hiện đã bỏ internal REST Catalog và catalog-checkout OpenAPI; không khôi phục các artifact đã decommission trong PR #175. OIDC discovery/JWKS giữ HTTPS, BFF proxy giữ REST/Origin/CSRF; Kafka vẫn thông báo sau local commit, không kích hoạt QR.
 
-Catalog và Identity hiện đã có `sourceSets.main.proto.srcDir '../../packages/proto'`: lấy đúng file canonical mới từ source commit/khối proto trong phiếu vào đường dẫn ghi ở bảng, rồi chạy pipeline `generateProto`/build của service. Không chép thêm một bản cùng definition vào src/main/proto. Identity implementation cần google.rpc.ErrorInfo + io.grpc.protobuf.StatusProto để tạo rich status details; tái sử dụng dependency đang có hoặc bổ sung dependency tương thích gRPC/protobuf đã pin, không đổi wire để né detail bắt buộc.
+## Catalog — tái sử dụng provider của Dương
 
-Pipeline Java hiện pin protoc3.25.3/gRPC1.62.2; ba proto mới đã được kiểm codegen với đúng hai version này. Không dùng toolchain Python của Traceability để thay pin Java.
+- Verify create/submit/publish: `/omamx.catalog.v1.CatalogService/GetTraceabilityBinding`, gửi product_id + exact sku_code đã lưu. Đối chiếu response echo; lưu **nguyên version_fingerprint** vào catalog_version của dependency snapshot. Giữ fingerprint `variant_id:product_version:variant_version`, không đổi hash/QR/snapshot đã phát hành.
+- Bootstrap khi chỉ có SKU: `GetProductVariant` với channel UNSPECIFIED lấy Product UUID (provider hiện đọc cả hidden/stopped và không bắt buộc giá), sau đó gọi `GetTraceabilityBinding` để xác nhận binding và lấy fingerprint. Hai read dùng cùng context với Inventory, budget toàn 2 giây. Không suy Product từ tên hoặc Inventory SKU detail.
+- Giữ metadata **x-internal-token** và credential CATALOG_INTERNAL_TOKEN đúng CatalogAccess hiện có. Traceability cấu hình giá trị đó qua TRACEABILITY_CATALOG_TOKEN; không bỏ credential như gợi ý cũ trong plan vì server hiện vẫn bắt buộc token ít nhất 32 ký tự. Không dùng staff JWT làm service token.
+- Target cấu hình `TRACEABILITY_CATALOG_GRPC_ADDR`, baseline `catalog-service:9005`; port 9090 trong plan chỉ là ví dụ, dùng port deployment thật. Không yêu cầu listener 9105 hoặc Bearer adapter mới.
+- TLS qua trusted CA là mặc định. Provider dev hiện plaintext: chỉ được bật `TRACEABILITY_CATALOG_GRPC_PLAINTEXT=true` rõ ràng cho loopback/private IP hoặc DNS catalog-service trong mạng nội bộ đã cô lập. Không có TLS→plaintext fallback tự động; không publish host/public port.
+- Reply cap 8 KiB; exact case/ID/echo; NOT_FOUND → absent/conflict theo action, INVALID_ARGUMENT → input lỗi, các lỗi auth/config/UNIMPLEMENTED/timeout/oversize → dependency503 an toàn. Không HTTP fallback.
 
-### Listener TLS mới và tương thích deployment
+## Media — chứng nhận OCOP theo plan Dương
 
-Baseline Catalog9005 cấu hình security.enabled=false; Identity9016 chưa có TLS trong application.yml. Không đổi transport của các port legacy và làm hỏng client đang dùng. Chốt listener TLS riêng cho hai RPC mới: Catalog mặc định9105 (`CATALOG_TRACEABILITY_GRPC_PORT`), Identity mặc định9116 (`IDENTITY_TRACEABILITY_GRPC_PORT`); cho phép override env khi hạ tầng yêu cầu, ghi địa chỉ thực trong delivery. Chỉ bind/register service mới trên listener TLS đó, không mở thêm plaintext bản sao của RPC mới qua annotation auto-registration lên legacy listener.
+1. Web tạo upload session với purpose OCOP_CERTIFICATE qua Media REST hiện có, upload binary thẳng object storage, complete session. Business API Traceability chỉ nhận immutable fileId dưới **evidence.reference = document:<canonical UUID>**; certificate.evidence_ids trỏ tới evidence ID như contract cũ. Không thêm raw object_key/URL hoặc thay hình dạng certificate đã lưu. Nếu đã có file hợp lệ thì tái sử dụng fileId.
+2. Khi bật TRACEABILITY_MEDIA_ENABLED, trước submit và publish Traceability gọi ValidateMediaReference(file_id, expected_purpose=OCOP_CERTIFICATE) cho các evidence của chứng nhận OCOP, dedup theo fileId. Yêu cầu is_valid=true, READY, size>0, checksum SHA-256 64 hex, object key không rỗng và MIME PDF/JPEG/PNG/WebP. Không tuyên bố đã quét antivirus. Read source + Media cùng budget 2 giây; metadata malformed/RPC lỗi →503, file không hợp lệ/chưa READY →400. Không đưa object key/checksum vào public DTO.
+3. Publish transaction ghi public pointer/audit/outbox và **media_bind_jobs** nguyên tử. Worker sau commit gọi BindMediaToEntity(file_id, TraceabilityProfile, profile_id), không gọi peer trong DB transaction. Lease 15 giây, mỗi RPC 2 giây, lỗi retry sau 5 giây không giới hạn; worker restart tiếp tục job còn pending. RPC có thể lặp nếu crash sau peer ACK, provider binding phải idempotent. Completed job không reset; replay publish không tạo hai obligation.
+4. Media tạm lỗi khi binding không đảo publish đã commit, receipt hoặc Order lifecycle. Job pending là nghĩa vụ vận hành phải theo dõi và drain trước rollback. Không tự gọi PublishMedia cho OCOP vì method hiện chuyển file sang bucket Catalog, không phải nghiệp vụ Traceability.
+5. Không backfill/di chuyển evidence của revision đã frozen/published. Legacy reference không theo document:<UUID> vẫn đọc nguyên trạng; khi bật kiểm Media, muốn submit/publish phải tạo/sửa draft hợp lệ rồi duyệt lại. Cờ Media mặc định false cho rollout, không gọi provider giả để đánh dấu verified.
 
-Server env: Catalog dùng `CATALOG_TRACEABILITY_GRPC_TLS_CERT_FILE/KEY_FILE/TOKEN`, Identity dùng `IDENTITY_TRACEABILITY_GRPC_TLS_CERT_FILE/KEY_FILE/TOKEN`. TOKEN là credential caller Traceability riêng≥32bytes (có thể map alias tới secret Traceability hiện có đã riêng), không dùng checkout/financial token chung. Cert SAN khớp DNS service, key chỉ service đọc. New server phải tự gắn interceptor xác thực; annotation global interceptor của server legacy không tự bảo vệ một manual TLS server. Gắn lifecycle vào ứng dụng để drain rồi stop khi shutdown và fail startup nếu bật mà thiếu TLS/secret. Không publish host/public port ở deployment; chỉ network nội bộ.
+Provider Media baseline dùng :9007 và chưa có interceptor xác thực/TLS. Client dùng TRACEABILITY_MEDIA_GRPC_ADDR + CA, hoặc explicit TRACEABILITY_MEDIA_GRPC_PLAINTEXT=true chỉ cho loopback/private IP/DNS media-service. Mạng nội bộ là biên tin cậy của baseline; không thêm token rồi gọi đó là authorization nếu provider không kiểm. Owner Media phải bảo đảm không expose RPC public và fileId/READY/checksum/binding đúng semantics; ghi rõ cấu hình thực trong delivery.
 
-Traceability client cấu hình theo địa chỉ thực, ví dụ trong Docker network `catalog-service:9105` và `identity-service:9116`, trusted CA tương ứng. Owner cung cấp env example/port/CA contract và test legacy RPC còn hoạt động. Có thể tái sử dụng TLS listener riêng đã tồn tại nếu bảo đảm cùng kết quả, không yêu cầu consumer đổi method/message/auth hoặc hỏi duyệt trước.
-
-Proxy BFF cookie-to-bearer tiếp tục chuyển tiếp request REST của Web tới Gateway theo north-south contract, giữ Origin/CSRF. Nó không phải domain read East-West. OIDC discovery/JWKS vẫn HTTPS theo giao thức xác thực; không đổi sang gRPC. Kafka/outbox tiếp tục thông báo publication/status sau local transaction; không dùng event để tự tạo hồ sơ, publish QR hoặc thay kiểm quyền/nguồn đồng bộ. Không thêm request/reply bằng Kafka trong đợt này.
-
-## Catalog — CAT-OUT-01/02
-
-RPC full method: `/omamx.catalog.v1.CatalogTraceabilitySource/GetSkuBinding`.
-
-- Input exact `sku_code`,1–100 ký tự, giữ case, không trim/fuzzy; canonical response product UUID, đúng SKU và opaque `catalog_version` không rỗng.
-- Bao gồm SKU ẩn/ngừng bán còn lưu; không yêu cầu giá, trạng thái public hoặc checkout eligibility. Tái sử dụng query/verifier nội bộ đã có.
-- Traceability dùng cùng RPC khi bootstrap và create/submit/publish, tự đối chiếu product_id với binding đã lưu. Version phải khớp semantics verifier cũ; không thay version bằng thời gian hoặc giá trị hằng.
-- CatalogAccess hiện chỉ bảo vệ prefix CatalogService/ bằng token chung x-internal-token. RPC mới phải được thêm guard riêng đúng full method + dedicated Traceability Bearer; test không credential phải fail closed, không để service mới lọt nhánh không kiểm auth.
-- TLS, credential Traceability riêng qua một metadata `authorization: Bearer ...`. Không dùng staff JWT làm service credential. Giữ credential hiện có nếu đã riêng và đủ an toàn; chuyển cách truyền từ X-Internal-Token sang gRPC metadata.
-- INVALID_ARGUMENT: input sai; NOT_FOUND: SKU không tồn tại chính xác; UNAUTHENTICATED: credential invalid; PERMISSION_DENIED: known caller không có capability; UNAVAILABLE: DB/provider lỗi. Reply≤8KiB. Context Inventory+Catalog có budget chung2s; không retry vô hạn.
-
-`GetProductVariant` hiện có thiếu catalog_version và phụ thuộc saleability/price; không được dùng thay RPC này khi chưa đáp ứng đủ semantics. Legacy Catalog internal REST có consumer khác vẫn giữ tương thích; target mới không gọi các endpoint đó và không yêu cầu bổ sung REST exact-SKU nữa.
+**Giới hạn chính sách Media phải giữ rõ:** OCOP_CERTIFICATE hiện được gán PUBLIC_READ ngay từ upload theo plan/provider. Đây chỉ dành cho bản scan đã được phép công khai; không upload tài liệu nội bộ/PII vào purpose này. Quyền traceability.read_evidence chỉ che reference trong Traceability, không thể thu hồi object đã public. Muốn kiểm duyệt trước khi public hoặc chứng từ private phải có policy/contract Media riêng, không giả đã được bảo vệ bằng QR eligibility. Media hiện chỉ lưu một bound_entity; tái dùng cùng file cho nhiều lô chỉ đạt retention nếu binding không làm file mất bảo vệ hoặc ownership cũ. Không suy grant scope từ bound_entity của Media.
 
 ## Identity — IAM-OUT-05
 
@@ -171,42 +182,960 @@ RPC full method: `/omamx.traceability.v1.BatchLinkResolver/ResolveBatchLinks`.
 
 Internal REST resolver của0.2.2 chưa phát hành không được đăng ký nữa. Không thêm REST fallback hoặc dual-write. Public QR/admin/customer REST vẫn giữ error/header/body riêng như OpenAPI.
 
-## Cấu hình, rollout và đầu ra owner
+## Rollout và đầu ra
 
-Traceability bổ sung Catalog/Identity gRPC target+CA+credential; giữ OIDC issuer HTTPS và Inventory TLS. Resolver có listener nội bộ `GRPC_ADDR` (ví dụ9003), TLS cert/key bắt buộc ở integration khi bật; sandbox chỉ loopback có thể dùng plaintext explicit. Feature flags scoped/resolver vẫn độc lập và mặc định false. Không mở insecure integration hoặc fallback HTTP khi RPC thiếu.
+Catalog/Media dùng implementation đã merge, không giao lại việc viết RPC GetSkuBinding. Owner đảm bảo provider contract/test/config đúng; Traceability chịu adapter, validate và durable binding. Identity current grants và Order resolver là các kết nối còn thiếu trong plan Dương, vẫn phải giao riêng theo phần trên; không suy PR #175 đã làm đủ chúng.
 
-Owner Catalog triển khai RPC GetSkuBinding; Identity triển khai current staff grants + auth details và giữ phần BFF/assignments; Order chuyển consumer resolver sang generated gRPC và map đúng DTO. Inventory/Fulfillment giữ đầu ra đã chốt. Web tiếp tục REST; không cần gRPC client trong browser.
+Migrate 000003 rồi cấp lại GrantRuntime để bổ sung media_bind_jobs. Không sửa checksum migration000001/000002. Bật Media sau khi upload complete/READY và provider integration đã kiểm; khi tắt flag, worker dừng, job cũ được giữ và cần bật worker lại để drain. Không drop pending jobs khi rollback. Scoped/resolver flags độc lập và giữ yêu cầu Inventory/Identity hiện có. Không merge/release/deploy production trong đợt local này.
 
-Nghiệm thu mới: TLS/auth/credentials riêng; exact SKU hidden/no-price; JWT/current-grant intersection và revoke; ID mismatch; RPC timeout/UNIMPLEMENTED fail closed; resolver100/101/byte caps/duplicates/status/presence/DB down; lifecycle/shutdown hai listener; kiểm không còn internal business REST trong live adapters. Peer fixtures phải ghi nhãn; provider thật vẫn cần test trước bật flags. Không yêu cầu owner phản hồi ACCEPT trước code.
+## Contract HTTP nhúng — không cần tải thêm file để đọc schema
 
-## Proto target nhúng: `packages/proto/catalog/v1/traceability_source.proto`
+Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi thành nội bộ khối này. Có thể chép nguyên khối vào `owner-contract.openapi.yaml` để lint. Server URLs là ví dụ cấu hình; giữ path/method/header/field/status theo contract. Không tạo endpoint mới nếu lớp hiện có đã trả đúng đầu ra; khác wire thì làm adapter trong phần mình phụ trách.
+
+```yaml
+openapi: 3.1.0
+info:
+  title: PBL6 Catalog / Media traceability handoff
+  version: 0.4.0-draft
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: Distribution snapshot from documentation commit b5ab16e36a841ecb02204651db0d4e9d83d17476. Direct
+    implementation target, not runtime acceptance. All references are local to this embedded contract.
+tags:
+- name: Catalog / Media
+  description: Owner-specific provider and dependency contracts
+servers:
+- url: http://127.0.0.1
+paths:
+  /api/v1/media/upload-sessions:
+    post:
+      tags:
+      - Catalog / Media
+      operationId: postMediaUploadSessions
+      summary: Create a direct-to-object-storage presigned upload session.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - $ref: '#/components/parameters/MediaStable_IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - purpose
+              - fileName
+              - mediaType
+              - sizeBytes
+              properties:
+                purpose:
+                  type: string
+                  enum:
+                  - CATALOG_PRODUCT
+                  - CATALOG_CATEGORY
+                  - OCOP_CERTIFICATE
+                  - SHIPPING_VIDEO
+                  - B2B_DOCUMENT
+                  - REFUND_EVIDENCE
+                  - AVATAR
+                fileName:
+                  type: string
+                  maxLength: 500
+                mediaType:
+                  type: string
+                  maxLength: 128
+                sizeBytes:
+                  type: integer
+                  minimum: 1
+                  maximum: 104857600
+                sha256:
+                  type: string
+                  maxLength: 64
+              additionalProperties: false
+            example:
+              purpose: REFUND_EVIDENCE
+              fileName: package.jpg
+              mediaType: image/jpeg
+              sizeBytes: 420000
+      responses:
+        '201':
+          description: Upload session created with presigned PUT URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - uploadSessionId
+                - fileId
+                - objectKey
+                - bucket
+                - uploadUrl
+                - expiresAt
+                - requiredHeaders
+                properties:
+                  uploadSessionId:
+                    type: string
+                  fileId:
+                    type: string
+                    format: uuid
+                  objectKey:
+                    type: string
+                  bucket:
+                    type: string
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  requiredHeaders:
+                    type: object
+                    additionalProperties:
+                      type: string
+                additionalProperties: false
+              examples:
+                success:
+                  value:
+                    uploadSessionId: sess_01JDJ89K20
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    uploadUrl: https://s3.omama.vn/om-documents/refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg?X-Amz-Expires=900
+                    expiresAt: '2026-11-25T16:30:00Z'
+                    requiredHeaders:
+                      Content-Type: image/jpeg
+        '400':
+          $ref: '#/components/responses/MediaStable_BadRequest'
+        '401':
+          $ref: '#/components/responses/MediaStable_Unauthorized'
+        '403':
+          $ref: '#/components/responses/MediaStable_Forbidden'
+        '422':
+          $ref: '#/components/responses/MediaStable_UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/MediaStable_InternalError'
+        '503':
+          $ref: '#/components/responses/MediaStable_ServiceUnavailable'
+      security:
+      - MediaStable_bearerAuth: []
+      - MediaStable_customerSession: []
+      servers:
+      - url: https://api.omama.vn
+        description: Production API gateway
+  /api/v1/media/upload-sessions/{uploadSessionId}/complete:
+    post:
+      tags:
+      - Catalog / Media
+      operationId: postMediaUploadSessionsComplete
+      summary: Confirm direct S3 upload completion and trigger WebP/thumbnail optimization.
+      x-lifecycle: stable
+      x-backlog:
+      - EPIC_14
+      - EPIC_16
+      - EPIC_18
+      x-ui-states:
+      - loading
+      - success
+      - error
+      - unauthorized
+      - forbidden
+      parameters:
+      - name: uploadSessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - $ref: '#/components/parameters/MediaStable_IdempotencyKey'
+      responses:
+        '200':
+          description: Object verified in storage; async optimization started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaStable_MediaFileMetadata'
+              examples:
+                success:
+                  value:
+                    fileId: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    objectKey: refunds/2026/11/25/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d.jpg
+                    bucket: om-documents
+                    fileName: package.jpg
+                    mediaType: image/jpeg
+                    sizeBytes: 420000
+                    sha256Checksum: null
+                    purpose: REFUND_EVIDENCE
+                    accessLevel: PRIVATE_RESTRICTED
+                    status: PROCESSING
+                    variantsMeta: {}
+                    createdAt: '2026-11-25T16:15:00Z'
+                    updatedAt: '2026-11-25T16:16:00Z'
+        '400':
+          $ref: '#/components/responses/MediaStable_BadRequest'
+        '401':
+          $ref: '#/components/responses/MediaStable_Unauthorized'
+        '403':
+          $ref: '#/components/responses/MediaStable_Forbidden'
+        '404':
+          $ref: '#/components/responses/MediaStable_NotFound'
+        '500':
+          $ref: '#/components/responses/MediaStable_InternalError'
+        '503':
+          $ref: '#/components/responses/MediaStable_ServiceUnavailable'
+      security:
+      - MediaStable_bearerAuth: []
+      - MediaStable_customerSession: []
+      servers:
+      - url: https://api.omama.vn
+        description: Production API gateway
+components:
+  parameters:
+    MediaStable_IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Required for retryable create/action operations. Same key and same payload must return the same
+        outcome.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    MediaStable_BadRequest:
+      description: Malformed request or invalid query parameters.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: BAD_REQUEST
+            message: Malformed request or invalid query parameters.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_Unauthorized:
+      description: Authentication is missing, invalid, or expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: AUTHENTICATION_REQUIRED
+            message: Authentication is missing, invalid, or expired.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_Forbidden:
+      description: Authenticated actor lacks the required permission, capability, ownership, or data scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: FORBIDDEN
+            message: Authenticated actor lacks the required permission, capability, ownership, or data scope.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_UnprocessableEntity:
+      description: Payload is syntactically valid but violates field or business validation rules.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: VALIDATION_FAILED
+            message: Payload is syntactically valid but violates field or business validation rules.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_InternalError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: INTERNAL_SERVER_ERROR
+            message: Unexpected server error.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_ServiceUnavailable:
+      description: A required service is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: SERVICE_UNAVAILABLE
+            message: A required service is temporarily unavailable.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+    MediaStable_NotFound:
+      description: Resource does not exist or is intentionally hidden outside the actor scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MediaStable_Error'
+          example:
+            code: RESOURCE_NOT_FOUND
+            message: Resource does not exist or is intentionally hidden outside the actor scope.
+            requestId: req-01J9YAJ6CX8G5E0K7M8N9PQRST
+            errors: []
+  schemas:
+    MediaStable_Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+          description: Safe user-facing message in Vietnamese or the negotiated locale.
+        requestId:
+          type: string
+          description: Correlation identifier for support and logs.
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+            - field
+            - code
+            - message
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+            additionalProperties: false
+        retryAfterSeconds:
+          type: integer
+          minimum: 1
+        details:
+          type: object
+          additionalProperties: true
+      additionalProperties: false
+    MediaStable_MediaFileMetadata:
+      type: object
+      required:
+      - fileId
+      - objectKey
+      - bucket
+      - fileName
+      - mediaType
+      - sizeBytes
+      - purpose
+      - accessLevel
+      - status
+      - variantsMeta
+      - createdAt
+      - updatedAt
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        objectKey:
+          type: string
+        bucket:
+          type: string
+        fileName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+        sha256Checksum:
+          type:
+          - string
+          - 'null'
+        purpose:
+          type: string
+          enum:
+          - CATALOG_PRODUCT
+          - CATALOG_CATEGORY
+          - OCOP_CERTIFICATE
+          - SHIPPING_VIDEO
+          - B2B_DOCUMENT
+          - REFUND_EVIDENCE
+          - AVATAR
+        accessLevel:
+          type: string
+          enum:
+          - PUBLIC_READ
+          - AUTHENTICATED_READ
+          - PRIVATE_RESTRICTED
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - PROCESSING
+          - READY
+          - PROCESSING_FAILED
+          - ARCHIVED
+        variantsMeta:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+  securitySchemes:
+    MediaStable_bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    MediaStable_customerSession:
+      type: apiKey
+      in: cookie
+      name: customer_session
+x-source-commit: b5ab16e36a841ecb02204651db0d4e9d83d17476
+```
+
+## Proto target nhúng: `packages/proto/catalog/v1/catalog.proto`
 
 Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng. Không hand-edit generated code.
 
 ```proto
-// Integration target 0.3.0-draft. Provider: Catalog; consumer: Traceability.
 syntax = "proto3";
+
 package omamx.catalog.v1;
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/types.proto";
+import "common/v1/errors.proto";
+
 option go_package = "github.com/omamx/proto/catalog/v1;catalogv1";
 option java_multiple_files = true;
 option java_package = "com.omamx.proto.catalog.v1";
 
-// TLS plus one authorization: Bearer <dedicated Traceability credential>.
-// This is not a public saleability/price lookup. See the normative gRPC guide.
-service CatalogTraceabilitySource {
-  rpc GetSkuBinding(TraceabilitySkuBindingRequest) returns (TraceabilitySkuBindingResponse);
+// =============================================================================
+// HỢP ĐỒNG DỊCH VỤ DANH MỤC & GIÁ BÁN OCOP HUẾ (MS-05: CATALOG SERVICE)
+// Điểm neo trên Critical Path: Thẩm định giá bán chống gian lận F12/Inspect
+// =============================================================================
+
+service CatalogService {
+  // Thẩm định giá, SKU và trả metadata (quy cách, khối lượng, revision) cần thiết cho Order tạo Snapshot
+  rpc ValidateCheckoutPricing(ValidateCheckoutPricingRequest) returns (ValidateCheckoutPricingResponse);
+
+  // Truy vấn thông tin chi tiết của một biến thể sản phẩm theo mã SKU và kênh bán
+  rpc GetProductVariant(GetProductVariantRequest) returns (GetProductVariantResponse);
+
+  // Truy vấn danh sách biến thể sản phẩm theo bộ lọc (Có phân trang)
+  rpc ListProductVariants(ListProductVariantsRequest) returns (ListProductVariantsResponse);
+
+  // Truy vấn thông tin liên kết sản phẩm và SKU phục vụ truy xuất nguồn gốc (OCOP Traceability)
+  // Bao gồm cả các biến thể chưa mở bán công khai
+  rpc GetTraceabilityBinding(GetTraceabilityBindingRequest) returns (GetTraceabilityBindingResponse);
 }
-message TraceabilitySkuBindingRequest {
+
+// ── Enums chuẩn hóa ─────────────────────────────────────────────────────────
+
+enum SalesChannel {
+  SALES_CHANNEL_UNSPECIFIED = 0;
+  SALES_CHANNEL_D2C_WEB = 1;
+  SALES_CHANNEL_MOBILE_APP = 2;
+  SALES_CHANNEL_B2B_WHOLESALE = 3;
+  SALES_CHANNEL_POS_QUAY = 4;
+  SALES_CHANNEL_SHOPEE = 5;
+  SALES_CHANNEL_TIKTOK = 6;
+}
+
+enum OcopRating {
+  OCOP_RATING_UNSPECIFIED = 0;
+  OCOP_RATING_3_STAR = 3;
+  OCOP_RATING_4_STAR = 4;
+  OCOP_RATING_5_STAR = 5;
+}
+
+enum PackagingType {
+  PACKAGING_TYPE_UNSPECIFIED = 0;
+  PACKAGING_TYPE_HOP_GIAY_KRAFT = 1;
+  PACKAGING_TYPE_HOP_THIEC = 2;
+  PACKAGING_TYPE_GOI_HUT_CHAN_KHONG = 3;
+  PACKAGING_TYPE_HOP_QUA_TANG = 4;
+  PACKAGING_TYPE_DANG_ROI = 5;
+}
+
+enum StockStatus {
+  STOCK_STATUS_UNSPECIFIED = 0;
+  STOCK_STATUS_UNKNOWN = 1;
+  STOCK_STATUS_IN_STOCK = 2;
+  STOCK_STATUS_OUT_OF_STOCK = 3;
+}
+
+enum ValidationIssue {
+  VALIDATION_ISSUE_UNSPECIFIED = 0;
+  VALIDATION_ISSUE_PRICE_CHANGED = 1;
+  VALIDATION_ISSUE_SKU_NOT_FOUND = 2;
+  VALIDATION_ISSUE_SKU_INACTIVE = 3;
+  VALIDATION_ISSUE_PRODUCT_NOT_APPROVED = 4;
+  VALIDATION_ISSUE_PRICE_NOT_CONFIGURED = 5;
+  VALIDATION_ISSUE_CURRENCY_MISMATCH = 6;
+}
+
+// ── Messages cho ValidateCheckoutPricing ───────────────────────────────────
+
+message CheckoutItemInput {
+  // Mã SKU của biến thể kẹo
   string sku_code = 1;
+
+  // Số lượng mua (1 - 999)
+  int32 quantity = 2;
+
+  // Đơn giá mà phía Client (Web/Mobile) gửi lên để kiểm tra
+  omamx.common.v1.Money client_unit_price = 3;
 }
-message TraceabilitySkuBindingResponse {
+
+message ValidateCheckoutPricingRequest {
+  // Kênh bán hàng bắt buộc
+  SalesChannel channel = 1;
+
+  // Danh sách các mặt hàng cần kiểm định (1 - 100 items, cấm trùng SKU)
+  repeated CheckoutItemInput items = 2;
+}
+
+message ValidatedCheckoutItem {
+  string product_id = 1;
+  string variant_id = 2;
+  string sku_code = 3;
+
+  string product_name = 4;
+  string variant_name = 5;
+
+  int32 quantity = 6;
+
+  omamx.common.v1.Money authoritative_unit_price = 7;
+  omamx.common.v1.Weight net_weight = 8;
+
+  PackagingType packaging_type = 9;
+
+  bool is_sellable = 10;
+
+  int64 product_version = 11;
+  int64 variant_version = 12;
+  int64 price_version = 13; // price_revision tăng đơn điệu theo SKU
+}
+
+message PriceDiscrepancy {
+  string sku_code = 1;
+  omamx.common.v1.Money client_unit_price = 2;
+  omamx.common.v1.Money authoritative_unit_price = 3;
+  ValidationIssue discrepancy_reason = 4;
+}
+
+message ValidateCheckoutPricingResponse {
+  // Kết quả hợp lệ: true nếu toàn bộ mã hàng hợp lệ và đúng giá 100%
+  bool is_valid = 1;
+
+  // Danh sách kết quả chi tiết của tất cả các SKU
+  repeated ValidatedCheckoutItem items = 2;
+
+  // Tổng số tiền chuẩn xác của giỏ hàng được tính toán lại từ Database gốc của Catalog
+  omamx.common.v1.Money canonical_subtotal = 3;
+
+  // Danh sách chi tiết các mặt hàng bị sai lệch giá hoặc ngừng bán (nếu có)
+  repeated PriceDiscrepancy discrepancies = 4;
+
+  // Thời điểm Catalog thực hiện đánh giá
+  google.protobuf.Timestamp evaluated_at = 5;
+
+  // Chi tiết lỗi chuẩn hóa nếu phát hiện gian lận giá
+  optional omamx.common.v1.ErrorDetail error = 6;
+}
+
+// ── Messages cho GetProductVariant ─────────────────────────────────────────
+
+message GetProductVariantRequest {
+  string sku_code = 1;
+  SalesChannel channel = 2;
+}
+
+message ProductVariantDetail {
+  string variant_id = 1;
+  string sku_code = 2;
+  string product_id = 3;
+  string product_name = 4;
+  string variant_name = 5;
+  optional omamx.common.v1.Money unit_price = 6;
+  omamx.common.v1.Weight net_weight = 7;
+  OcopRating ocop_rating = 8;
+  PackagingType packaging_type = 9;
+  optional int32 shelf_life_days = 10;
+  bool is_active = 11;
+  int64 price_version = 12;
+  StockStatus stock_status = 13;
+  optional int64 stock_available = 14;
+}
+
+message GetProductVariantResponse {
+  ProductVariantDetail variant = 1;
+}
+
+// ── Messages cho ListProductVariants ───────────────────────────────────────
+
+message ListProductVariantsRequest {
+  omamx.common.v1.PaginationRequest pagination = 1;
+  optional string category_id = 2;
+  optional OcopRating ocop_rating = 3;
+  optional bool active_only = 4;
+  SalesChannel channel = 5;
+}
+
+message ListProductVariantsResponse {
+  repeated ProductVariantDetail variants = 1;
+  omamx.common.v1.PaginationResponse pagination = 2;
+}
+
+// ── Messages cho GetTraceabilityBinding ────────────────────────────────────
+
+message GetTraceabilityBindingRequest {
   string product_id = 1;
   string sku_code = 2;
-  // Same opaque version semantics as the legacy Product-SKU verifier.
-  string catalog_version = 3;
+}
+
+message GetTraceabilityBindingResponse {
+  string product_id = 1;
+  string sku_code = 2;
+  string version_fingerprint = 3; // variant_id:product_version:variant_version
+  int64 product_version = 4;
+  int64 variant_version = 5;
+  string variant_id = 6;
+}
+```
+
+## Proto target nhúng: `packages/proto/media/v1/media_service.proto`
+
+Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng. Không hand-edit generated code.
+
+```proto
+syntax = "proto3";
+
+package omamx.media.v1;
+
+option go_package = "github.com/omamx/proto/media/v1;mediav1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.media.v1";
+
+service MediaInternalService {
+  // Kiểm tra file có tồn tại, đúng purpose và status = READY trước khi Business Service lưu DB
+  rpc ValidateMediaReference (ValidateMediaRequest) returns (ValidateMediaResponse);
+
+  // Cấp Presigned GET URL ngắn hạn cho tài liệu mật hoặc ảnh chưa duyệt (dùng cho Admin/CSKH/Khách)
+  rpc GetPresignedAccessUrl (GetAccessUrlRequest) returns (GetAccessUrlResponse);
+  rpc GetPresignedDownloadUrl (GetDownloadUrlRequest) returns (GetDownloadUrlResponse);
+
+  // Đánh dấu gắn kết file với thực thể nghiệp vụ (chống bị Garbage Collector dọn dẹp nhầm)
+  rpc BindMediaToEntity (BindMediaRequest) returns (BindMediaResponse);
+
+  // Chuyển ảnh đã duyệt (APPROVED) từ vùng private sang vùng public (om-catalog / CDN)
+  rpc PublishMedia (PublishMediaRequest) returns (PublishMediaResponse);
+}
+
+message ValidateMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+  string expected_purpose = 3;
+}
+
+message ValidateMediaResponse {
+  bool is_valid = 1;
+  string status = 2; // AWAITING_UPLOAD, PROCESSING, READY, PROCESSING_FAILED
+  string object_key = 3;
+  string mime_type = 4;
+  int64 size_bytes = 5;
+  string sha256_checksum = 6;
+}
+
+message GetAccessUrlRequest {
+  string file_id = 1;
+  string requesting_user_id = 2;
+  string user_role = 3;
+  int32 expiry_seconds = 4; // Mặc định 900s (15 phút)
+  string disposition = 5;   // "inline" (xem/stream) hoặc "attachment" (tải về máy)
+}
+
+message GetAccessUrlResponse {
+  string access_url = 1;
+  string expires_at = 2;
+  string disposition = 3;
+}
+
+message GetDownloadUrlRequest {
+  string file_id = 1;
+  string requesting_user_id = 2;
+  string user_role = 3;
+  int32 expiry_seconds = 4;
+}
+
+message GetDownloadUrlResponse {
+  string download_url = 1;
+  string expires_at = 2;
+}
+
+message BindMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+  string entity_type = 3; // Product, TraceabilityProfile, FulfillmentTask, OrderRefund
+  string entity_id = 4;
+}
+
+message BindMediaResponse {
+  bool success = 1;
+}
+
+message PublishMediaRequest {
+  string file_id = 1;
+  string object_key = 2;
+}
+
+message PublishMediaResponse {
+  bool success = 1;
+  string public_object_key = 2;
+}
+```
+
+## Proto target nhúng: `packages/proto/common/v1/types.proto`
+
+Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng. Không hand-edit generated code.
+
+```proto
+syntax = "proto3";
+
+package omamx.common.v1;
+
+option go_package = "github.com/omamx/proto/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.common.v1";
+
+// =============================================================================
+// THƯ VIỆN KIỂU DỮ LIỆU CHUẨN DÙNG CHUNG TOÀN HỆ THỐNG (COMMON TYPES)
+// Tuân thủ triệt để: google.type.Money pattern, BigInt-safe, Decimal string
+// =============================================================================
+
+// Chuẩn tiền tệ quốc tế hóa, chống tràn số Number.MAX_SAFE_INTEGER trên Node.js
+message Money {
+  // Mã tiền tệ 3 ký tự theo chuẩn ISO 4217 (Ví dụ: "VND", "USD")
+  string currency_code = 1;
+
+  // Phần nguyên của số tiền (Ví dụ: 110000 trong 110.000 VND).
+  // Chú ý: Ở phía Node.js, bắt buộc parse trường này bằng BigInt(units), tuyệt đối không dùng Number().
+  int64 units = 2;
+
+  // Số đơn vị nano (10^-9) của số tiền. Với đồng Việt Nam (VND) không có hào/xu, trường này luôn = 0.
+  int32 nanos = 3;
+}
+
+// Địa chỉ giao nhận hàng hóa 4 cấp chuẩn hóa hành chính Việt Nam
+message Address {
+  // Họ và tên người nhận kiện hàng
+  string recipient_name = 1;
+
+  // Số điện thoại người nhận (Định dạng E.164 hoặc số di động VN 10 chữ số)
+  string phone_number = 2;
+
+  // Địa chỉ chi tiết (Số nhà, ngõ, tên đường)
+  string street_address = 3;
+
+  // Phường / Xã / Thị trấn (Ví dụ: "Phường Thuận Hòa")
+  string ward = 4;
+
+  // Quận / Huyện / Thị xã / Thành phố trực thuộc tỉnh (Ví dụ: "Thành phố Huế")
+  string district = 5;
+
+  // Tỉnh / Thành phố trực thuộc trung ương (Ví dụ: "Tỉnh Thừa Thiên Huế")
+  string province = 6;
+
+  // Mã quốc gia theo ISO 3166-1 alpha-2 (Mặc định là "VN")
+  string country_code = 7;
+
+  // Mã bưu chính (Optional)
+  optional string postal_code = 8;
+}
+
+// Đơn vị đo lường trọng lượng kẹo mè xửng và nguyên liệu
+enum WeightUnit {
+  WEIGHT_UNIT_UNSPECIFIED = 0;
+  WEIGHT_UNIT_GRAM = 1;
+  WEIGHT_UNIT_KILOGRAM = 2;
+}
+
+// Kiểu định lượng trọng lượng với độ chính xác cao (Tránh sai số IEEE-754 giữa Node.js, Python và Go)
+message Weight {
+  // Giá trị khối lượng biểu diễn dưới dạng chuỗi số thập phân (Ví dụ: "500.00", "0.250")
+  string decimal_value = 1;
+
+  // Đơn vị đo lường
+  WeightUnit unit = 2;
+}
+
+// Tham số phân trang dùng cho các truy vấn danh sách (Query List)
+message PaginationRequest {
+  // Số thứ tự trang cần lấy (Bắt đầu từ 1)
+  int32 page = 1;
+
+  // Số lượng bản ghi tối đa trên một trang (Mặc định: 20, Tối đa: 100)
+  int32 page_size = 2;
+}
+
+// Kết quả phân trang trả về từ các truy vấn danh sách
+message PaginationResponse {
+  // Trang hiện tại
+  int32 current_page = 1;
+
+  // Số lượng phần tử trên trang hiện tại
+  int32 page_size = 2;
+
+  // Tổng số lượng bản ghi thỏa mãn điều kiện lọc
+  int64 total_items = 3;
+
+  // Tổng số trang
+  int32 total_pages = 4;
+}
+
+// Bối cảnh kiểm toán (Audit Context) được truyền qua gRPC Metadata để phục vụ Audit Plane
+message AuditContext {
+  // Mã định danh người dùng hoặc hệ thống thực hiện thao tác (Ví dụ: "STAFF-WH-02", "CUST-9876")
+  string actor_id = 1;
+
+  // Vai trò của người thực hiện (Ví dụ: "CUSTOMER", "WAREHOUSE_STAFF", "SYSTEM_SAGA")
+  string actor_role = 2;
+
+  // Địa chỉ IP của client gọi yêu cầu
+  string client_ip = 3;
+
+  // Chuỗi vết dấu phân tán W3C Distributed Tracing (traceparent)
+  string traceparent = 4;
+
+  // User-Agent của ứng dụng client
+  optional string user_agent = 5;
+}
+```
+
+## Proto target nhúng: `packages/proto/common/v1/errors.proto`
+
+Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng. Không hand-edit generated code.
+
+```proto
+syntax = "proto3";
+
+package omamx.common.v1;
+
+option go_package = "github.com/omamx/proto/common/v1;commonv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.common.v1";
+
+// =============================================================================
+// MÔ HÌNH LỖI NGHIỆP VỤ THỐNG NHẤT TOÀN HỆ THỐNG (UNIFIED ERROR MODEL)
+// Map trực tiếp vào google.rpc.Status & google.rpc.ErrorInfo của gRPC
+// Đồng thời cho phép API Gateway dịch chuẩn sang HTTP Status + JSON Body
+// =============================================================================
+
+enum ErrorCode {
+  // 0 BẮT BUỘC là UNSPECIFIED (Tuân thủ luật cứng của Protobuf3)
+  ERROR_CODE_UNSPECIFIED = 0;
+
+  // --- LỖI HỆ THỐNG DÙNG CHUNG (1 - 99) ---
+  ERR_INTERNAL_SERVER_ERROR = 1;
+  ERR_INVALID_ARGUMENT = 2;
+  ERR_UNAUTHENTICATED = 3;
+  ERR_PERMISSION_DENIED = 4;
+  ERR_RESOURCE_NOT_FOUND = 5;
+  ERR_IDEMPOTENCY_CONFLICT = 6;       // Trùng Idempotency Key nhưng payload gửi lên khác bản ghi trước
+  ERR_CIRCUIT_BREAKER_OPEN = 7;       // Cầu dao bảo vệ dịch vụ đang ngắt mạch
+  ERR_DEADLINE_EXCEEDED = 8;          // Quá thời gian chờ phản hồi (Strict Timeout 2.0s)
+
+  // --- LỖI MIỀN TỒN KHO & LÔ HÀNG (MS-01: INVENTORY - 100 - 199) ---
+  ERR_INVENTORY_INSUFFICIENT_STOCK = 100;     // Hết hàng hoặc số lượng khả dụng < số lượng yêu cầu
+  ERR_INVENTORY_SKU_NOT_FOUND = 101;          // Không tìm thấy mã sản phẩm trong kho
+  ERR_INVENTORY_SKU_INACTIVE = 102;           // Mặt hàng kẹo đã ngừng sản xuất / ngừng bán
+  ERR_INVENTORY_RESERVATION_NOT_FOUND = 103;  // Không tìm thấy phiếu khóa tồn kho
+  ERR_INVENTORY_RESERVATION_EXPIRED = 104;    // Phiếu giữ chỗ đã hết hạn 15 phút
+  ERR_INVENTORY_BATCH_QUARANTINED = 105;      // Lô kẹo đang bị cách ly kiểm định / cận date tiêu hủy
+
+  // --- LỖI MIỀN DANH MỤC & GIÁ (MS-05: CATALOG - 200 - 299) ---
+  ERR_CATALOG_PRICE_TAMPERED = 200;           // Phát hiện hành vi sửa giá từ phía client
+  ERR_CATALOG_PRODUCT_OUT_OF_SEASON = 201;    // Kẹo mùa vụ (ví dụ: Mè xửng truyền thống Tết) chưa mở bán
+  ERR_CATALOG_VARIANT_MISMATCH = 202;         // Biến thể SKU không khớp với sản phẩm cha
+  ERR_CATALOG_PRODUCT_NOT_FOUND = 203;        // Không tìm thấy sản phẩm
+  ERR_CATALOG_VARIANT_NOT_FOUND = 204;        // Không tìm thấy biến thể sản phẩm
+  ERR_CATALOG_CATEGORY_NOT_FOUND = 205;       // Không tìm thấy danh mục
+  ERR_CATALOG_PRODUCT_NOT_PUBLIC = 206;       // Sản phẩm chưa được duyệt hoặc ngừng bán
+  ERR_CATALOG_SKU_DUPLICATE = 207;            // Trùng mã SKU
+  ERR_CATALOG_PRODUCT_INVALID_STATE = 208;    // Sai trạng thái sản phẩm
+  ERR_CATALOG_PRICE_NOT_FOUND = 209;          // Không tìm thấy giá
+  ERR_CATALOG_SLUG_DUPLICATE = 210;           // Trùng slug
+  ERR_CATALOG_VERSION_CONFLICT = 211;         // Xung đột phiên bản (Optimistic Locking)
+
+  // --- LỖI MIỀN KHUYẾN MÃI & VOUCHER (MS-07: PROMOTION - 300 - 399) ---
+  ERR_PROMOTION_VOUCHER_NOT_FOUND = 300;      // Mã voucher không tồn tại
+  ERR_PROMOTION_VOUCHER_EXPIRED = 301;        // Mã giảm giá đã hết hạn sử dụng
+  ERR_PROMOTION_USAGE_LIMIT_EXCEEDED = 302;   // Voucher đã hết lượt sử dụng trên toàn hệ thống / trên tài khoản
+  ERR_PROMOTION_MIN_ORDER_AMOUNT_NOT_MET = 303; // Giá trị đơn hàng chưa đạt mức tối thiểu áp mã
+  ERR_PROMOTION_VOUCHER_ALREADY_LOCKED = 304; // Voucher đang bị tạm giữ bởi một giao dịch checkout khác
+
+  // --- LỖI MIỀN ĐƠN HÀNG & SAGA (MS-04: ORDER - 400 - 499) ---
+  ERR_ORDER_NOT_FOUND = 400;                  // Không tìm thấy đơn hàng
+  ERR_ORDER_INVALID_STATE_TRANSITION = 401;   // Chuyển trạng thái đơn không hợp lệ (Ví dụ: Đã CANCELLED mà đòi PAID)
+  ERR_ORDER_ALREADY_PAID = 402;               // Đơn hàng này đã được thanh toán trước đó
+  ERR_ORDER_PAYMENT_TIMEOUT = 403;            // Đơn hàng bị hủy tự động do quá hạn thanh toán 15 phút
+  ERR_ORDER_CANCELLED_BY_USER = 404;          // Khách hàng chủ động hủy đơn
+  ERR_ORDER_SAGA_COMPENSATION_FAILED = 405;   // Đền bù phân tán gặp sự cố (Cần can thiệp vận hành)
+
+  // --- LỖI MIỀN THANH TOÁN (MS-19 / PAYMENT MODULE - 500 - 599) ---
+  ERR_PAYMENT_GATEWAY_UNAVAILABLE = 500;      // Cổng thanh toán VietQR / Napas gặp sự cố
+  ERR_PAYMENT_HMAC_VERIFICATION_FAILED = 501; // Chữ ký bảo mật Webhook ngân hàng không hợp lệ
+  ERR_PAYMENT_AMOUNT_MISMATCH = 502;          // Số tiền ngân hàng báo về không khớp với giá trị đơn hàng
+  ERR_PAYMENT_TRANSACTION_EXPIRED = 503;      // Giao dịch thanh toán hết hiệu lực
+
+  // --- LỖI MIỀN VẬN CHUYỂN (MS-12: SHIPPING - 600 - 699) ---
+  ERR_SHIPPING_SERVICE_UNAVAILABLE = 600;     // Đối tác giao vận 3PL (GHN/ViettelPost) không phản hồi
+  ERR_SHIPPING_ADDRESS_UNSUPPORTED = 601;     // Địa chỉ nằm ngoài phạm vi giao hàng
+  ERR_SHIPPING_WEIGHT_EXCEEDED = 602;         // Kiện kẹo vượt quá trọng lượng tối đa của một bưu kiện
+
+  // --- LỖI MIỀN FULFILLMENT & TEM SEAL (MS-02: FULFILLMENT - 700 - 799) ---
+  ERR_FULFILLMENT_VIDEO_NOT_FOUND = 700;      // Chưa có video đóng gói niêm phong trên AWS S3
+  ERR_FULFILLMENT_SEAL_CODE_INVALID = 701;    // Mã tem seal O Mạ trên kiện hàng không khớp hệ thống
+}
+
+// Cấu trúc chi tiết mô tả lỗi trả về kèm theo gRPC status
+message ErrorDetail {
+  // Mã lỗi nghiệp vụ định danh duy nhất
+  ErrorCode error_code = 1;
+
+  // Thông điệp thân thiện hiển thị cho người dùng (Tiếng Việt)
+  string user_message = 2;
+
+  // Thông điệp kỹ thuật phục vụ lập trình viên debug
+  string dev_message = 3;
+
+  // Miền nghiệp vụ phát sinh lỗi (Ví dụ: "inventory", "payment", "order")
+  string domain = 4;
+
+  // Metadata bổ sung (Ví dụ: "sku_code": "MX-GION-500G", "available_qty": "1")
+  map<string, string> metadata = 5;
+
+  // Đường dẫn hướng dẫn xử lý hoặc tài liệu API (Optional)
+  optional string help_link = 6;
 }
 ```
 
 ## Tính toàn vẹn bản gửi
 
-Nguồn commit: `1d4fba6477032419d894a32b1dd6866490b3e95c`. SHA-256 tập source: `e0028c449c799162bcb6f03dadbd5d5c7785a37582e0e4e1a27117fecd092646`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.
+Nguồn commit: `b5ab16e36a841ecb02204651db0d4e9d83d17476`. SHA-256 tập source: `d57a5c349d1e3250cbe3f03be89d15b0c841b6425863ffa4a689787b6ee704bc`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn và nội dung nhúng dùng cùng commit; không có token/password trong file.
