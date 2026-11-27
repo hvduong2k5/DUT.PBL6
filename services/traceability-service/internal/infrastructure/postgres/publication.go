@@ -65,6 +65,17 @@ func (s *Profiles) PublishRevision(ctx context.Context, meta domain.CommandMetad
 		if err = s.audit(ctx, tx, meta, id, revision, domain.ActionPublish, p.Version, p.Version+1, now, request.Reason); err != nil {
 			return Outcome{}, err
 		}
+		if s.MediaEnabled {
+			ids, err := domain.CertificateMediaIDs(r.Content)
+			if err != nil {
+				return Outcome{}, err
+			}
+			for _, fileID := range ids {
+				if _, err = tx.Exec(ctx, `INSERT INTO media_bind_jobs(profile_id,revision,file_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, id, revision, fileID); err != nil {
+					return Outcome{}, err
+				}
+			}
+		}
 		if err = s.event(ctx, tx, id, p.Version+1, revision, "profile.published", "ACTIVE", "", now, meta.TraceParent); err != nil {
 			return Outcome{}, err
 		}

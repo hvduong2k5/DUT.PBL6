@@ -15,7 +15,7 @@ import (
 //go:embed *.sql
 var scripts embed.FS
 
-var versions = []string{"000001_init", "000002_warehouse_scope"}
+var versions = []string{"000001_init", "000002_warehouse_scope", "000003_media_bind_jobs"}
 
 func Apply(ctx context.Context, conn *pgx.Conn, mode string) error {
 	if mode != "sandbox" && mode != "integration" {

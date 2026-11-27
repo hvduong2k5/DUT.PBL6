@@ -26,12 +26,14 @@ ACCEPTANCE = BASE + "traceability-workflow-acceptance.md"
 INTEGRATION = BASE + "traceability-workflow-draft.openapi.yaml"
 ADMIN = BASE + "traceability-scoped-admin-draft.openapi.yaml"
 BFF = BASE + "traceability-workflow-bff-draft.openapi.yaml"
+CUSTOMER_STABLE = BASE + "customer-stable.openapi.yaml"
 STABLE = BASE + "admin-stable.openapi.yaml"
 LEGACY = BASE + "traceability-service.openapi.yaml"
 BATCH_PROTO = BASE + "traceability-workflow-candidates/batch_source.proto"
 PACKING_PROTO = BASE + "traceability-workflow-candidates/packing.proto"
 GRPC_GUIDE = BASE + "traceability-workflow-grpc.md"
-CATALOG_PROTO = "packages/proto/catalog/v1/traceability_source.proto"
+MEDIA_PROTO = "packages/proto/media/v1/media_service.proto"
+CATALOG_PROTO = "packages/proto/catalog/v1/catalog.proto"
 IDENTITY_PROTO = "packages/proto/identity/v1/staff_authorization.proto"
 LINKS_PROTO = "packages/proto/traceability/v1/batch_links.proto"
 
@@ -101,7 +103,7 @@ class Bundle:
 
     @staticmethod
     def prefix(file: str) -> str:
-        labels = {ADMIN: "Scoped", INTEGRATION: "Workflow", BFF: "IdentityBff", STABLE: "AdminStable", LEGACY: "Legacy"}
+        labels = {CUSTOMER_STABLE: "MediaStable", ADMIN: "Scoped", INTEGRATION: "Workflow", BFF: "IdentityBff", STABLE: "AdminStable", LEGACY: "Legacy"}
         return labels.get(file, re.sub(r"\W+", "_", Path(file).stem))
 
     def component(self, file: str, section: str, name: str) -> str:
@@ -184,7 +186,7 @@ class Bundle:
             "openapi": "3.1.0",
             "info": {
                 "title": f"PBL6 {self.owner} traceability handoff",
-                "version": "0.3.0-draft",
+                "version": "0.4.0-draft",
                 "license": {"name": "Proprietary", "identifier": "LicenseRef-Proprietary"},
                 "description": f"Distribution snapshot from documentation commit {self.sources.commit}. Direct implementation target, not runtime acceptance. All references are local to this embedded contract.",
             },
@@ -217,7 +219,7 @@ def test_rows(text: str, prefixes: list[str]) -> str:
 
 OWNERS = [
     ("01-inventory.md", "Inventory", "INV-TRC-01", 1, ["INV-", "T-SCOPE-04"], [BATCH_PROTO]),
-    ("02-catalog.md", "Catalog", "CAT-TRC-01", 6, ["CAT-", "T-CTX-", "GRPC-CAT-"], [CATALOG_PROTO]),
+    ("02-catalog.md", "Catalog / Media", "CAT-TRC-01", 6, ["CAT-", "MED-", "T-CTX-", "GRPC-CAT-"], [CATALOG_PROTO, MEDIA_PROTO, "packages/proto/common/v1/types.proto", "packages/proto/common/v1/errors.proto"]),
     ("03-identity.md", "Identity / Keycloak", "IAM-TRC-01", 2, ["IAM-", "T-SCOPE-01", "T-SCOPE-02", "T-SCOPE-03", "WEB-05", "GRPC-IAM-"], [IDENTITY_PROTO]),
     ("04-fulfillment.md", "Fulfillment", "FUL-TRC-01", 3, ["FUL-", "EVT-", "ORD-07"], [PACKING_PROTO]),
     ("05-order.md", "Order", "ORD-TRC-01", 4, ["ORD-", "EVT-", "GRPC-RES-"], [PACKING_PROTO, LINKS_PROTO]),
@@ -258,6 +260,10 @@ def render(sources: Sources, owner) -> str:
         bundle.add(INTEGRATION, "/api/v1/orders/{order_id}/traceability", "get")
         bundle.add(LEGACY, "/api/v2/trace/{qr_code}", "get")
 
+    if number in {5, 6}:
+        for path in ["/api/v1/media/upload-sessions", "/api/v1/media/upload-sessions/{uploadSessionId}/complete"]:
+            bundle.add(CUSTOMER_STABLE, path, "post")
+
     source_list = [HANDOFF, ACCEPTANCE,
                    BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md", GRPC_GUIDE]
     source_list += sorted(bundle.files) + protos
@@ -268,9 +274,9 @@ def render(sources: Sources, owner) -> str:
     checksum = hashlib.sha256("".join(path + "\n" + sources.text(path) for path in source_list).encode("utf-8")).hexdigest()
     result = f"""# PBL6 — Bàn giao {title}: {task}
 
-Version nghiệp vụ/contract: **0.3.0-draft** · Snapshot tài liệu: **`{sources.commit}`**.
+Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`{sources.commit}`**.
 
-**Bản phát lại0.3.0 thay toàn bộ phiếu0.2.2 cũ:** giữ nghiệp vụ, chuyển business service-to-service sang gRPC. Nếu đã làm REST nội bộ theo bản cũ, tái sử dụng logic và bổ sung gRPC adapter đúng contract. Web/BFF vẫn REST.
+**Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -338,11 +344,11 @@ def main():
         parser.error("--source-commit must be a Git commit hash")
     commit = subprocess.run(["git", "rev-parse", "--verify", args.source_commit + "^{commit}"], cwd=ROOT, check=True, capture_output=True, text=True).stdout.strip()
     sources = Sources(commit)
-    if sources.document(INTEGRATION)["info"]["version"] != "0.3.0-draft":
-        parser.error("This exporter targets contract 0.3.0-draft; update the exporter before exporting another version")
+    if sources.document(INTEGRATION)["info"]["version"] != "0.4.0-draft":
+        parser.error("This exporter targets contract 0.4.0-draft; update the exporter before exporting another version")
     outputs = {owner[0]: render(sources, owner) for owner in OWNERS}
     outputs["README.md"] = "# Bản Markdown gửi riêng cho từng owner\n\n" + (
-        f"Source commit `{commit}`, target0.3.0-draft. Bản này thay phiếu0.2.2 cũ về transport East-West; giữ nghiệp vụ, REST Web và BFF. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.\n\n"
+        f"Source commit `{commit}`, target0.4.0-draft. Bản này thay phiếu0.3.0/0.2.2, theo canonical Catalog/Media của Dương trong PR #175; giữ REST Web và BFF. Gửi đúng một file bên dưới cho từng owner; mỗi file có đề bài, link theo commit, contract nhúng và test. Không cần gửi toàn bộ lịch sử chat. Đây là snapshot phân phối, không phải spec độc lập để sửa tay.\n\n"
     ) + "\n".join(f"- [{title} — {task}]({filename})" for filename, title, task, *_ in OWNERS) + (
         f"\n\nSinh lại từ repo root (Python có PyYAML): `python scripts/export-traceability-owner-handoffs.py --source-commit {commit}`. Kiểm snapshot khớp source bằng thêm `--check`. Không tạo PDF/Word/ZIP.\n"
     )

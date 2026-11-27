@@ -2,7 +2,7 @@
 
 Cập nhật 27/11/2026 · Owner nghiệp vụ/contract: người phụ trách Traceability.
 
-**Bản hiện hành0.3.0-draft thay phiếu0.2.2 về transport:** business East-West dùng [gRPC guide và shared proto](traceability-workflow-grpc.md); Web/BFF/public/admin/customer REST giữ nguyên. [Report09](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) ghi code/tests/rollout mới. Owner đã làm REST theo bản cũ tái sử dụng logic, thay adapter theo phiếu phát lại; không thiết kế lại nghiệp vụ.
+**Bản hiện hành 0.4.0-draft theo plan Dương và PR #175:** dùng canonical CatalogService.GetTraceabilityBinding và MediaInternalService đã merge trên dev@ac5395c5; [guide hiện hành](traceability-workflow-grpc.md), [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md). Phiếu 0.3.0/0.2.2 là lịch sử; không giao lại RPC GetSkuBinding đã gỡ. Web/BFF/public/admin/customer giữ REST, Identity current-grants và Order resolver là phần việc riêng còn cần owner triển khai.
 
 ## Mục đích và thứ tự đọc
 
@@ -42,7 +42,7 @@ Trạng thái tại snapshot tài liệu25/11: **business decisions recorded / d
 
 ## Cách bàn giao để owner làm ngay
 
-Để gửi riêng qua Zalo, dùng [6 bản Markdown theo owner](traceability-owner-handoffs/README.md). Mỗi bản có yêu cầu đầu ra, test, contract liên quan nhúng đầy đủ và link đọc/lệnh lấy tài liệu nguồn tại source commit ghi trong mục lục và đầu mỗi phiếu. Dùng các phiếu **0.3.0-draft** trên nhánh `codex/traceability-order-flow`, thay bộ 0.2.2 cũ. Các bản này là snapshot phân phối; khi đổi contract phải sửa nguồn chính rồi sinh lại, không sửa riêng bản gửi.
+Để gửi riêng qua Zalo, dùng [6 bản Markdown theo owner](traceability-owner-handoffs/README.md). Mỗi bản có yêu cầu đầu ra, test, contract liên quan nhúng đầy đủ và link đọc/lệnh lấy tài liệu nguồn tại source commit ghi trong mục lục và đầu mỗi phiếu. Dùng các phiếu **0.4.0-draft** trên nhánh `codex/traceability-order-flow`, thay bộ 0.3.0/0.2.2 cũ. Các bản này là snapshot phân phối; khi đổi contract phải sửa nguồn chính rồi sinh lại, không sửa riêng bản gửi.
 
 1. Gửi section task của [phiếu handoff](traceability-workflow-peer-handoff.md) cùng artifacts và test IDs. Owner đọc được yêu cầu OUT, wire contract và bước triển khai mà không cần lịch sử chat. Không yêu cầu họ phản hồi ACCEPT hoặc gửi phương án trước.
 2. Owner tự kiểm code hiện có: đủ thì tái sử dụng và test, thiếu thì bổ sung. API nội bộ khác wire thì tự làm lớp tương thích trong phần phụ trách để consumer nhận đúng contract đích; không chờ duyệt mapping và không yêu cầu consumer đổi field/path.

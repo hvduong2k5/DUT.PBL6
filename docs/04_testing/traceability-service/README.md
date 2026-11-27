@@ -26,3 +26,5 @@ Trạng thái backend: **IMPLEMENTED / LOCAL VERIFICATION**, xem report08; trạ
 | [07 P8 staging plan](07_p8_staging_test_plan_2026-11-13.md) | Kế hoạch, không mặc định tất cả ca đã chạy |
 
 Unit/integration tests triển khai vẫn nằm trong từng service; báo cáo ở đây dẫn tới kết quả thật. Chưa có run mới thì ghi chưa chạy, không copy chữ PASS từ lịch sử. Review PR/deploy theo quy trình nhóm, không thử trên deploy release cũ rồi nhận là bản sửa mới.
+
+Current 0.4.0: [Catalog/Media alignment with Duong plan and PR #175](10_catalog_media_alignment_2026-11-27.md). Report09 is the superseded Catalog proposal; current evidence distinguishes canonical peer fixtures from real-provider acceptance.

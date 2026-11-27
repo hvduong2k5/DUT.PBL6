@@ -59,20 +59,50 @@ func (s Live) Catalog(ctx context.Context, sku string) (string, string, error) {
 	if s.CatalogSource == nil {
 		return "", "", domain.ErrUnavailable
 	}
-	response, err := s.CatalogSource.GetSkuBinding(metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+s.CatalogToken), &catalogv1.TraceabilitySkuBindingRequest{SkuCode: sku}, grpc.MaxCallRecvMsgSize(8192))
-	if status.Code(err) == codes.NotFound {
-		return "", "", domain.ErrNotFound
+	ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", s.CatalogToken)
+	response, err := s.CatalogSource.GetProductVariant(ctx, &catalogv1.GetProductVariantRequest{SkuCode: sku}, grpc.MaxCallRecvMsgSize(8192))
+	if err != nil {
+		return catalogError(err)
 	}
-	if status.Code(err) == codes.InvalidArgument {
-		return "", "", domain.ErrInvalidCommand
-	}
-	if err != nil || response == nil || !domain.ValidUUID(response.GetProductId()) || response.GetCatalogVersion() == "" {
+	if response == nil || response.GetVariant() == nil || !domain.ValidUUID(response.GetVariant().GetProductId()) {
 		return "", "", domain.ErrUnavailable
 	}
-	if response.GetSkuCode() != sku {
+	if response.GetVariant().GetSkuCode() != sku {
 		return "", "", domain.ErrConflict
 	}
-	return strings.ToLower(response.GetProductId()), response.GetCatalogVersion(), nil
+	return s.catalogBinding(ctx, response.GetVariant().GetProductId(), sku)
+}
+
+func catalogError(err error) (string, string, error) {
+	switch status.Code(err) {
+	case codes.NotFound:
+		return "", "", domain.ErrNotFound
+	case codes.InvalidArgument:
+		return "", "", domain.ErrInvalidCommand
+	default:
+		return "", "", domain.ErrUnavailable
+	}
+}
+
+func (s Live) catalogBinding(ctx context.Context, product, sku string) (string, string, error) {
+	if s.CatalogSource == nil {
+		return "", "", domain.ErrUnavailable
+	}
+	md, _ := metadata.FromOutgoingContext(ctx)
+	md = md.Copy()
+	md.Set("x-internal-token", s.CatalogToken)
+	ctx = metadata.NewOutgoingContext(ctx, md)
+	response, err := s.CatalogSource.GetTraceabilityBinding(ctx, &catalogv1.GetTraceabilityBindingRequest{ProductId: product, SkuCode: sku}, grpc.MaxCallRecvMsgSize(8192))
+	if err != nil {
+		return catalogError(err)
+	}
+	if response == nil || !domain.ValidUUID(response.GetProductId()) || response.GetVersionFingerprint() == "" {
+		return "", "", domain.ErrUnavailable
+	}
+	if response.GetProductId() != product || response.GetSkuCode() != sku {
+		return "", "", domain.ErrConflict
+	}
+	return strings.ToLower(response.GetProductId()), response.GetVersionFingerprint(), nil
 }
 
 func (f *Fixture) Batch(ctx context.Context, namespace, batchID, sku string) (domain.DependencySnapshot, error) {

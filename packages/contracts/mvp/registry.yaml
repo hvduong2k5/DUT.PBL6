@@ -37,7 +37,7 @@ contracts:
   - id: traceability-catalog-sku-binding
     owner: catalog-service
     consumers: [traceability-service]
-    artifact: packages/proto/catalog/v1/traceability_source.proto
+    artifact: packages/proto/catalog/v1/catalog.proto
     state: implementation-target-draft
     contract_guide: docs/03_api_specs/traceability-workflow-grpc.md
     tasks:

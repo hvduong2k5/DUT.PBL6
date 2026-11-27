@@ -22,31 +22,38 @@ func (f batchLookup) GetTraceabilityBatch(ctx context.Context, req *traceability
 }
 
 type catalogProvider struct {
-	catalogv1.UnimplementedCatalogTraceabilitySourceServer
-	lookup func(context.Context, *catalogv1.TraceabilitySkuBindingRequest) (*catalogv1.TraceabilitySkuBindingResponse, error)
+	catalogv1.UnimplementedCatalogServiceServer
+	lookup func(context.Context, *catalogv1.GetTraceabilityBindingRequest) (*catalogv1.GetTraceabilityBindingResponse, error)
 }
 
-func (s catalogProvider) GetSkuBinding(ctx context.Context, r *catalogv1.TraceabilitySkuBindingRequest) (*catalogv1.TraceabilitySkuBindingResponse, error) {
+func (s catalogProvider) GetTraceabilityBinding(ctx context.Context, r *catalogv1.GetTraceabilityBindingRequest) (*catalogv1.GetTraceabilityBindingResponse, error) {
 	return s.lookup(ctx, r)
 }
-func catalogClient(t *testing.T, lookup func(context.Context, *catalogv1.TraceabilitySkuBindingRequest) (*catalogv1.TraceabilitySkuBindingResponse, error)) catalogv1.CatalogTraceabilitySourceClient {
+func (s catalogProvider) GetProductVariant(ctx context.Context, r *catalogv1.GetProductVariantRequest) (*catalogv1.GetProductVariantResponse, error) {
+	response, err := s.lookup(ctx, &catalogv1.GetTraceabilityBindingRequest{SkuCode: r.GetSkuCode()})
+	if err != nil {
+		return nil, err
+	}
+	return &catalogv1.GetProductVariantResponse{Variant: &catalogv1.ProductVariantDetail{ProductId: response.GetProductId(), SkuCode: response.GetSkuCode()}}, nil
+}
+func catalogClient(t *testing.T, lookup func(context.Context, *catalogv1.GetTraceabilityBindingRequest) (*catalogv1.GetTraceabilityBindingResponse, error)) catalogv1.CatalogServiceClient {
 	t.Helper()
 	connection := testutil.GRPC(t, func(options ...grpc.ServerOption) (*grpc.Server, error) {
 		server := grpc.NewServer(options...)
-		catalogv1.RegisterCatalogTraceabilitySourceServer(server, catalogProvider{lookup: lookup})
+		catalogv1.RegisterCatalogServiceServer(server, catalogProvider{lookup: lookup})
 		return server, nil
 	})
-	return catalogv1.NewCatalogTraceabilitySourceClient(connection)
+	return catalogv1.NewCatalogServiceClient(connection)
 }
 
 func TestLiveSnapshotValidatesBothBindings(t *testing.T) {
 	binding := domain.Binding{ProductID: "44444444-4444-4444-8444-444444444444", SKUCode: "SKU-01", SourceNamespace: "inventory", BatchID: "22222222-2222-4222-8222-222222222222"}
-	catalog := catalogClient(t, func(ctx context.Context, r *catalogv1.TraceabilitySkuBindingRequest) (*catalogv1.TraceabilitySkuBindingResponse, error) {
+	catalog := catalogClient(t, func(ctx context.Context, r *catalogv1.GetTraceabilityBindingRequest) (*catalogv1.GetTraceabilityBindingResponse, error) {
 		md, _ := metadata.FromIncomingContext(ctx)
-		if md.Get("authorization")[0] != "Bearer catalog-token" || r.GetSkuCode() != binding.SKUCode {
+		if md.Get("x-internal-token")[0] != "catalog-token" || r.GetSkuCode() != binding.SKUCode {
 			t.Error("incorrect Catalog binding or credential")
 		}
-		return &catalogv1.TraceabilitySkuBindingResponse{ProductId: binding.ProductID, SkuCode: binding.SKUCode, CatalogVersion: "v:2:3"}, nil
+		return &catalogv1.GetTraceabilityBindingResponse{ProductId: binding.ProductID, SkuCode: binding.SKUCode, VersionFingerprint: "v:2:3"}, nil
 	})
 	for _, tc := range []struct {
 		name, sku string

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/application"
@@ -83,6 +84,7 @@ func assembleApplication(ctx context.Context, cfg config.Config, getenv func(str
 	}
 	store.VideoHosts = cfg.VideoHosts
 	store.CursorKey = []byte(cfg.CursorHMACKey)
+	store.MediaEnabled = cfg.MediaEnabled
 	queue, err := postgres.NewOutbox(pool, postgres.OutboxOptions{Lease: 30 * time.Second, MaxAttempts: 10, BaseRetry: time.Second, MaxRetry: time.Minute})
 	if err != nil {
 		pool.Close()
@@ -92,6 +94,14 @@ func assembleApplication(ctx context.Context, cfg config.Config, getenv func(str
 	source := observability.Dependency{Next: dependencies, Metrics: metrics}
 	service := &application.Drafts{Store: store, Dependencies: source, Clock: time.Now, VideoHosts: cfg.VideoHosts, PublicWebURL: cfg.PublicWebURL}
 	workflow := &application.Workflow{Store: store, Dependencies: source, Clock: time.Now, VideoHosts: cfg.VideoHosts, PublicWebURL: cfg.PublicWebURL}
+	if cfg.MediaEnabled {
+		media, ok := dependencies.(application.MediaVerifier)
+		if !ok {
+			pool.Close()
+			return nil, nil, nil, errors.New("media-enabled workflow requires a Media adapter")
+		}
+		workflow.Media = media
+	}
 	handlerConfig := httptransport.HandlerConfig{Readiness: ready, Logger: logger, Identity: verifier, Drafts: service, Workflow: workflow, Metrics: metrics}
 	if cfg.ScopedAPIEnabled {
 		scopedSources, ok := dependencies.(application.ScopedSources)
@@ -114,8 +124,40 @@ func assembleApplication(ctx context.Context, cfg config.Config, getenv func(str
 		pool.Close()
 		return nil, nil, nil, err
 	}
+	mediaCtx, stopMedia := context.WithCancel(ctx)
+	var mediaWorkers sync.WaitGroup
+	if cfg.MediaEnabled {
+		binder, ok := dependencies.(interface {
+			BindMedia(context.Context, string, string) error
+		})
+		if !ok {
+			stopMedia()
+			stopWorkers()
+			pool.Close()
+			return nil, nil, nil, errors.New("media-enabled workflow requires a binding adapter")
+		}
+		mediaWorkers.Add(1)
+		go func() {
+			defer mediaWorkers.Done()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-mediaCtx.Done():
+					return
+				case <-ticker.C:
+					for n := 0; n < 10; n++ {
+						found, err := store.BindMediaJob(mediaCtx, binder.BindMedia)
+						if err != nil || !found {
+							break
+						}
+					}
+				}
+			}
+		}()
+	}
 	assembled = true
-	return httptransport.NewHandler(handlerConfig), resolver, func() { stopWorkers(); pool.Close(); closePeers() }, nil
+	return httptransport.NewHandler(handlerConfig), resolver, func() { stopMedia(); mediaWorkers.Wait(); stopWorkers(); pool.Close(); closePeers() }, nil
 }
 
 func readBounded(path string, max int64) ([]byte, error) {

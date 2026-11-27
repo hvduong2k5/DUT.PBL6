@@ -1,6 +1,6 @@
 # Đặc tả Traceability: hồ sơ theo lô, scope kho và tem QR
 
-Version thiết kế: 0.3.0-draft · Đọc cùng [index](traceability-workflow-README.md). Checkpoint27/11/2026: phần backend Traceability đã được triển khai sau feature flag; [báo cáo kiểm thử và cách bật](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) phân biệt PostgreSQL/HTTP/TLS gRPC local đã kiểm với peer/UI chưa tích hợp. Contract vẫn draft, chưa promote stable.
+Version thiết kế: 0.4.0-draft · Đọc cùng [index](traceability-workflow-README.md). Checkpoint27/11/2026: phần backend Traceability đã được triển khai sau feature flag; [báo cáo kiểm thử và cách bật](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) phân biệt PostgreSQL/HTTP/TLS gRPC local đã kiểm với peer/UI chưa tích hợp. Contract vẫn draft, chưa promote stable.
 
 ## 1. Ranh giới và dữ liệu authoritative
 
@@ -8,7 +8,7 @@ Traceability sở hữu Profile, Revision, Certificate/Evidence metadata, contri
 
 | Dữ liệu | Nguồn | Quy tắc |
 | --- | --- | --- |
-| Product UUID ↔ SKU, version | CatalogTraceabilitySource.GetSkuBinding gRPC dùng chung cho context và reverify | Bootstrap không phụ thuộc Inventory SKU detail/public price; create/submit/publish vẫn kiểm binding chính xác |
+| Product UUID ↔ SKU, version | CatalogService.GetTraceabilityBinding gRPC; GetProductVariant bootstrap khi chỉ biết SKU | Bootstrap không phụ thuộc Inventory SKU detail/public price; create/submit/publish vẫn kiểm binding chính xác |
 | Batch UUID, SKU, mã lô, NSX/HSD, restricted/depleted, version, warehouse | Inventory BatchSource | Warehouse không tin từ UI/JWT resource claim; không dùng mã lô làm ID |
 | Nhân viên, active status, permission + scope | Keycloak JWT + Identity gRPC `GetCurrentStaffGrants` | Chữ ký/issuer/audience/thời hạn hợp lệ và intersection quyền hiện hành |
 | Nguồn nguyên liệu, cơ sở/quy trình, chứng nhận | Nội dung nhân viên nhập và reviewer kiểm thủ công | Hiển thị MANUAL; không diễn đạt là cơ quan bên ngoài đã xác minh tự động |
@@ -65,9 +65,9 @@ Baseline field rules ở `internal/domain/model.go` và contract service v1 là 
 | OCOP | stars 1–5; non-OCOP không có stars | Không suy sao hoặc certificate number từ Catalog/marketing |
 | Hạn chứng nhận | valid_until hoặc no_expiry_stated + review_due_at, không đồng thời hai kiểu | valid_until inclusive ngày Việt Nam; review_due_at hết ngay tại instant |
 | NSX/HSD/mã lô | Không nhập bản sao authoritative trong content | Lấy từ Inventory snapshot; lô hết tồn không tự mất eligibility |
-| Media/evidence | Giữ metadata/reference cơ chế baseline; không thêm upload/arbitrary URL trong scope này | Public DTO không trả evidence nội bộ. Tích hợp upload mới chỉ theo fileId/session object-storage khi có contract riêng |
+| Media/evidence | Giữ schema evidence; Media flag yêu cầu document:<fileId> cho chứng nhận OCOP | Public DTO không trả evidence nội bộ. Media upload-session/complete theo contract đã merge; validate trước submit/publish và durable bind sau commit |
 
-Các optional artisan/ATTP/video hiển thị null/ẩn khi thiếu; không điền mẫu. Video URL legacy chỉ allowlist hiện có; UI mới không mở form nhập URL tùy ý hay thêm upload trong đợt này. Evidence submit tham chiếu ID/reference theo baseline; quyền xem reference không tự cấp cho nhân viên kho. Với v2 edit, reference bị omit hoặc rỗng trên cùng evidence ID được backend phục hồi từ reference đang lưu trước validation; đây là giữ nội dung ẩn, không phải chấp nhận evidence mới thiếu reference. Thêm evidence mới phải có reference hợp lệ; full replacement xóa một evidence ID chỉ thành công khi không làm certificate tham chiếu ID mất tồn tại. UI không hiển thị hoặc bịa reference để vượt validation. Nghiệm thu T-DATA-04 bảo vệ vòng đọc redacted → edit → replay.
+Các optional artisan/ATTP/video hiển thị null/ẩn khi thiếu; không điền mẫu. Video URL legacy chỉ allowlist hiện có; UI mới không mở form nhập URL tùy ý; upload bản scan OCOP qua Media REST/direct storage theo guide 0.4.0. Evidence submit tham chiếu ID/reference theo baseline; quyền xem reference không tự cấp cho nhân viên kho. Với v2 edit, reference bị omit hoặc rỗng trên cùng evidence ID được backend phục hồi từ reference đang lưu trước validation; đây là giữ nội dung ẩn, không phải chấp nhận evidence mới thiếu reference. Thêm evidence mới phải có reference hợp lệ; full replacement xóa một evidence ID chỉ thành công khi không làm certificate tham chiếu ID mất tồn tại. UI không hiển thị hoặc bịa reference để vượt validation. Nghiệm thu T-DATA-04 bảo vệ vòng đọc redacted → edit → replay.
 
 ## 5. Dữ liệu và migration target
 
@@ -127,14 +127,14 @@ Receipt thành công → Traceability503 không rollback receipt. Resolver503 kh
 
 Giữ các env trong `.env.example` cho DB/Keycloak/Identity/Catalog/Inventory/public web base/relay. Cấu hình mới đã implement: `TRACEABILITY_SCOPED_API_ENABLED=false`, `TRACEABILITY_CURSOR_HMAC_KEY` tối thiểu32bytes; `TRACEABILITY_ORDER_RESOLVER_ENABLED=false`, `TRACEABILITY_ORDER_RESOLVER_TOKEN` là credential riêng tối thiểu32bytes, không trùng Catalog/Inventory/Identity token. Hai feature bật độc lập, mặc định tắt; resolver có thể triển khai trước scoped admin. Secret đọc runtime, không ghi file báo cáo. Xem runbook trong [báo cáo backend](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md).
 
-Scope implementation bắt đầu trực tiếp từ target0.3.0-draft, không chờ owner khác phản hồi. Tự tái sử dụng hoặc bổ sung domain/repository/transport và contract fixtures trước provider; runtime integration chỉ đóng khi Inventory trả authoritative warehouse và Identity grants thật. [Test IDs và rollout](traceability-workflow-acceptance.md) là Definition of Done. Tài liệu không thay thế fixture bằng mock rồi ghi kết quả provider thật.
+Scope implementation bắt đầu trực tiếp từ target0.4.0-draft, không chờ owner khác phản hồi. Tự tái sử dụng hoặc bổ sung domain/repository/transport và contract fixtures trước provider; runtime integration chỉ đóng khi Inventory trả authoritative warehouse và Identity grants thật. [Test IDs và rollout](traceability-workflow-acceptance.md) là Definition of Done. Tài liệu không thay thế fixture bằng mock rồi ghi kết quả provider thật.
 
 ## 10. Sửa sau review code 25/11 — target0.2.2
 
 [Review và rủi ro](traceability-workflow-review-2026-11-25.md) là bằng chứng cho các thay đổi sau, có hiệu lực khi khác diễn giải bản trước:
 
 - Form sau receipt gọi `GET /api/v2/admin/trace/batches/{batch_id}/context?sku_code=...`. Traceability đọc BatchSource, kiểm quyền warehouse trước, rồi Catalog exact-SKU binding; trả Product/SKU/Batch/kho/mã lô/NSX/HSD/version/flags trong budget chung2s. Không dựa Inventory SKU detail chưa có provider hoặc public Catalog có thể yêu cầu giá. Đây là read, không tự tạo nháp hoặc có Idempotency-Key.
-- Catalog provider đích gRPC `CatalogTraceabilitySource.GetSkuBinding` dùng credential Traceability riêng qua TLS. Trả product_id/sku_code/catalog_version, kể cả variant ẩn/ngừng bán còn lưu, không cần giá/fuzzy search. Traceability tự đối chiếu product_id với binding trong create/submit/publish. Giữ version semantics và legacy REST verifier cho consumer cũ; target0.3.0 không gọi HTTP nội bộ.
+- Catalog provider dùng canonical `CatalogService.GetTraceabilityBinding` từ PR #175, x-internal-token theo server hiện có; trả version_fingerprint ánh xạ nguyên trạng vào catalog_version. Bootstrap SKU dùng GetProductVariant(channel UNSPECIFIED) trước verify; hidden/no-price không bị chặn. REST verifier cũ đã decommission, không khôi phục. Xem guide 0.4.0 về TLS/explicit private plaintext và port thật.
 - [BFF adapter contract](traceability-workflow-bff-draft.openapi.yaml) định nghĩa đường cookie Identity → bearer → Kong cho trace v2 và inventory workbench/receipt. Web phải forward Origin đã kiểm tra cho mutation, không disable CSRF. Identity v2 phải guard ACTIVE EMPLOYEE, không chỉ authenticated. Trong OIDC mode dùng bearer server-trusted, không cần cookie adapter.
 - Web thêm permission projection Traceability giữ permission/scopeType/scopeId từ permissionGrants. Không dùng projection role-derived ALL/ASSIGNED_ONLY để suy quyền kho; không để whitelist cũ loại các mã lowercase Traceability.
 - Admin v1/v2 cùng tồn tại phải dùng application writer biết warehouse metadata. Triển khai mọi writer mới trước scoped traffic; migration bổ sung guard INSERT warehouse không null cho profile mới sau khi writers đã tương thích, vẫn giữ null trên row lịch sử. Không cho old writer đang chạy tạo null âm thầm. Rollback tắt scoped traffic trước; old binary không tương thích guard không được tiếp tục làm writer.
@@ -145,8 +145,12 @@ Scope implementation bắt đầu trực tiếp từ target0.3.0-draft, không c
 
 Sandbox v2 fixtures phải có warehouse UUID explicit để test scope; thiếu field là capability unavailable, không gán default kho. Kết quả fixture không là bằng chứng Inventory/Identity thật. BFF proxy có thể nhận cookie session hoặc staff bearer đã verify, đều kiểm ACTIVE EMPLOYEE; browser mode cookie vẫn không được tiếp cận access token và vẫn phải qua Origin/CSRF.
 
-## 11. Amendment transport0.3.0 — 27/11/2026
+## 11. Lịch sử amendment transport0.3.0 — đã thay bằng mục12
 
-[Guide gRPC authoritative](traceability-workflow-grpc.md) và ba proto mới trong packages/proto thay internal REST resolver/Catalog và /users/me current-grant call của Traceability. REST public/admin/customer và proxy BFF north-south giữ nguyên; OIDC discovery/JWKS giữ HTTPS. Events chỉ thông báo sau local commit, không thay kiểm nguồn/quyền đồng bộ. Version0.2.2 là lịch sử transport, không dùng làm phiếu giao việc hiện tại.
+Bản0.3.0 từng đề xuất ba proto thay internal REST; Catalog proposal đã được thay bằng canonical Dương ở mục12. [Guide hiện hành](traceability-workflow-grpc.md) là nguồn dùng để triển khai. REST public/admin/customer và proxy BFF north-south giữ nguyên; OIDC discovery/JWKS giữ HTTPS. Events chỉ thông báo sau local commit, không thay kiểm nguồn/quyền đồng bộ. Version0.2.2 là lịch sử transport, không dùng làm phiếu giao việc hiện tại.
 
 Runtime thêm TRACEABILITY_CATALOG_ADDR/CA_FILE, TRACEABILITY_IDENTITY_ADDR/CA_FILE/TOKEN; giữ Inventory TLS env. Token service Identity phải khác Catalog/Inventory/Order. Resolver listener GRPC_ADDR, GRPC_TLS_CERT_FILE/KEY_FILE bắt buộc ở integration, flag mặc định tắt. Hai listener drain chung trước khi đóng DB; sandbox chỉ loopback hoặc isolated-container explicit. Không mở insecure integration, không log employee JWT trong x-staff-authorization. Schema DB, backfill và nghiệp vụ không đổi.
+
+## 12. Đồng bộ plan Dương — 0.4.0
+
+[Guide hiện hành](traceability-workflow-grpc.md) thay proposal Catalog của 0.3.0 bằng canonical dev@ac5395c5 và bổ sung Media. Bật TRACEABILITY_MEDIA_ENABLED sau migration000003 + cấp lại runtime grants. OCOP evidence dùng document:<UUID>, ValidateMediaReference trước submit/publish; media_bind_jobs cùng publish transaction, worker sau commit BindMediaToEntity có lease/retry. Không sửa frozen content/hash/QR hoặc rollback publication đã commit khi bind tạm lỗi. Legacy references cần draft/review mới trước bật Media nếu không đúng fileId; không tự backfill. Public DTO vẫn không trả reference nội bộ. OCOP files PUBLIC_READ là policy Media baseline, không đồng nghĩa chỉ public sau QR publish; xem guide trước upload.

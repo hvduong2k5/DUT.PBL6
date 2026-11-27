@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
   title: Traceability workflow integration proposal
-  version: 0.3.0-draft
+  version: 0.4.0-draft
   x-implementation-report: ../04_testing/traceability-service/09_grpc_transport_2026-11-27.md
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: North-south REST integration target 0.3.0-draft. Business East-West calls use the shared gRPC contracts
+  description: North-south REST integration target 0.4.0-draft. Business East-West calls use the shared gRPC contracts
     in traceability-workflow-grpc.md. The unshipped internal REST resolver and Catalog binding proposals from 0.2.2
     are removed. Public/customer/scoped admin semantics remain unchanged. Backend fixture verification does not
     establish peer acceptance or stable promotion.

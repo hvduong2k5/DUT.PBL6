@@ -1,8 +1,8 @@
 # Phiếu bàn giao contract theo service
 
-Version 0.3.0-draft · 27/11/2026. Owner nghiệp vụ: Traceability. **Chế độ giao việc đã được chủ yêu cầu chốt: triển khai trực tiếp từ tài liệu, không cần gửi ACCEPT, đề xuất giải pháp hoặc chờ xác nhận trước khi sửa code.** Mỗi owner nhận section của mình, bảo đảm đầu ra và contract đích; đã có thì tái sử dụng, thiếu thì bổ sung. [Index](traceability-workflow-README.md), artifacts và [test IDs](traceability-workflow-acceptance.md) là một bộ đầu vào, không cần lịch sử chat. Không gửi secrets hoặc tài khoản cá nhân trong tài liệu.
+Version 0.4.0-draft · 27/11/2026. Owner nghiệp vụ: Traceability. **Chế độ giao việc đã được chủ yêu cầu chốt: triển khai trực tiếp từ tài liệu, không cần gửi ACCEPT, đề xuất giải pháp hoặc chờ xác nhận trước khi sửa code.** Mỗi owner nhận section của mình, bảo đảm đầu ra và contract đích; đã có thì tái sử dụng, thiếu thì bổ sung. [Index](traceability-workflow-README.md), artifacts và [test IDs](traceability-workflow-acceptance.md) là một bộ đầu vào, không cần lịch sử chat. Không gửi secrets hoặc tài khoản cá nhân trong tài liệu.
 
-**Bản phát lại0.3.0 thay bản0.2.2:** business East-West chuyển sang gRPC theo [quy định transport và proto authoritative](traceability-workflow-grpc.md). Nghiệp vụ/DB/UI giữ nguyên. Nếu đã làm REST nội bộ theo phiếu cũ, tái sử dụng logic và thêm gRPC adapter đúng contract; không làm lại dữ liệu hoặc chờ xin xác nhận. Các REST Web/BFF vẫn giữ.
+**Bản 0.4.0 theo plan Dương và dev@ac5395c5 (PR #175):** thay phiếu 0.3.0/0.2.2 về Catalog, dùng CatalogService.GetTraceabilityBinding và MediaInternalService đã có. Gỡ target GetSkuBinding chưa phát hành; không giao lại việc viết RPC đó. Tích hợp Media validate trước submit/publish, durable binding sau commit; Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng chưa có trong plan Dương.
 
 ## 0. Đề bài thực thi — đọc và bắt đầu làm
 
@@ -124,7 +124,7 @@ Không đổi event packing v2, không thêm required fields event cũ, không g
 5. Resolver là unary gRPC qua TLS với credential Order riêng trong authorization metadata. Response dùng items[].binding + enum status + optional qr_url; map absence sang null và bỏ prefix enum khi dựng DTO customer REST, không phát proto JSON thẳng ra Web. RESOURCE_EXHAUSTED/UNIMPLEMENTED/auth/timeout làm row UNAVAILABLE; không fallback HTTP. Resolver input chỉ `source_namespace=inventory`, batch UUID và SKU từ proof. ≤100/request, chia chunk và reconstruct output. Không cần product_id vì Traceability unique namespace+batch và đã verify product lúc publish. Timeout ≤1.5s/call, outer request budget5s; không retry đồng bộ trong cùng request, UI có thể retry read sau. Không gửi PII/actor token customer cho internal resolver. Concurrency≤2 và total budget5s, chunk chưa xong báoUNAVAILABLE. Quá1000line-batch rows hoặc response512KiB → rootUNAVAILABLE, không truncate thành READY.
 6. AVAILABLE/NOT_AVAILABLE/NO_LONGER_PUBLIC/UNAVAILABLE từ resolver map nguyên nghĩa. Resolver auth/config lỗi làm các row UNAVAILABLE và có operational log an toàn, không biến thành NOT_AVAILABLE. Full Order DB lỗi trả503. Root total là số line-batch row, không là số sản phẩm.
 
-ORD-OUT-04: triển khai gRPC client TLS theo canonical batch_links.proto và guide0.3.0; exact response echo/count, switch enum tường minh, optional qr_url presence, deadline/chunk budget và fail-closed mapping. Nếu đã làm REST consumer0.2.2, giữ application/proof/ownership logic và thay transport adapter; không thêm HTTP fallback. Nộp codegen/version + GRPC-RES-01…03 evidence, không cần chờ Traceability lên để code/test bằng fixture đúng proto có nhãn.
+ORD-OUT-04: triển khai gRPC client TLS theo canonical batch_links.proto và guide0.4.0; exact response echo/count, switch enum tường minh, optional qr_url presence, deadline/chunk budget và fail-closed mapping. Nếu đã làm REST consumer0.2.2, giữ application/proof/ownership logic và thay transport adapter; không thêm HTTP fallback. Nộp codegen/version + GRPC-RES-01…03 evidence, không cần chờ Traceability lên để code/test bằng fixture đúng proto có nhãn.
 
 Historical mặc định không backfill từ allocation live. Đơn cũ thiếu verified proof báo UNAVAILABLE và hướng dẫn scan QR trên bao bì; không chặn order lifecycle, không yêu cầu xóa đơn. Backfill có thể dùng exact sealed snapshot provider nếu đã chứng minh, nhưng là job có review riêng, không tự chạy khi khách GET.
 
@@ -146,17 +146,27 @@ Historical mặc định không backfill từ allocation live. Đơn cũ thiếu
 
 **Nộp:** screenshot desktop/mobile/print theo SHA, decode QR thành đúng link, HTTP/status evidence, không có token trong ảnh/log. Muse có thể làm browser localhost theo network route được kiểm tra; request cụ thể trang nào/thao tác/expected và thư mục output theo runID, không tự dùng production. Nghiệm thu WEB-01…04, T-QR-01…03.
 
+### Web: upload chứng nhận OCOP
+
+WEB-OUT-MEDIA: dùng Media REST upload-session/direct-to-storage/complete đã có trên dev; lấy fileId, tạo evidence.reference=document:<fileId> và certificate.evidence_ids theo schema Traceability hiện có. Không gửi object key/URL hay binary vào Traceability. Chỉ cho chọn bản scan được phép công khai vì purpose OCOP_CERTIFICATE hiện PUBLIC_READ; không tự upload nội bộ/PII. READY chưa đạt hoặc provider503 phải giữ draft/receipt, hiển thị trạng thái và retry riêng. Không giả UI đã nghiệm thu chỉ từ Go fixtures.
+
 ## 6. Catalog / Procurement / Kafka / Audit
 
-### Catalog: CAT-TRC-01 — triển khai trực tiếp
+### Catalog / Media: CAT-TRC-01 — tái sử dụng provider đã merge
 
-CAT-OUT-01: triển khai `/omamx.catalog.v1.CatalogTraceabilitySource/GetSkuBinding` theo [shared proto](../../packages/proto/catalog/v1/traceability_source.proto). Input exact sku_code; output product_id/sku_code/catalog_version, không phụ thuộc giá hoặc trạng thái public, có hidden/stopped variants còn lưu. Traceability dùng cùng RPC bootstrap và reverify binding khi create/submit/publish. Version semantics giữ như verifier Product–SKU cũ; tái sử dụng query/domain/mapping, không sửa public variant response hoặc checkout RPC chỉ để bootstrap.
+CAT-OUT-01: giữ [CatalogService.GetTraceabilityBinding](../../packages/proto/catalog/v1/catalog.proto) của PR #175; input product_id + exact sku_code, output version_fingerprint và echo authoritative. Traceability dùng fingerprint nguyên trạng cho catalog_version. Không thêm CatalogTraceabilitySource/GetSkuBinding hoặc khôi phục REST đã gỡ.
 
-CAT-OUT-02: chỉ credential Traceability riêng được đọc qua TLS và một authorization Bearer metadata. INVALID_ARGUMENT/NOT_FOUND/UNAUTHENTICATED/PERMISSION_DENIED/UNAVAILABLE theo [gRPC guide](traceability-workflow-grpc.md#catalog--cat-out-0102), reply≤8KiB, budget trong tổng2s source check. Giữ REST verifier cũ cho legacy consumers nếu cần; target mới không gọi hoặc yêu cầu thêm REST exact-SKU nữa. Không gọi Catalog khi khách scan QR hoặc Order resolve links.
+CAT-OUT-02: bootstrap từ SKU dùng GetProductVariant(channel UNSPECIFIED) lấy product_id rồi GetTraceabilityBinding xác minh/version. Đảm bảo hidden/stopped/no-price còn đọc được, exact SKU, không fuzzy; không buộc UI biết trước Product UUID. Hai read + Inventory dùng budget 2 giây và cap reply 8 KiB; source thay đổi chặn submit/publish theo source hash cũ.
 
-**CAT-OUT-03 — guard RPC mới:** CatalogAccess hiện chỉ kiểm prefix CatalogService/ và x-internal-token chung. Service mới `CatalogTraceabilitySource/` không được tự đi qua nhánh không kiểm auth; mở guard cho đúng full method và credential Traceability riêng theo contract, không tái sử dụng token checkout chung hoặc cho token đó đọc mặc định. Giữ auth cũ của các method khác. Nghiệm thu CAT-01…03 và GRPC-CAT-01/02, gồm missing/wrong/duplicate credential, wrong caller, hidden/no-price/version và DB timeout. Thêm canonical proto vào pipeline copy/codegen/service registration hiện có; không hand-edit generated Java.
+CAT-OUT-03: giữ x-internal-token theo CatalogAccess và CATALOG_INTERNAL_TOKEN ≥32 ký tự; không bỏ credential trong Traceability. Giữ port thực mặc định9005 thay ví dụ9090 trong plan. TLS nếu đã cấu hình, hoặc explicit private plaintext như guide; không mở RPC public. Nộp test provider thật cho binding/missing SKU/credential/hidden-no-price/fingerprint; không viết lại module đã đáp ứng.
 
-Nếu đã làm REST0.2.2, giữ application/query logic và thêm adapter gRPC đúng wire; không yêu cầu owner phải viết lại DB hoặc phản hồi ACCEPT trước code.
+MED-OUT-01: giữ [MediaInternalService](../../packages/proto/media/v1/media_service.proto), purpose OCOP_CERTIFICATE, fileId/READY/MIME/size/checksum theo [guide](traceability-workflow-grpc.md#media--chứng-nhận-ocop-theo-plan-dương). Traceability không nhận binary/raw object key; evidence.reference=document:<UUID> ánh xạ sang file_id. Không đổi schema certificates đã frozen.
+
+MED-OUT-02: BindMediaToEntity(file_id, TraceabilityProfile, profile_id) phải retry/idempotent được; ràng buộc file không bị GC sau gắn kết. Traceability enqueue media_bind_jobs cùng publish transaction, worker gọi sau commit. Media hiện chỉ có một bound_entity: giữ file được bảo vệ khi dùng chung qua nhiều lô; không dùng trường đó làm quyền sở hữu thay IAM của Traceability.
+
+MED-OUT-03: ghi rõ OCOP_CERTIFICATE baseline PUBLIC_READ và RPC9007 chưa có auth/TLS interceptor. Chỉ upload bản scan được phép công khai, chỉ expose RPC trong mạng tin cậy. Không gọi PublishMedia để đổi sang bucket Catalog. Nếu triển khai có policy khác, cung cấp cấu hình/test chính xác, không coi việc giấu reference trong Traceability là thu hồi file đã public.
+
+**Đầu ra cuối:** SHA/provider config đang dùng, test IDs CAT-*/GRPC-CAT-*/MED-* và bằng chứng đã lọc. Provider có sẵn thì test/tái sử dụng; chỉ sửa gap thực sự trong phần phụ trách, không viết proposal RPC thay thế hoặc chờ ACCEPT.
 
 ### Các miền khác không mở rộng trong đợt này
 

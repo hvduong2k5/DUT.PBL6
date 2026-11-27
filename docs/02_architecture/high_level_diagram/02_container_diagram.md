@@ -234,3 +234,5 @@ C4Container
    - **Audit Plane** được đóng khung riêng biệt `Container_Boundary(audit_boundary)` tại Sơ đồ 2.4 theo đúng Dòng 9 của quy định.
    - Mọi mũi tên đều được định danh rõ `gRPC sync` hoặc `Kafka async` trong nhãn (Dòng 5 & 7).
    - Hệ thống ngoài đều dùng chuẩn `System_Ext(...)`.
+
+Traceability 0.4.0 (27/11/2026) follows Duong's canonical Catalog/Media in PR #175/dev@ac5395c5. The [current guide](../../03_api_specs/traceability-workflow-grpc.md) replaces the unshipped GetSkuBinding proposal, adds OCOP validation and durable post-publication binding, and preserves other workflow contracts. See [report10](../../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md) and reissued owner briefs; fixture results are not real-provider acceptance.

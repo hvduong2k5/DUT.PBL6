@@ -17,7 +17,12 @@ type WorkflowStore interface {
 	SetStatus(context.Context, domain.CommandMetadata, string, string, domain.RevisionCommand) (domain.CommandResult, error)
 	Public(context.Context, string) (domain.PublicRecord, error)
 }
+type MediaVerifier interface {
+	ValidateMedia(context.Context, domain.Content) error
+}
+
 type Workflow struct {
+	Media        MediaVerifier
 	Store        WorkflowStore
 	Dependencies DependencyVerifier
 	Clock        func() time.Time
@@ -82,6 +87,11 @@ func (s *Workflow) Submit(ctx context.Context, p domain.Principal, meta domain.C
 	snapshot, err := s.Dependencies.Snapshot(checkCtx, profile.Binding)
 	if err != nil {
 		return domain.CommandResult{}, err
+	}
+	if s.Media != nil {
+		if err = s.Media.ValidateMedia(checkCtx, current.Content); err != nil {
+			return domain.CommandResult{}, err
+		}
 	}
 	if err = verifiedSnapshot(snapshot, profile.Binding, s.Clock()); err != nil {
 		return domain.CommandResult{}, err
@@ -164,6 +174,11 @@ func (s *Workflow) Publish(ctx context.Context, p domain.Principal, meta domain.
 	snapshot, err := s.Dependencies.Snapshot(checkCtx, profile.Binding)
 	if err != nil {
 		return domain.CommandResult{}, err
+	}
+	if s.Media != nil {
+		if err = s.Media.ValidateMedia(checkCtx, current.Content); err != nil {
+			return domain.CommandResult{}, err
+		}
 	}
 	if err = verifiedSnapshot(snapshot, profile.Binding, s.Clock()); err != nil {
 		return domain.CommandResult{}, err

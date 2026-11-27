@@ -82,12 +82,13 @@ func (s *scopedSources) Snapshot(ctx context.Context, b domain.Binding) (domain.
 }
 
 type scopedHarness struct {
-	rpc     traceabilityv1.BatchLinkResolverClient
-	handler http.Handler
-	store   *postgres.Profiles
-	admin   *pgxpool.Pool
-	sources *scopedSources
-	token   func(string, string, ...string) string
+	workflow *application.Workflow
+	rpc      traceabilityv1.BatchLinkResolverClient
+	handler  http.Handler
+	store    *postgres.Profiles
+	admin    *pgxpool.Pool
+	sources  *scopedSources
+	token    func(string, string, ...string) string
 }
 
 func scopedServer(t *testing.T, enforce bool) scopedHarness {
@@ -147,7 +148,7 @@ func scopedServer(t *testing.T, enforce bool) scopedHarness {
 	rpcConnection := testutil.GRPC(t, func(options ...grpc.ServerOption) (*grpc.Server, error) {
 		return grpctransport.NewServer(&application.Resolver{Store: store, Clock: clock, PublicWebURL: drafts.PublicWebURL}, orderCredential, options...)
 	})
-	return scopedHarness{handler: handler, store: store, admin: admin, sources: source, token: token, rpc: traceabilityv1.NewBatchLinkResolverClient(rpcConnection)}
+	return scopedHarness{workflow: workflow, handler: handler, store: store, admin: admin, sources: source, token: token, rpc: traceabilityv1.NewBatchLinkResolverClient(rpcConnection)}
 }
 func sendScoped(h http.Handler, method, path, body, token, key string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))

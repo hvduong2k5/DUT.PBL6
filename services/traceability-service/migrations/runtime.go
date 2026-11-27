@@ -39,7 +39,7 @@ func GrantRuntime(ctx context.Context, conn *pgx.Conn, role string) error {
 		"GRANT USAGE ON SCHEMA " + qschema + " TO " + qrole,
 		"GRANT SELECT ON ALL TABLES IN SCHEMA " + qschema + " TO " + qrole,
 	}
-	for _, table := range []string{"traceability_profiles", "traceability_revisions", "outbox_events"} {
+	for _, table := range []string{"traceability_profiles", "traceability_revisions", "outbox_events", "media_bind_jobs"} {
 		statements = append(statements, "GRANT INSERT, UPDATE ON "+pgx.Identifier{schema, table}.Sanitize()+" TO "+qrole)
 	}
 	for _, table := range []string{"review_decisions", "audit_entries", "idempotency_records", "eligibility_observations"} {

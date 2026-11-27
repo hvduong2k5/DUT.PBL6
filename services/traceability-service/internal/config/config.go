@@ -12,6 +12,7 @@ import (
 )
 
 type Config struct {
+	MediaEnabled         bool
 	Mode                 string
 	ListenAddress        string
 	DatabaseURL          string
@@ -91,7 +92,7 @@ func Load(getenv func(string) string) (Config, error) {
 	for _, flag := range []struct {
 		name   string
 		target *bool
-	}{{"TRACEABILITY_SCOPED_API_ENABLED", &c.ScopedAPIEnabled}, {"TRACEABILITY_ORDER_RESOLVER_ENABLED", &c.OrderResolverEnabled}} {
+	}{{"TRACEABILITY_MEDIA_ENABLED", &c.MediaEnabled}, {"TRACEABILITY_SCOPED_API_ENABLED", &c.ScopedAPIEnabled}, {"TRACEABILITY_ORDER_RESOLVER_ENABLED", &c.OrderResolverEnabled}} {
 		if raw := getenv(flag.name); raw != "" {
 			value, err := strconv.ParseBool(raw)
 			if err != nil {

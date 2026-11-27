@@ -350,3 +350,5 @@ message, requestId and X-Request-Id. Lag -1 means unavailable/uninitialized.
 Operation-level servers and security override the document's production gateway
 and employee authentication defaults. The independent Inventory operations spec
 was consolidated here; runtime URLs and response bodies are unchanged.
+
+Transport amendment 0.4.0 (2026-11-27): use canonical Catalog/Media from PR #175 per [current guide](traceability-workflow-grpc.md). OCOP upload-session/complete precedes document:<fileId> evidence; Media-enabled submit/publish invalid file400/dependency503 keeps draft/approval and receipt unchanged. Publication replay remains successful while a later Media outage is retried by the durable bind worker. QR/public DTO schema is unchanged. See [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md); UI/provider acceptance remains pending.

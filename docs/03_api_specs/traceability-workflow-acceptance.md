@@ -69,9 +69,9 @@ Muse được giao bài browser localhost bằng URL truy cập được, actor 
 
 ## 5. Trình tự và điều kiện release
 
-1. Giao trực tiếp target0.3.0-draft/SHA và task handoff thay phiếu0.2.2. Owner bắt đầu kiểm code, tái sử dụng/bổ sung và test, không gửi ACCEPT hoặc chờ duyệt phương án. Chỉ ghi blocker/amendment nếu không thể đáp ứng contract trong scope; vẫn làm phần độc lập.
+1. Giao trực tiếp target0.4.0-draft/SHA và task handoff thay phiếu0.2.2. Owner bắt đầu kiểm code, tái sử dụng/bổ sung và test, không gửi ACCEPT hoặc chờ duyệt phương án. Chỉ ghi blocker/amendment nếu không thể đáp ứng contract trong scope; vẫn làm phần độc lập.
 2. Implement Traceability scoped domain/repository/transport/migration bằng fixture và tests T-*; v1 wire vẫn có tests bảo vệ. Chưa expose scoped traffic nếu Inventory/Identity chưa đạt.
-3. Inventory warehouse field9, Catalog binding RPC và Identity current-grants RPC qua TLS sẵn sàng → chạy scope/workflow integration. Chuẩn bị đủ cấu hình peer ngay cả khi flags tắt; không dùng flags làm HTTP compatibility fallback. Web in tem đi qua provider thật; screenshot sandbox chỉ chứng minh layout.
+3. Inventory warehouse field9, Catalog/Media canonical theo PR #175 và Identity current-grants RPC sẵn sàng → chạy scope/workflow integration. Chuẩn bị đủ cấu hình peer ngay cả khi flags tắt; không dùng flags làm HTTP compatibility fallback. Web in tem đi qua provider thật; screenshot sandbox chỉ chứng minh layout.
 4. Order consumer support packed_lines và empty-legacy fallback trước; Fulfillment provider thêmfield14 sau; broker notification schema v2 không đổi. Deploy resolver trước bật customer traceability link.
 5. Local stack tối thiểu cho từng đợt; không chạy18service. PostgreSQL+Traceability+Web đủ layout/public sandbox; scope thật cần Identity/Keycloak/Catalog/Inventory+DB; full order proof thêm Order/Fulfillment/Kafka và phụ thuộc test ports có nhãn. Không báo Docker/môi trường đang chạy nếu chưa kiểm lại.
 6. Review PR vào dev, trưởng nhóm duyệt rồi release RC02; xác nhận tên nhánh release thực tế khi tạo PR/deploy, không suy đoán từ tên chat. Không test trên deploy cũ rồi coi là bản sửa mới.
@@ -121,7 +121,7 @@ Các ca trên cùng bộ test cũ là yêu cầu runtime, chưa chạy trong lư
 
 | ID | Ca kiểm | Expected |
 | --- | --- | --- |
-| GRPC-CAT-01 | Exact SKU active/hidden/stopped/no-price, wrong/missing/duplicate service credential | Product/SKU/version authoritative, TLS + authorization Bearer riêng; interceptor bảo vệ cả full method mới |
+| GRPC-CAT-01 | GetProductVariant UNSPECIFIED → GetTraceabilityBinding, hidden/stopped/no-price, sai x-internal-token | Bootstrap/verify dùng canonical Dương, fingerprint nguyên trạng; credential được kiểm theo CatalogAccess |
 | GRPC-CAT-02 | NOT_FOUND/timeout/UNIMPLEMENTED/DB failure, version đổi | Phân biệt absent/conflict/503, không HTTP fallback hoặc constant version |
 | GRPC-IAM-01 | Service credential + employee JWT, wrong userId/subject/customer/inactive | Identity xác minh hai danh tính, Traceability kiểm ID/subject và EMPLOYEE ACTIVE, không lấy ID từ request body |
 | GRPC-IAM-02 | STAFF_UNAUTHENTICATED/FORBIDDEN và SERVICE_AUTHENTICATION_FAILED/PERMISSION_DENIED; missing details | ErrorInfo staff→401/403; service/missing/unknown→503; không re-login loop để che lỗi config |
@@ -133,3 +133,16 @@ Các ca trên cùng bộ test cũ là yêu cầu runtime, chưa chạy trong lư
 | GRPC-SYS-01 | Integration TLS config, disabled flags, two listener startup/drain | Không insecure fallback, resolver bật độc lập; HTTP route cũ404; shutdown bounded trước đóng DB/worker |
 
 Provider fixture tests không thay nghiệm thu Catalog/Identity của nhóm. Report09 ghi rõ phần nào là local TCP/TLS thật với provider mô phỏng và phần nào chưa tích hợp.
+
+## 9. Theo plan Dương — 0.4.0 hiện hành
+
+Catalog canonical/Media provider ở dev@ac5395c5 đã thay proposal GetSkuBinding của 0.3.0. Guide hiện hành quy định x-internal-token và explicit private plaintext khi baseline chưa có TLS; không áp yêu cầu Bearer/listener9105 của phiếu cũ vào Catalog. Identity/resolver không đổi. Các ca sau bổ sung, không được suy provider integration PASS từ fixture.
+
+| ID | Ca kiểm | Expected |
+| --- | --- | --- |
+| MED-01 | OCOP evidence document:<UUID>, duplicate fileId, raw object key/URL | Dedup fileId; raw URL/key không vượt kiểm Media, giữ schema certificates cũ |
+| MED-02 | READY đúng purpose/MIME/size/SHA và file missing/processing/wrong purpose | READY hợp lệ mới submit/publish; invalid400, malformed/provider lỗi503, không đổi receipt |
+| MED-03 | Publish enqueue job lỗi; retry cùng key; repeated publication replay | Rollback cả publish nếu không ghi job; retry giữ một publication/obligation; hash/QR không đổi |
+| MED-04 | Bind RPC lỗi/crash/restart/concurrent workers | Pending được giữ; lease độc quyền, retry sau lỗi/lease hết; success không bị reset, peer call idempotent |
+| MED-05 | Legacy frozen evidence reference và Media flag | Không sửa snapshot cũ; muốn publish với Media enabled phải draft/reference/review hợp lệ |
+| MED-06 | OCOP file PUBLIC_READ, worker/media port private | Chỉ upload scan được phép public; không coi evidence permission là bảo vệ object public; không PublishMedia sang bucket Catalog |

@@ -6,7 +6,7 @@ Ngày: 21/11/2026 (Asia/Ho_Chi_Minh). Đối chiếu code `origin/dev@6f54a4ab`.
 
 **Cách giao việc cho peer:** các bổ sung field/endpoint/projection dưới đây là phương án candidate để đạt đầu ra, không khẳng định owner phải viết mới. Owner tự đối chiếu OUT và triển khai: đã đủ thì tái sử dụng/test, thiếu thì bổ sung, API nội bộ khác wire thì tự map ra contract đích trong phần phụ trách. Không cần báo cáo trước hoặc chờ trả lời. Chỉ thay cách implement nội bộ, không thay ngầm semantics nguồn, scope, lịch sử hoặc wire consumer.
 
-**Amendment27/11 — target0.3.0:** [gRPC guide](traceability-workflow-grpc.md) và ba shared proto mới thay business internal REST của0.2.2. Nghiệp vụ giữ nguyên; Web/BFF vẫn REST và OIDC vẫn HTTPS. Các checkpoint0.2.2 bên dưới là lịch sử, không dùng làm wire contract mới.
+**Amendment27/11 — target0.4.0:** theo plan Dương/PR #175, [guide hiện hành](traceability-workflow-grpc.md) dùng canonical Catalog/Media trên dev@ac5395c5. Proposal GetSkuBinding0.3.0 đã gỡ; Web/BFF vẫn REST, OIDC HTTPS. OCOP Media validate trước submit/publish và durable bind sau publish. Identity current-grants/Order resolver vẫn là phần việc riêng. Các checkpoint cũ không dùng làm wire contract hiện hành.
 
 ## 1. Hiệu lực và phạm vi
 
@@ -34,7 +34,7 @@ Chủ yêu cầu đã chốt QR theo lô, in tem sau công bố, truy xuất cô
 | --- | --- | --- |
 | Web → Inventory nhập kho | `features/employee/inventory/server/handler.ts`, `httpapi/receipt.go`: NEW/EXISTING, transaction, idempotency, movement; result thiếu Batch UUID | Giữ nguyên transaction; bổ sung binding lô vào receipt result; Inventory/Web |
 | Identity → Keycloak → Traceability | V20 permission, V21 bootstrap ADMIN, scoped assignments và sync; Traceability `staff.go` chỉ nhận GLOBAL, Principal chỉ có flat permissions | Identity cấu hình role/assignment; Traceability giữ grant scope, kiểm tra từng resource; không cấp GLOBAL thay WAREHOUSE |
-| Traceability → Catalog | Baseline REST verifier có version | Target0.3.0 gRPC CatalogTraceabilitySource.GetSkuBinding, version semantics cũ, hidden/no-price; không gọi mỗi scan |
+| Traceability → Catalog | Baseline REST verifier có version | Target0.4.0 CatalogService.GetTraceabilityBinding; bootstrap GetProductVariant UNSPECIFIED, giữ fingerprint cũ và hidden/no-price; không gọi mỗi scan |
 | Traceability → Inventory | `BatchSource.GetTraceabilityBatch`, UUID/SKU/version/NSX/HSD, chưa có kho trong response | Bổ sung `warehouse_id` từ Inventory; Traceability lưu binding kho, xác minh server-side |
 | Web → Traceability lập/xem hồ sơ theo lô | CRUD/workflow đã có; list chỉ page_size/cursor | GET lookup binding riêng; trả cùng hồ sơ khi nhập bổ sung; xử lý race bằng unique binding và đọc lại sau conflict |
 | Web → Traceability in tem | Có `qr_url`, API public, chưa có UI in | Dùng read hiện có với scope bổ sung; không cần service tạo ảnh hoặc lệnh cấp QR mới |

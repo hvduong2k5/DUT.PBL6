@@ -14,13 +14,14 @@ import (
 )
 
 type Profiles struct {
-	DB         *pgxpool.Pool
-	Mode       string
-	Clock      func() time.Time
-	ID         func() (string, error)
-	QR         func() (string, error)
-	VideoHosts []string
-	CursorKey  []byte
+	MediaEnabled bool
+	DB           *pgxpool.Pool
+	Mode         string
+	Clock        func() time.Time
+	ID           func() (string, error)
+	QR           func() (string, error)
+	VideoHosts   []string
+	CursorKey    []byte
 }
 
 func NewProfiles(db *pgxpool.Pool, mode string) (*Profiles, error) {
