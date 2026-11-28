@@ -3,8 +3,8 @@ import yaml
 import sys
 
 def validate_openapi():
-    print("=== Checking OpenAPI 3.0 (docs/03_api_specs/openapi_d2c.yaml) ===")
-    with open('docs/03_api_specs/openapi_d2c.yaml', 'r', encoding='utf-8') as f:
+    print("=== Checking OpenAPI (docs/03_api_specs/customer-stable.openapi.yaml) ===")
+    with open('docs/03_api_specs/customer-stable.openapi.yaml', 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     
     paths = data.get('paths', {})

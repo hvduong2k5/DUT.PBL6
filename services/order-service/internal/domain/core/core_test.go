@@ -21,7 +21,7 @@ type fixture struct {
 
 func fixtures(t *testing.T) []fixture {
 	t.Helper()
-	p := filepath.Join("..", "..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json")
+	p := filepath.Join("..", "..", "..", "testdata", "order-snapshot.v1.examples.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestSnapshotSemanticRejections(t *testing.T) {
 		"manifest binding":         func(s *SnapshotInput) { s.Provenance.ItemsDigest = ManifestHash(strings.Repeat("a", 64)) },
 		"quote hash":               func(s *SnapshotInput) { s.Provenance.QuoteHash = "bad" },
 		"chronology":               func(s *SnapshotInput) { s.Provenance.CanonicalizedAt = s.PlacedAt.Add(time.Second) },
-		"catalog expiry equality":  func(s *SnapshotInput) { s.Catalog.ValidUntil = s.PlacedAt },
+		"catalog evaluated after":  func(s *SnapshotInput) { s.Catalog.EvaluatedAt = s.PlacedAt.Add(time.Second) },
 		"shipping expiry equality": func(s *SnapshotInput) { s.Shipping.ValidUntil = s.PlacedAt },
 		"payment expiry equality":  func(s *SnapshotInput) { s.Payment.ExpiresAt = &s.PlacedAt },
 		"address ownership source": func(s *SnapshotInput) { s.Address.Source.AddressVersion = nil },
@@ -552,7 +552,7 @@ func FuzzDecodeSnapshot(f *testing.F) {
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"snapshot_schema_version":"1.0","snapshot_schema_version":"1.0"}`))
 	f.Add([]byte(`{"x":"\ud800"}`))
-	p := filepath.Join("..", "..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json")
+	p := filepath.Join("..", "..", "..", "testdata", "order-snapshot.v1.examples.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		f.Fatal(err)

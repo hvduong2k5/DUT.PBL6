@@ -44,6 +44,41 @@ security:
 - bearerAuth: []
 - adminSession: []
 paths:
+  /api/v1/admin/media/{file_id}/download-url:
+    get:
+      summary: Get presigned download URL for order evidence media
+      operationId: getAdminMediaDownloadUrl
+      tags:
+        - Payments
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Short-lived presigned download URL (15m)
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - download_url
+                  - expires_at
+                properties:
+                  download_url:
+                    type: string
+                    format: uri
+                  expires_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '503':
+          description: Media service unavailable
   /readyz:
     get:
       operationId: inventoryOperationsReadiness

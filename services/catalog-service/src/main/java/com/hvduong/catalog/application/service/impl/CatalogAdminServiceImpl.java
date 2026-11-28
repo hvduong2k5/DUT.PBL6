@@ -52,6 +52,8 @@ import com.hvduong.catalog.repository.mybatis.projection.AdminStatusCountRow;
 import com.hvduong.catalog.repository.mybatis.projection.AdminStockProjectionRow;
 import com.hvduong.catalog.repository.mybatis.projection.CategoryCountRow;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -437,7 +439,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @Override
   @Transactional(readOnly = true)
   public ProductVariantResponse getVariant(UUID productId, UUID variantId) {
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     ProductVariant variant = findVariantOfProduct(productId, variantId);
     ProductVariantResponse response = dtoMapper.toVariantResponse(variant);
     channelPriceMapper
@@ -940,12 +942,14 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       UUID productId, CreateVariantRequest request, String actorId) {
     log.info("[CATALOG-ADMIN] addVariant: productId={}, sku={}", productId, request.getSkuCode());
 
-    productMapper
-        .findById(productId)
-        .orElseThrow(
-            () ->
-                new CatalogException(
-                    ErrorCode.CATALOG_PRODUCT_NOT_FOUND, "Product không tồn tại: " + productId));
+    Product product =
+        productMapper
+            .findById(productId)
+            .orElseThrow(
+                () ->
+                    new CatalogException(
+                        ErrorCode.CATALOG_PRODUCT_NOT_FOUND,
+                        "Product không tồn tại: " + productId));
 
     if (variantMapper.existsBySkuCode(request.getSkuCode(), null)) {
       throw new CatalogException(
@@ -971,7 +975,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     variantMapper.insert(variant);
 
     if (request.getBasePriceUnits() != null) {
-      channelPriceMapper.insert(
+      ChannelPrice initialPrice =
           ChannelPrice.builder()
               .id(UUID.randomUUID())
               .variantId(variantId)
@@ -982,7 +986,16 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
               .status("ACTIVE")
               .effectiveFrom(Instant.now())
               .createdBy(actorId)
-              .build());
+              .build();
+      channelPriceMapper.insert(initialPrice);
+      enqueuePriceChangedEvent(
+          product,
+          variant,
+          new ArrayList<>(
+              List.of(
+                  buildPriceEventEntry(
+                      SalesChannel.D2C_WEB, "VND", request.getBasePriceUnits(), 0, initialPrice))),
+          actorId);
     }
 
     cacheEvictor.evictCategoriesCache();
@@ -1000,7 +1013,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         variantId,
         request.getExpectedVersion());
 
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     ProductVariant variant = findVariantOfProduct(productId, variantId);
 
     if (request.getVariantName() != null) {
@@ -1055,7 +1068,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @Override
   @Transactional(readOnly = true)
   public List<AdminPriceResponse> getVariantPrices(UUID productId, UUID variantId) {
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     findVariantOfProduct(productId, variantId);
 
     return channelPriceMapper.findAllByVariantId(variantId).stream()
@@ -1080,7 +1093,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @CacheEvict(value = "catalog:product", allEntries = true)
   public AdminProductDetailResponse addImage(
       UUID productId, CreateProductImageRequest request, String actorId) {
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
 
     String role = normalizeEnum("GALLERY", request.getRole(), CatalogConstants.IMAGE_ROLES, "role");
     int position = request.getPosition() == null ? 0 : request.getPosition();
@@ -1117,7 +1130,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @CacheEvict(value = "catalog:product", allEntries = true)
   public AdminProductDetailResponse updateImage(
       UUID productId, UUID imageId, UpdateProductImageRequest request, String actorId) {
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     ProductImage image = findImageOfProduct(productId, imageId);
 
     if (request.getAltText() != null) {
@@ -1244,7 +1257,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
   @Transactional
   @CacheEvict(value = "catalog:product", allEntries = true)
   public AdminProductDetailResponse deleteImage(UUID productId, UUID imageId, String actorId) {
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     ProductImage image = findImageOfProduct(productId, imageId);
     imageMapper.deleteById(image.getId());
     cacheEvictor.evictCategoriesCache();
@@ -1323,35 +1336,15 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
       }
 
       if (isImmediate) {
-        Map<String, Object> price = new LinkedHashMap<>();
-        price.put("channel", entry.getChannel().name());
-        price.put("currency_code", currency);
-        price.put("amount_units", entry.getAmountUnits());
-        price.put("amount_nanos", nanos);
-        price.put("effective_from", formatInstant(priceEntity.getEffectiveFrom()));
-        price.put("effective_to", formatInstant(priceEntity.getEffectiveTo()));
-        price.put("status", priceEntity.getStatus());
-        price.put("version", priceEntity.getVersion());
-        changedPrices.add(price);
+        changedPrices.add(
+            buildPriceEventEntry(
+                entry.getChannel(), currency, entry.getAmountUnits(), nanos, priceEntity));
       }
     }
 
     if (!changedPrices.isEmpty()) {
-      variantMapper.incrementPriceRevision(variantId);
-      variant = variantMapper.findById(variantId).orElseThrow();
-      long currentPriceRevision = variant.getPriceRevision();
-      for (Map<String, Object> p : changedPrices) {
-        p.put("price_revision", currentPriceRevision);
-      }
-      Map<String, Object> eventData = new LinkedHashMap<>();
-      eventData.put("product_id", productId.toString());
-      eventData.put("variant_id", variantId.toString());
-      eventData.put("sku_code", variant.getSkuCode());
-      eventData.put("price_revision", currentPriceRevision);
-      eventData.put("prices", changedPrices);
-      eventData.put("changed_by", actorId);
-      outboxWriter.enqueue(
-          "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+      Product product = productMapper.findById(productId).orElse(null);
+      enqueuePriceChangedEvent(product, variant, changedPrices, actorId);
     }
 
     cacheEvictor.evictCategoriesCache();
@@ -1369,7 +1362,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         skuId,
         request.getChannel());
 
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     ProductVariant variant = findVariantOfProduct(productId, skuId);
 
     if (request.getEffectiveTo() != null
@@ -1415,30 +1408,14 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
     }
 
     if (isImmediate) {
-      variantMapper.incrementPriceRevision(skuId);
-      variant = variantMapper.findById(skuId).orElseThrow();
-      long currentPriceRevision = variant.getPriceRevision();
-
-      Map<String, Object> price = new LinkedHashMap<>();
-      price.put("channel", request.getChannel().name());
-      price.put("currency_code", currency);
-      price.put("amount_units", request.getAmountUnits());
-      price.put("amount_nanos", nanos);
-      price.put("effective_from", formatInstant(newPrice.getEffectiveFrom()));
-      price.put("effective_to", formatInstant(newPrice.getEffectiveTo()));
-      price.put("status", newPrice.getStatus());
-      price.put("version", newPrice.getVersion());
-      price.put("price_revision", currentPriceRevision);
-
-      Map<String, Object> eventData = new LinkedHashMap<>();
-      eventData.put("product_id", productId.toString());
-      eventData.put("variant_id", skuId.toString());
-      eventData.put("sku_code", variant.getSkuCode());
-      eventData.put("price_revision", currentPriceRevision);
-      eventData.put("prices", List.of(price));
-      eventData.put("changed_by", actorId);
-      outboxWriter.enqueue(
-          "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+      enqueuePriceChangedEvent(
+          product,
+          variant,
+          new ArrayList<>(
+              List.of(
+                  buildPriceEventEntry(
+                      request.getChannel(), currency, request.getAmountUnits(), nanos, newPrice))),
+          actorId);
 
       cacheEvictor.evictCategoriesCache();
     }
@@ -1466,7 +1443,7 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
         priceId,
         actorId);
 
-    findProductOrThrow(productId);
+    Product product = findProductOrThrow(productId);
     findVariantOfProduct(productId, skuId);
 
     ChannelPrice price =
@@ -1652,6 +1629,83 @@ public class CatalogAdminServiceImpl implements CatalogAdminService {
 
   private static String formatInstant(Instant instant) {
     return instant == null ? null : instant.toString();
+  }
+
+  private static Map<String, Object> buildPriceEventEntry(
+      SalesChannel channel,
+      String currency,
+      long amountUnits,
+      int amountNanos,
+      ChannelPrice priceEntity) {
+    Map<String, Object> price = new LinkedHashMap<>();
+    price.put("channel", channel.name());
+    price.put("currency_code", currency);
+    price.put("amount_units", amountUnits);
+    price.put("amount_nanos", amountNanos);
+    price.put("effective_from", formatInstant(priceEntity.getEffectiveFrom()));
+    price.put("effective_to", formatInstant(priceEntity.getEffectiveTo()));
+    price.put("status", priceEntity.getStatus());
+    price.put("version", priceEntity.getVersion());
+    return price;
+  }
+
+  private void enqueuePriceChangedEvent(
+      Product product,
+      ProductVariant variant,
+      List<Map<String, Object>> changedPrices,
+      String actorId) {
+    UUID variantId = variant.getId();
+    UUID productId = variant.getProductId();
+    variantMapper.incrementPriceRevision(variantId);
+    ProductVariant latestVariant = variantMapper.findById(variantId).orElse(variant);
+    long currentPriceRevision =
+        latestVariant != variant
+            ? latestVariant.getPriceRevision()
+            : variant.getPriceRevision() + 1;
+    for (Map<String, Object> price : changedPrices) {
+      price.put("price_revision", currentPriceRevision);
+    }
+
+    String productName =
+        product != null && trimToNull(product.getName()) != null
+            ? product.getName().trim()
+            : (trimToNull(latestVariant.getVariantName()) != null
+                ? latestVariant.getVariantName().trim()
+                : latestVariant.getSkuCode());
+    boolean saleable =
+        product != null
+            && product.getApprovalStatus() == ApprovalStatus.APPROVED
+            && product.getListingStatus() == ListingStatus.ACTIVE
+            && latestVariant.getListingStatus() == ListingStatus.ACTIVE;
+
+    Map<String, Object> eventData = new LinkedHashMap<>();
+    eventData.put("product_id", productId.toString());
+    eventData.put("variant_id", variantId.toString());
+    eventData.put("sku_code", latestVariant.getSkuCode());
+    eventData.put("price_revision", currentPriceRevision);
+    eventData.put("product_name", productName);
+    eventData.put(
+        "weight_grams",
+        toWeightGrams(latestVariant.getWeightValue(), latestVariant.getWeightUnit()));
+    eventData.put(
+        "packaging_type",
+        latestVariant.getPackagingType() != null ? latestVariant.getPackagingType() : "");
+    eventData.put("is_saleable", saleable);
+    eventData.put("prices", changedPrices);
+    eventData.put("changed_by", actorId);
+    outboxWriter.enqueue(
+        "Product", productId.toString(), "vn.omama.catalog.product.price.changed.v1", eventData);
+  }
+
+  private static long toWeightGrams(BigDecimal weightValue, String weightUnit) {
+    if (weightValue == null) {
+      return 0L;
+    }
+    BigDecimal multiplier =
+        weightUnit != null && "KILOGRAM".equalsIgnoreCase(weightUnit.trim())
+            ? BigDecimal.valueOf(1000)
+            : BigDecimal.ONE;
+    return weightValue.multiply(multiplier).setScale(0, RoundingMode.HALF_UP).longValue();
   }
 
   private void validateCategoryImageIfObjectKey(String imageUrl) {

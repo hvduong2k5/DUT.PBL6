@@ -4,7 +4,7 @@
 
 ## 1. Aggregate và boundary
 
-**Order Core addendum 17/10/2026:** [chương12](12_order_core_design.md) chốt root/control/workflow boundaries và OC01–OC15. [OrderSnapshot v1 schema](../../../03_api_specs/order-snapshot.v1.schema.json) định nghĩa snapshot chính thức, khác Quote DTO; shape validation và arithmetic/proof validation là hai lớp riêng.
+**Order Core addendum 17/10/2026:** [chương12](12_order_core_design.md) chốt root/control/workflow boundaries và OC01–OC15. [OrderSnapshot v1 schema](../../../../services/order-service/testdata/order-snapshot.v1.schema.json) định nghĩa snapshot chính thức, khác Quote DTO; shape validation và arithmetic/proof validation là hai lớp riêng.
 
 | Đối tượng | Vai trò |
 | --- | --- |

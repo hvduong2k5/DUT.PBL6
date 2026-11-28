@@ -47,7 +47,7 @@ func (c *lostTerminalACK) ReleaseReservationByOrder(ctx context.Context, r *api.
 
 func terminalSnapshot(t *testing.T) core.SnapshotInput {
 	t.Helper()
-	raw, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json"))
+	raw, e := os.ReadFile(filepath.Join("..", "..", "testdata", "order-snapshot.v1.examples.json"))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -76,7 +76,7 @@ func terminalSnapshot(t *testing.T) core.SnapshotInput {
 	s.PlacedAt = time.Now().UTC().Truncate(time.Microsecond).Add(time.Second + 123*time.Nanosecond)
 	s.Provenance.AcceptedAt = s.PlacedAt.Add(-time.Second)
 	s.Provenance.CanonicalizedAt = s.PlacedAt
-	s.Catalog.ValidUntil = s.PlacedAt.Add(10 * time.Minute)
+	s.Catalog.EvaluatedAt = s.PlacedAt.Add(-time.Second)
 	s.Shipping.ValidUntil = s.PlacedAt.Add(10 * time.Minute)
 	expiry := s.PlacedAt.Add(5 * time.Minute)
 	s.Payment.ExpiresAt = &expiry

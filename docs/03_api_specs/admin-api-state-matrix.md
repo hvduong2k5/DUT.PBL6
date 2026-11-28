@@ -366,3 +366,10 @@ Identity staff transport aliases use `/api/v1/admin/trace-api/**` in accordance 
 ### Traceability Web workflow — 2026-11-28
 
 Loading/empty/error/auth states đi qua [Web BFF draft](traceability-web-bff-draft.openapi.yaml). Identity session phải giữ permissionGrants; unrelated GLOBAL role không mở rộng WAREHOUSE trace grants. Draft chưa lưu chặn submit/status actions; conflict tạo trùng giữ nội dung đang nhập và đưa link mở profile đã có, không giả đã lưu. Receipt APPLIED vẫn được giữ nếu refresh/context/upload lỗi; retry dùng cùng key cho cùng intent. Scan mới cần lưu draft trước khi mở từ hồ sơ; stored evidence cần quyền read_evidence và kho hiện hành. QR chỉ dùng public DTO còn eligible, PNG/SVG/print recheck; portal in tem tách khỏi shell, xóa sau afterprint. Không restore SUSPENDED/ARCHIVED. [Report11](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) ghi ca live/fixture cụ thể.
+
+## Order Media Evidence (Media Service integration)
+
+| Operation | Success / empty | Loading | Auth / scope | Error |
+|---|---|---|---|---|
+| GET `/api/v1/admin/media/{file_id}/download-url` | 200 `{ download_url, expires_at }` (15m presigned GET URL); empty N/A | Pending presigned URL fetch | 401 missing/invalid token; 403 insufficient payment/evidence staff permission | 503 `MEDIA_SERVICE_UNAVAILABLE` when Media gRPC is unreachable |
+| `/api/v1/admin/payments/reconciliation-cases*`, `/api/v1/admin/payments/refunds*`, `/api/v1/admin/payments/evidence*` | 200/201/202 per operation; empty lists return `200` with empty `items` | Pending request / mutation in progress | 401 missing/invalid staff bearer; 403 missing `payment.*` permission or scope | 400/409 validation or idempotency/version conflict; 429 rate limited; 503 upstream unavailable |

@@ -44,7 +44,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 		}
 		provinceName, _ := s.adminValidator().ProvinceName(q.Address.Province)
 		wardName, _ := s.adminValidator().WardName(q.Address.Ward)
-		terms := core.SnapshotInput{WarehouseID: "HUE", Catalog: core.CatalogEvidence{SnapshotID: uuid.NewString(), Version: "1", ValidUntil: now.Add(15 * time.Minute)}, Items: []core.SnapshotItem{}, Address: core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: provinceName, WardCode: q.Address.Ward, WardName: wardName, Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}, Shipping: core.ShippingTerms{CarrierCode: "TEST_CARRIER", ServiceCode: "STANDARD", QuoteReference: uuid.NewString(), QuoteVersion: "test-shipping-1", ValidUntil: now.Add(15 * time.Minute), QuotedFee: 30000}, Policies: core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "test-shipping-1"}}
+		terms := core.SnapshotInput{WarehouseID: "HUE", Catalog: core.CatalogEvidence{CatalogVersion: "1", EvaluatedAt: now, Channel: "D2C_WEB"}, Items: []core.SnapshotItem{}, Address: core.ShippingAddress{RecipientName: q.Address.Name, PhoneE164: q.Address.Phone, Street: q.Address.Street, ProvinceCode: q.Address.Province, ProvinceName: provinceName, WardCode: q.Address.Ward, WardName: wardName, Source: core.AddressSource{Kind: "VALIDATED_INLINE", ValidationReference: uuid.NewString()}}, Shipping: core.ShippingTerms{CarrierCode: "TEST_CARRIER", ServiceCode: "STANDARD", QuoteReference: uuid.NewString(), QuoteVersion: "test-shipping-1", ValidUntil: now.Add(15 * time.Minute), QuotedFee: 30000}, Policies: core.Policies{Order: "order-core-1.0", Checkout: "cart-checkout-1.0", Payment: "payment-sepay-1.1", Shipping: "test-shipping-1"}}
 		if q.AddressID != "" {
 			id, version := q.AddressID, q.AddressVersion
 			terms.Address.Source.Kind = "PROFILE_ADDRESS"
@@ -73,12 +73,11 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 			terms.Items = append(terms.Items, core.SnapshotItem{LineID: uuid.NewString(), SKU: i.SKU, Name: name, Quantity: int64(i.Quantity), UnitPrice: price, LineSubtotal: price * int64(i.Quantity), WeightGrams: grams, Packaging: core.Packaging{Description: "Test sealed box", UnitCode: "BOX", Version: "test-pack-1"}})
 		}
 		sort.Strings(versions)
-		terms.Catalog.Version = "catalog-" + domain.Hash(versions)
+		terms.Catalog.CatalogVersion = "catalog-" + domain.Hash(versions)
 		for i := range terms.Items {
-			terms.Items[i].CatalogVersion = terms.Catalog.Version
+			terms.Items[i].CatalogVersion = terms.Catalog.CatalogVersion
 		}
 		if s.Fault(ctx, "core_terms") == "short_expiry" {
-			terms.Catalog.ValidUntil = now.Add(40 * time.Second)
 			terms.Shipping.ValidUntil = now.Add(40 * time.Second)
 		}
 		terms.Shipping.PackageWeightGrams = weight
@@ -91,7 +90,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 			terms.Payment.CollectAmount = &amount
 		}
 		record, _ := json.Marshal(map[string]any{"catalog": terms.Catalog, "items": terms.Items, "shipping": terms.Shipping})
-		if _, e = tx.Exec(ctx, "INSERT INTO catalog_quotes(id,snapshot,expires_at) VALUES($1,$2,$3)", terms.Catalog.SnapshotID, record, terms.Catalog.ValidUntil); e != nil {
+		if _, e = tx.Exec(ctx, "INSERT INTO catalog_quotes(id,snapshot,expires_at) VALUES($1,$2,$3)", terms.Shipping.QuoteReference, record, terms.Shipping.ValidUntil); e != nil {
 			errResponse(w, e)
 			return
 		}
@@ -121,7 +120,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 		}
 		defer tx.Rollback(r.Context())
 		var pinnedRaw []byte
-		if e = tx.QueryRow(r.Context(), "SELECT snapshot FROM catalog_quotes WHERE id=$1", terms.Catalog.SnapshotID).Scan(&pinnedRaw); e != nil {
+		if e = tx.QueryRow(r.Context(), "SELECT snapshot FROM catalog_quotes WHERE id=$1", terms.Shipping.QuoteReference).Scan(&pinnedRaw); e != nil {
 			errResponse(w, domain.E("CATALOG_SNAPSHOT_UNKNOWN", 503))
 			return
 		}
@@ -134,7 +133,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 			errResponse(w, domain.E("CATALOG_SNAPSHOT_INVALID", 503))
 			return
 		}
-		valid := domain.Hash(pinned.Catalog) == domain.Hash(terms.Catalog) && domain.Hash(pinned.Items) == domain.Hash(terms.Items) && domain.Hash(pinned.Shipping) == domain.Hash(terms.Shipping) && time.Now().Before(terms.Catalog.ValidUntil) && time.Now().Before(terms.Shipping.ValidUntil)
+		valid := domain.Hash(pinned.Catalog) == domain.Hash(terms.Catalog) && domain.Hash(pinned.Items) == domain.Hash(terms.Items) && domain.Hash(pinned.Shipping) == domain.Hash(terms.Shipping) && time.Now().Before(terms.Shipping.ValidUntil)
 		versions := []string{}
 		for _, i := range terms.Items {
 			var price, grams, v int64
@@ -149,7 +148,7 @@ func (s *Simulator) coreRoutes(api chi.Router) {
 		}
 		sort.Strings(versions)
 		version := "catalog-" + domain.Hash(versions)
-		valid = valid && version == terms.Catalog.Version && terms.Shipping.QuotedFee == 30000 && s.adminValidator().Validate(terms.Address.ProvinceCode, terms.Address.WardCode) == nil
+		valid = valid && version == terms.Catalog.CatalogVersion && terms.Shipping.QuotedFee == 30000 && s.adminValidator().Validate(terms.Address.ProvinceCode, terms.Address.WardCode) == nil
 		response(w, 200, map[string]bool{"valid": valid})
 	})
 }

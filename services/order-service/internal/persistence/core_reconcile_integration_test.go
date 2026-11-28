@@ -51,7 +51,7 @@ func acceptWorkable(t *testing.T, h *harness) Acceptance {
 	in := acceptanceInput(t, 0)
 	d := snapshotInput(t, 0)
 	now := time.Now()
-	d.Catalog.ValidUntil = now.Add(20 * time.Minute)
+	d.Catalog.EvaluatedAt = now.Add(-time.Second)
 	d.Shipping.ValidUntil = now.Add(20 * time.Minute)
 	raw, err := json.Marshal(AcceptedCheckout{Terms: d, QuoteExpires: now.Add(20 * time.Minute)})
 	if err != nil {

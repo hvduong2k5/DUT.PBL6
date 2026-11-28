@@ -106,7 +106,7 @@ func TestCustomerTraceabilityFrozenProjectionPostgresGRPC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "order-snapshot.v1.examples.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestCustomerTraceabilityFrozenProjectionPostgresGRPC(t *testing.T) {
 	d.OrderID, d.OperationID, d.SnapshotID = accepted.PlannedOrderID, accepted.OperationID, uuid.NewString()
 	d.Provenance.QuoteID, d.Provenance.CartID, d.Provenance.CartRevision = quote, cart, 1
 	d.Provenance.AcceptedAt, d.Provenance.CanonicalizedAt, d.PlacedAt = accepted.AcceptedAt, now, now
-	d.Catalog.ValidUntil, d.Shipping.ValidUntil = now.Add(time.Hour), now.Add(time.Hour)
+	d.Catalog.EvaluatedAt, d.Shipping.ValidUntil = now, now.Add(time.Hour)
 	if _, err = core.NewSnapshot(d); err != nil {
 		t.Fatal("invalid test snapshot", err)
 	}

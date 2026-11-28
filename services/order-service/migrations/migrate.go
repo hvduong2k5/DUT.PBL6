@@ -42,6 +42,9 @@ var EvidenceVault string
 //go:embed 000012_guest_cart_merge.up.sql
 var GuestCartMerge string
 
+//go:embed 000013_sku_prices_projection.up.sql
+var SkuPricesProjection string
+
 func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	tx, e := db.Begin(ctx)
 	if e != nil {
@@ -54,7 +57,7 @@ func Apply(ctx context.Context, db *pgxpool.Pool) error {
 	if _, e = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS order_migrations(version integer PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"); e != nil {
 		return e
 	}
-	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection, FulfillmentIntegration, CaseDecisions, RefundAuthority, EvidenceVault, GuestCartMerge} {
+	for index, ddl := range []string{Schema, Observability, ProviderCursor, CoreFoundation, SepayPayment, ConnectedRuntime, CustomerProjection, FulfillmentIntegration, CaseDecisions, RefundAuthority, EvidenceVault, GuestCartMerge, SkuPricesProjection} {
 		version := index + 1
 		var done bool
 		if e = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM order_migrations WHERE version=$1)", version).Scan(&done); e != nil {

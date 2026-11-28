@@ -2,7 +2,7 @@
 
 **Ngày:** 16/10/2026 · **Thiết kế:** `payment-sepay-1.1-review` · **Phạm vi:** sửa tài liệu/contract, chưa sửa runtime.
 
-[Thiết kế chi tiết](09_payment_sepay_vietqr_design.md) · [Customer/Guest/Webhook OpenAPI](../../../03_api_specs/order-payment-sepay.candidate.openapi.yaml) · [Staff/Refund OpenAPI](../../../03_api_specs/order-payment-staff.candidate.openapi.yaml)
+[Thiết kế chi tiết](09_payment_sepay_vietqr_design.md) · [Customer/Guest/Webhook OpenAPI](../../../../services/order-service/docs/contracts/order-payment-sepay.candidate.openapi.yaml) · [Staff/Refund OpenAPI](../../../../services/order-service/docs/contracts/order-payment-staff.candidate.openapi.yaml)
 
 ## 1. Kết quả xử lý từng ý kiến
 

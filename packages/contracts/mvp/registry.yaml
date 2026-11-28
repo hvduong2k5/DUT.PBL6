@@ -1,7 +1,7 @@
 release: mvp-2026-10-26
 contract_status: integration-target
 implementation_acceptance: pending
-public_contract: docs/03_api_specs/mvp-customer.openapi.yaml
+public_contract: docs/03_api_specs/customer-stable.openapi.yaml
 source_manifest: packages/contracts/mvp/sources.json
 validation_command: python packages/contracts/mvp/verify.py
 rules:
@@ -143,7 +143,7 @@ contracts:
   - id: customer-public
     owner: gateway-bff-and-order
     consumers: [web-user, mobile-app]
-    artifact: docs/03_api_specs/mvp-customer.openapi.yaml
+    artifact: docs/03_api_specs/customer-stable.openapi.yaml
     state: adapter-required
     tasks:
       - Migrate direct checkout to quote, acceptance and CheckoutOperation polling.
@@ -162,7 +162,7 @@ contracts:
   - id: catalog-public
     owner: catalog-service
     consumers: [gateway-bff, web-user, mobile-app]
-    artifact: docs/03_api_specs/mvp-customer.openapi.yaml
+    artifact: docs/03_api_specs/customer-stable.openapi.yaml
     state: adapter-required
     tasks:
       - Serve /api/v1/categories, /api/v1/products, /api/v1/products/search and /api/v1/products/{id_or_slug} over REST.
@@ -226,7 +226,7 @@ contracts:
     # See TEAM-DECISIONS.md section 4 and the handoff table.
     owner: order-service
     consumers: [order-service]
-    artifact: docs/03_api_specs/order-core-dependencies.mvp.openapi.yaml
+    artifact: services/order-service/docs/contracts/order-core-dependencies.mvp.openapi.yaml
     state: adapter-required
     tasks:
       - Implement terms, revalidate, original source revision lookup, admission barrier and completion authority.

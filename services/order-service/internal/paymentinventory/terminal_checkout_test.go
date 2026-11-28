@@ -68,11 +68,11 @@ func testTerminalCheckoutWorker(t *testing.T, a Adapter) {
 	if _, err = db.Exec(ctx, `INSERT INTO payment_receiver_profiles(id,connection_id,bank_account_uuid,config_version,config_cipher,accepting_new_payments) VALUES($1,$2,$3,$4,$5,true)`, *s.Payment.ReceiverProfileID, connection, uuid.NewString(), *s.Payment.ReceiverProfileVersion, []byte("unused-receiver-fixture")); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := json.Marshal(persistence.AcceptedCheckout{Terms: s, QuoteExpires: s.Catalog.ValidUntil})
+	raw, err := json.Marshal(persistence.AcceptedCheckout{Terms: s, QuoteExpires: s.Shipping.ValidUntil})
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := persistence.AcceptanceInput{Owner: s.Owner, Method: s.Payment.Method, Key: uuid.NewString(), RequestHash: strings.Repeat("a", 64), QuoteID: s.Provenance.QuoteID, CartID: s.Provenance.CartID, CartRevision: s.Provenance.CartRevision, SelectionDigest: s.Provenance.SelectionDigest, QuoteHash: s.Provenance.QuoteHash, QuoteExpiresAt: s.Catalog.ValidUntil, AcceptedJSON: raw}
+	in := persistence.AcceptanceInput{Owner: s.Owner, Method: s.Payment.Method, Key: uuid.NewString(), RequestHash: strings.Repeat("a", 64), QuoteID: s.Provenance.QuoteID, CartID: s.Provenance.CartID, CartRevision: s.Provenance.CartRevision, SelectionDigest: s.Provenance.SelectionDigest, QuoteHash: s.Provenance.QuoteHash, QuoteExpiresAt: s.Shipping.ValidUntil, AcceptedJSON: raw}
 	accepted, err := store.Accept(ctx, in)
 	if err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func testTerminalCheckoutWorker(t *testing.T, a Adapter) {
 		t.Fatal("persisted Order projection", err)
 	}
 	expires := root.Snapshot().Data().Payment.ExpiresAt
-	if expires == nil || expires.Nanosecond()%1000 != 0 || expires.After(s.Catalog.ValidUntil) {
+	if expires == nil || expires.Nanosecond()%1000 != 0 || expires.After(s.Shipping.ValidUntil) {
 		t.Fatal("payment deadline must fit PostgreSQL precision without extending provider validity")
 	}
 	key := "peer-payment-finalize-" + root.ID()

@@ -61,7 +61,7 @@ Shipping Quote adapter triển khai trong giai đoạn0–5, không đợi shipm
 | --- | --- |
 | Money | Integer VND, bounds/checked arithmetic, positive Order final, explicit currency |
 | Business identity | Order/planned operation identity, command/effect scopes, canonical hashes; request hash khác items digest |
-| Snapshot | Typed versioned model theo [schema v1](../../../03_api_specs/order-snapshot.v1.schema.json), cross-field validation và immutable accepted terms |
+| Snapshot | Typed versioned model theo [schema v1](../../../../services/order-service/testdata/order-snapshot.v1.schema.json), cross-field validation và immutable accepted terms |
 | Order decisions | Transition guards nhận explicit decision time/current version/verified evidence; không tự đọc wall clock hoặc gọi network trong domain |
 | Ownership | Current owner scope tách owner-at-placement; Guest/Customer discriminator và authorization inputs |
 | Minimum controls | Eligibility cho allocation/finalize/first PAID, pending cancel/timeout; hold/cancel/refund blocking và no terminal revival |

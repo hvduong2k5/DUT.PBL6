@@ -2,9 +2,9 @@
 
 **Phiên bản:** `payment-sepay-1.1-review` · **Ngày:** 16/10/2026 · **Trạng thái:** Đề xuất đã cập nhật sau review, chưa triển khai.
 
-[Chỉ mục Order](README.md) · [HLD Order 3.2](00_order_service_hld.md) · [OpenAPI Payment candidate](../../../03_api_specs/order-payment-sepay.candidate.openapi.yaml)
+[Chỉ mục Order](README.md) · [HLD Order 3.2](00_order_service_hld.md) · [OpenAPI Payment candidate](../../../../services/order-service/docs/contracts/order-payment-sepay.candidate.openapi.yaml)
 
-[OpenAPI Staff/Refund candidate](../../../03_api_specs/order-payment-staff.candidate.openapi.yaml) · [Phản hồi 6 điểm review](10_payment_sepay_review_resolution.md)
+[OpenAPI Staff/Refund candidate](../../../../services/order-service/docs/contracts/order-payment-staff.candidate.openapi.yaml) · [Phản hồi 6 điểm review](10_payment_sepay_review_resolution.md)
 
 ## 1. Quyết định thiết kế
 
@@ -335,7 +335,7 @@ Giới hạn giá trị Order vẫn ≤10^12 VND; giới hạn receipt phải ch
 
 ### 8.2 Transaction boundaries
 
-Physical mapping được hợp nhất ở [Persistence17](14_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql): payment_work_items và observation/sync lease fields là logical worker roles, map sang jobs/workflows với nullable Order association; không có hai physical queue/lease cùng execute một effect. Financial event streams dùng receipt/refund UUID, không ép unmatched money vào Order stream. [Payment event schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) vẫn cần Finance/consumer approval trước activation.
+Physical mapping được hợp nhất ở [Persistence17](14_order_persistence_messaging_design.md) và [DDL candidate](order_persistence_messaging.candidate.sql): payment_work_items và observation/sync lease fields là logical worker roles, map sang jobs/workflows với nullable Order association; không có hai physical queue/lease cùng execute một effect. Financial event streams dùng receipt/refund UUID, không ép unmatched money vào Order stream. [Payment event schema candidate](../../../../services/order-service/docs/contracts/order-payment-events.candidate.schema.json) vẫn cần Finance/consumer approval trước activation.
 
 | Tx | Ghi atomic | Sau commit |
 | --- | --- | --- |
@@ -452,7 +452,7 @@ Mất ACK chưa có refund_id: replay cùng endpoint/body/key để lấy lại 
 4. Người xác minh độc lập đối chiếu sao kê giao dịch ra, receiver/amount/reference và approval. Lưu evidence encrypted; unique bank outgoing reference trong receiver scope. Ảnh chụp khách gửi hoặc thao tác bấm “đã hoàn” không đủ xác nhận.
 5. Payment ghi SUCCEEDED và outbox khi evidence hợp lệ. Đổi từ AUTO sang MANUAL chỉ sau khi chứng minh attempt AUTO chưa/không chi tiền; timeout không phải bằng chứng đó.
 
-Contract cụ thể cho staff nằm ở mục 10.4 và [OpenAPI Staff/Refund candidate](../../../03_api_specs/order-payment-staff.candidate.openapi.yaml). Không bật manual execution chỉ bằng sửa trực tiếp status trong DB.
+Contract cụ thể cho staff nằm ở mục 10.4 và [OpenAPI Staff/Refund candidate](../../../../services/order-service/docs/contracts/order-payment-staff.candidate.openapi.yaml). Không bật manual execution chỉ bằng sửa trực tiếp status trong DB.
 
 Hoàn tiền không tự reverse stock, không tự cancel Order và không kéo lifecycle về PROCESSING. Nếu Order có allocation, payment summary phản ánh hoàn trên allocation đó; refund của receipt dư/unmatched không làm Order hợp lệ khác thành REFUNDED.
 
@@ -506,7 +506,7 @@ Queue SLA đề xuất: case mới được gán trong 4 giờ làm việc; cậ
 
 ## 11. API nội bộ sản phẩm và trải nghiệm khách hàng
 
-Contract máy đọc được: [Customer/Guest/Webhook](../../../03_api_specs/order-payment-sepay.candidate.openapi.yaml) và [Staff/Refund](../../../03_api_specs/order-payment-staff.candidate.openapi.yaml). Checkout/cancel giữ Order contract; guest grant và manual refund là các endpoint đề xuất mới, chưa có runtime.
+Contract máy đọc được: [Customer/Guest/Webhook](../../../../services/order-service/docs/contracts/order-payment-sepay.candidate.openapi.yaml) và [Staff/Refund](../../../../services/order-service/docs/contracts/order-payment-staff.candidate.openapi.yaml). Checkout/cancel giữ Order contract; guest grant và manual refund là các endpoint đề xuất mới, chưa có runtime.
 
 | Endpoint | Kết quả | Guard |
 | --- | --- | --- |

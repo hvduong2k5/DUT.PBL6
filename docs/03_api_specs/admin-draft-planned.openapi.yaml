@@ -141,6 +141,395 @@ paths:
     $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1orders~1queue'
   /api/v1/admin/orders/{id}:
     $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1orders~1{id}'
+  /api/v1/admin/payments/reconciliation-cases:
+    get:
+      tags: [Payments]
+      operationId: listPaymentReconciliationCases
+      summary: List scoped payment reconciliation cases
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '200':
+          description: Paged reconciliation cases
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/reconciliation-cases/{case_id}:
+    get:
+      tags: [Payments]
+      operationId: getPaymentReconciliationCase
+      summary: Get scoped payment reconciliation case detail
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reconciliation case detail
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/v1/admin/payments/reconciliation-cases/{case_id}/assign:
+    post:
+      tags: [Payments]
+      operationId: assignPaymentReconciliationCase
+      summary: Assign reconciliation case
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Case assigned
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/reconciliation-cases/{case_id}/resolve:
+    post:
+      tags: [Payments]
+      operationId: resolvePaymentReconciliationCase
+      summary: Resolve reconciliation case
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Case resolved
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds:
+    get:
+      tags: [Payments]
+      operationId: listPaymentRefunds
+      summary: List scoped payment refunds
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '200':
+          description: Paged refunds
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}:
+    get:
+      tags: [Payments]
+      operationId: getPaymentRefund
+      summary: Get scoped payment refund detail
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Refund detail
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/v1/admin/payments/refunds/{refund_id}/claim:
+    post:
+      tags: [Payments]
+      operationId: claimPaymentRefund
+      summary: Claim manual refund obligation
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Refund claimed
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/start:
+    post:
+      tags: [Payments]
+      operationId: startPaymentRefund
+      summary: Start manual refund execution
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Refund started
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/report-uncertain:
+    post:
+      tags: [Payments]
+      operationId: reportUncertainPaymentRefund
+      summary: Report uncertain manual refund outcome
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Uncertain outcome recorded
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/evidence:
+    post:
+      tags: [Payments]
+      operationId: attachPaymentRefundEvidence
+      summary: Attach transfer evidence to refund
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Evidence attached
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/verify:
+    post:
+      tags: [Payments]
+      operationId: verifyPaymentRefund
+      summary: Verify manual refund settlement
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Refund verified
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/retry-attempt:
+    post:
+      tags: [Payments]
+      operationId: retryPaymentRefundAttempt
+      summary: Retry failed manual refund attempt
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Retry created
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refunds/{refund_id}/cancel-obligation:
+    post:
+      tags: [Payments]
+      operationId: cancelPaymentRefundObligation
+      summary: Cancel manual refund obligation
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: refund_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Obligation cancelled
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/evidence-uploads:
+    post:
+      tags: [Payments]
+      operationId: createPaymentEvidenceUpload
+      summary: Request upload ticket for payment evidence
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '201':
+          description: Upload ticket created
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/evidence/{evidence_id}:
+    get:
+      tags: [Payments]
+      operationId: getPaymentEvidence
+      summary: Get payment evidence metadata
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: evidence_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Evidence metadata
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+        '404':
+          description: Not found
+  /api/v1/admin/payments/refund-approvals:
+    get:
+      tags: [Payments]
+      operationId: listPaymentRefundApprovals
+      summary: List refund approvals
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '200':
+          description: Refund approvals list
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+    post:
+      tags: [Payments]
+      operationId: createPaymentRefundApproval
+      summary: Create refund approval
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '201':
+          description: Refund approval created
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refund-approvals/{approval_id}/withdraw:
+    post:
+      tags: [Payments]
+      operationId: withdrawPaymentRefundApproval
+      summary: Withdraw refund approval
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Approval withdrawn
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refund-approvals/{approval_id}/accept:
+    post:
+      tags: [Payments]
+      operationId: acceptPaymentRefundApproval
+      summary: Accept refund approval
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      parameters:
+        - name: approval_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Approval accepted
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+  /api/v1/admin/payments/refund-evidence:
+    get:
+      tags: [Payments]
+      operationId: listPaymentRefundEvidence
+      summary: List refund evidence records
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '200':
+          description: Refund evidence records
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
+    post:
+      tags: [Payments]
+      operationId: createPaymentRefundEvidence
+      summary: Create refund evidence record
+      security:
+        - bearerAuth: []
+        - adminSession: []
+      responses:
+        '201':
+          description: Refund evidence record created
+        '401':
+          description: Unauthenticated
+        '403':
+          description: Forbidden
   /api/v1/admin/order-api/orders:
     $ref: './iam-consumer-read.openapi.yaml#/paths/~1api~1v1~1admin~1order-api~1orders'
   /api/v1/admin/order-api/orders/queue:

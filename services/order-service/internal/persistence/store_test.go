@@ -109,7 +109,7 @@ func (h *harness) count(t *testing.T, query string, args ...any) int {
 
 func snapshotInput(t *testing.T, index int) core.SnapshotInput {
 	t.Helper()
-	p := filepath.Join("..", "..", "..", "..", "docs", "03_api_specs", "order-snapshot.v1.examples.json")
+	p := filepath.Join("..", "..", "testdata", "order-snapshot.v1.examples.json")
 	b, err := os.ReadFile(p)
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func prepared(t *testing.T, h *harness, index int) (Acceptance, Placement) {
 	d.OrderID, d.OperationID, d.SnapshotID = a.PlannedOrderID, a.OperationID, uuid.NewString()
 	d.Provenance.QuoteID, d.Provenance.CartID, d.Provenance.CartRevision = in.QuoteID, in.CartID, in.CartRevision
 	d.Provenance.AcceptedAt, d.Provenance.CanonicalizedAt, d.PlacedAt = a.AcceptedAt, now, now
-	d.Catalog.ValidUntil = now.Add(20 * time.Minute)
+	d.Catalog.EvaluatedAt = now.Add(-time.Second)
 	d.Shipping.ValidUntil = now.Add(20 * time.Minute)
 	if d.Payment.Method == "VIETQR" {
 		expires := now.Add(15 * time.Minute)
