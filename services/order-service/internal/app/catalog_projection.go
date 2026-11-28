@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/omamx/order-service/internal/domain"
 	"github.com/segmentio/kafka-go"
 )
@@ -147,11 +148,20 @@ func (s *Service) UpsertPriceProjection(ctx context.Context, p PriceProjection) 
 
 // LookupCartPrices reads display-only cart pricing from sku_prices_projection for the requested SKUs.
 func (s *Service) LookupCartPrices(ctx context.Context, channel string, skus []string) (map[string]PriceProjection, error) {
+	if s.DB == nil {
+		return make(map[string]PriceProjection, len(skus)), nil
+	}
+	return lookupCartPrices(ctx, s.DB, channel, skus)
+}
+
+func lookupCartPrices(ctx context.Context, q interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, channel string, skus []string) (map[string]PriceProjection, error) {
 	out := make(map[string]PriceProjection, len(skus))
-	if s.DB == nil || len(skus) == 0 {
+	if q == nil || len(skus) == 0 {
 		return out, nil
 	}
-	rows, err := s.DB.Query(ctx, `
+	rows, err := q.Query(ctx, `
 		SELECT sku_code, product_name, unit_price, weight_grams, packaging_type, is_saleable, price_version
 		FROM sku_prices_projection
 		WHERE channel = $1

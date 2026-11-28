@@ -39,7 +39,7 @@ func readSQLCart(ctx context.Context, q cartReader, scope string) (cart domain.C
 func (s *Service) cartAtMerge(ctx context.Context, tx pgx.Tx, p domain.Principal) (domain.Cart, error) {
 	cart, _, e := readSQLCart(ctx, tx, p.Scope())
 	if errors.Is(e, pgx.ErrNoRows) {
-		return s.redisCart(ctx, p)
+		return s.redisCartWith(ctx, tx, p)
 	}
 	return cart, e
 }
@@ -67,7 +67,7 @@ func (s *Service) mutateStorefrontCart(ctx context.Context, p domain.Principal, 
 	if errors.Is(e, pgx.ErrNoRows) {
 		// Hold the same SQL scope fence while changing an unconverted Redis cart.
 		// A merge can then import exactly one stable Redis revision.
-		return s.mutateRedisCart(ctx, p, sku, qty, revision, add)
+		return s.mutateRedisCartWith(ctx, tx, p, sku, qty, revision, add)
 	}
 	if e != nil {
 		return cart, e
