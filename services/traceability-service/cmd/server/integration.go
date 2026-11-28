@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"net/http"
 	"strings"
 	"time"
 
@@ -30,7 +29,10 @@ func integrationAdapters(ctx context.Context, getenv func(string) string) (httpt
 		return nil, nil, nil, errors.New("integration requires distinct service credentials and HTTPS OIDC issuer")
 	}
 	// OIDC protocol traffic is HTTPS; business dependencies below are gRPC only.
-	client := &http.Client{Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	client, err := oidcHTTPClient(getenv("TRACEABILITY_OIDC_CA_FILE"))
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	discovery, cancel := context.WithTimeout(oidc.ClientContext(ctx, client), 5*time.Second)
 	defer cancel()
 	provider, err := oidc.NewProvider(discovery, issuer)
