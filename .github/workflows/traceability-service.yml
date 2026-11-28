@@ -24,7 +24,6 @@ jobs:
       run:
         working-directory: services/traceability-service
     env:
-      COMPOSE_PROJECT_NAME: traceability-service
       # Ephemeral fixture credentials for this isolated CI runner only.
       TRACEABILITY_DB_PASSWORD: traceability_ci_ephemeral
       TRACEABILITY_TEST_DATABASE_URL: postgres://trace_migrator:traceability_ci_ephemeral@127.0.0.1:15403/om_traceability_db?sslmode=disable
@@ -36,7 +35,37 @@ jobs:
           go-version: '1.25.0'
           cache-dependency-path: services/traceability-service/go.sum
       - name: Start isolated PostgreSQL and Kafka-compatible broker
-        run: docker compose --profile broker up -d --wait db kafka
+        run: |
+          docker network create traceability-ci
+          docker run -d --name traceability-ci-db --network traceability-ci \
+            -p 127.0.0.1:15403:5432 \
+            -e POSTGRES_DB=om_traceability_db -e POSTGRES_USER=trace_migrator \
+            -e POSTGRES_PASSWORD="$TRACEABILITY_DB_PASSWORD" \
+            --health-cmd='pg_isready -U trace_migrator -d om_traceability_db' \
+            --health-interval=2s --health-timeout=2s --health-retries=30 postgres:16-alpine
+          docker run -d --name traceability-ci-kafka --network traceability-ci \
+            -p 127.0.0.1:19093:19092 \
+            --health-cmd='rpk cluster info --brokers 127.0.0.1:9092' \
+            --health-interval=2s --health-timeout=2s --health-retries=30 \
+            docker.redpanda.com/redpandadata/redpanda:v24.3.18 \
+            redpanda start --smp=1 --memory=512M --reserve-memory=0M \
+            --overprovisioned --node-id=0 --check=false \
+            --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092 \
+            --advertise-kafka-addr=internal://traceability-ci-kafka:9092,external://127.0.0.1:19093
+          for container in traceability-ci-db traceability-ci-kafka; do
+            ready=false
+            for attempt in $(seq 1 60); do
+              if [ "$(docker inspect --format='{{.State.Health.Status}}' "$container")" = healthy ]; then
+                ready=true
+                break
+              fi
+              sleep 1
+            done
+            if [ "$ready" != true ]; then
+              docker logs "$container"
+              exit 1
+            fi
+          done
       - name: Format, vet and build
         run: |
           test -z "$(gofmt -l cmd internal migrations)"
@@ -55,4 +84,6 @@ jobs:
           /tmp/traceability-spec/bin/python scripts/validate_specs.py
       - name: Clean up runner containers without removing volumes
         if: always()
-        run: docker compose --profile broker down
+        run: |
+          docker rm -f traceability-ci-db traceability-ci-kafka || true
+          docker network rm traceability-ci || true
