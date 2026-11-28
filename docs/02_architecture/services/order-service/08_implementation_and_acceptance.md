@@ -74,8 +74,8 @@ Shipping CREATED chỉ cập nhật reference; DISPATCHED mới SHIPPED. Source 
 
 ## 4. Contract và code
 
-- [REST contract](../../../03_api_specs/order-service.openapi.yaml).
-- [Dependency simulator contract](../../../03_api_specs/order-sandbox-dependencies.openapi.yaml).
+- [REST contract](../../../../services/order-service/docs/contracts/order-service.openapi.yaml).
+- [Dependency simulator contract](../../../../services/order-service/docs/contracts/order-sandbox-dependencies.openapi.yaml).
 - [Service README](../../../../services/order-service/README.md).
 - Order gRPC đăng ký thật: GetOrderDetail, CancelOrder, GetCheckoutOperation; requesting_user_id không thay thế bearer identity. CreatePOSOrder trả FEATURE_DISABLED.
 - Inventory simulator đăng ký RPC reserve/release/query/finalize/reversal cùng ledger HTTP; FEFO/batch RPC trả Unimplemented rõ ràng.
