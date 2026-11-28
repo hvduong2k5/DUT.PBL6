@@ -327,7 +327,9 @@ func main() {
 			log.Fatal("apply inventory migration 000005 before enabling the admin API")
 		}
 		mux := http.NewServeMux()
-		mux.Handle("POST "+httpapi.ReceiptPath, httpapi.ReceiptHandler{DB: db, Key: publicKey, Issuer: issuer, Audience: audience})
+		receiptHandler := httpapi.ReceiptHandler{DB: db, Key: publicKey, Issuer: issuer, Audience: audience}
+		mux.Handle("POST "+httpapi.ReceiptPath, receiptHandler)
+		mux.Handle("GET "+httpapi.WorkbenchPath, httpapi.WorkbenchHandler{ReceiptHandler: receiptHandler})
 		adminHTTP = &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 5 * time.Second,
 			ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second}
 		listener, err := net.Listen("tcp", address)
