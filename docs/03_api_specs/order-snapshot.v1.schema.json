@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "order-snapshot.v1.schema.json",
+  "title": "OrderSnapshot",
+  "description": "Immutable snapshot of an order captured at placement time. All mutable references (address names, SKU display names, prices) are frozen into this structure so that downstream reads remain correct regardless of catalog or profile mutations.",
+  "type": "object",
+  "required": ["orderId", "status", "placedAt", "customer", "items", "address", "amounts"],
+  "additionalProperties": false,
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable UUID assigned at order placement."
+    },
+    "orderCode": {
+      "type": "string",
+      "description": "Human-readable order code, unique within the tenant."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING_PAYMENT",
+        "CONFIRMED",
+        "CONFIRMED_COD",
+        "PROCESSING",
+        "PACKING",
+        "SHIPPING",
+        "DELIVERED",
+        "COMPLETED",
+        "CANCELLATION_REQUESTED",
+        "CANCELLED",
+        "REFUNDED"
+      ],
+      "description": "Current lifecycle status of the order."
+    },
+    "placedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp when the order was placed."
+    },
+    "customer": {
+      "type": "object",
+      "required": ["customerId"],
+      "additionalProperties": false,
+      "properties": {
+        "customerId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "guestToken": {
+          "type": ["string", "null"],
+          "description": "Non-null for guest orders; null for authenticated customers."
+        },
+        "displayName": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["skuCode", "quantity", "unitPrice", "subtotal"],
+        "additionalProperties": false,
+        "properties": {
+          "skuCode": {
+            "type": "string"
+          },
+          "productName": {
+            "type": ["string", "null"],
+            "description": "Display name frozen at checkout from catalog projection."
+          },
+          "variantLabel": {
+            "type": ["string", "null"]
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "integer",
+            "description": "Unit sale price in VND at time of placement."
+          },
+          "subtotal": {
+            "type": "integer",
+            "description": "quantity × unitPrice in VND."
+          },
+          "imageUrl": {
+            "type": ["string", "null"],
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "address": {
+      "type": "object",
+      "required": ["recipientName", "phone", "street"],
+      "additionalProperties": false,
+      "description": "Delivery address frozen at placement using administrative snapshot names.",
+      "properties": {
+        "recipientName": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "street": {
+          "type": "string",
+          "description": "Street line with ward and district, frozen at checkout."
+        },
+        "wardName": {
+          "type": ["string", "null"]
+        },
+        "districtName": {
+          "type": ["string", "null"]
+        },
+        "provinceName": {
+          "type": ["string", "null"]
+        },
+        "wardCode": {
+          "type": ["string", "null"]
+        },
+        "districtCode": {
+          "type": ["string", "null"]
+        },
+        "provinceCode": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "amounts": {
+      "type": "object",
+      "required": ["subtotal", "shippingFee", "total"],
+      "additionalProperties": false,
+      "properties": {
+        "subtotal": {
+          "type": "integer",
+          "description": "Sum of all item subtotals in VND."
+        },
+        "discountAmount": {
+          "type": "integer",
+          "default": 0
+        },
+        "shippingFee": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer",
+          "description": "Final amount charged to the customer in VND."
+        }
+      }
+    },
+    "paymentMethod": {
+      "type": ["string", "null"],
+      "enum": ["VIETQR", "COD", null]
+    },
+    "note": {
+      "type": ["string", "null"],
+      "maxLength": 500
+    }
+  }
+}
