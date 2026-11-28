@@ -160,4 +160,13 @@ message PackageRevision {
   string immutable_video_object_key = 11;
   string video_checksum_sha256 = 12;
   string contract_version = 13;
+  // Exact sealed snapshot. Empty from legacy providers does not mean an empty order.
+  repeated PackedBatchLine packed_lines = 14;
+}
+message PackedBatchLine {
+  string order_line_id = 1;
+  string sku_code = 2;
+  string batch_id = 3;
+  string batch_code = 4;
+  int32 packed_quantity = 5;
 }
