@@ -124,7 +124,7 @@ def pack(request, gateway, token, customer_token, folder, order_id, order_until,
     if web:
         assert request(base+"/tasks",token=token)[0]==401,"Browser bearer header bypassed cookie boundary"
         assert request(base+"/tasks/"+str(uuid.uuid4())+"/start",{},headers={**staff_headers,"Origin":"https://attacker.invalid"})[0]==403,"Cross-origin staff mutation was accepted"
-    assert request(control+"/pack?order="+order_id,{},method="POST")[0]==409,"TEST packing remained enabled"
+    assert request(control+"/pack?order="+order_id,method="POST")[0]==409,"TEST packing remained enabled"
     task=None
     for _ in range(60):
         status,page,_=call("/tasks")

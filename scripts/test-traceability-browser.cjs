@@ -21,7 +21,10 @@ fs.rmSync(path.join(output, 'result.json'), { force: true });
     page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 1080 });
     await browser.setCookie({ name: 'OMAMA_SESSION', value: fixture.customer_session, domain: '127.0.0.1', path: '/', httpOnly: true });
-    await page.goto(fixture.web + '/orders/' + fixture.second_order_id, { waitUntil: 'domcontentloaded' });
+    await page.goto(fixture.web + '/account/orders', { waitUntil: 'domcontentloaded' });
+    const orderLink = `a[href="/orders/${fixture.second_order_id}"]`;
+    await page.waitForSelector(orderLink, { timeout: 90000 });
+    await page.click(orderLink);
     await page.waitForFunction(() => document.querySelector('#nguon-goc')?.innerText.includes('Hồ sơ hiện đã dừng công khai.'), { timeout: 90000 });
     const panel = await page.$('#nguon-goc');
     assert.equal(await panel.$$eval('a', links => links.length), 2);
@@ -87,7 +90,7 @@ fs.rmSync(path.join(output, 'result.json'), { force: true });
     // PDF generation fires afterprint; the UI correctly removes its portal then.
     await page.pdf({ path: path.join(output, 'source-label-print.pdf'), format: 'A4', printBackground: true });
     await page.emulateMediaType('screen');
-    const result = { status: 'PASS', real_order_two_batches: true, public_mobile_no_overflow: true,
+    const result = { status: 'PASS', history_navigation: true, real_order_two_batches: true, public_mobile_no_overflow: true,
       gone_mobile: true, draft_not_public: true, canvas_qr_decoded: true, downloaded_png_decoded: true,
       svg_download: true, print_portal_rendered: true, physical_printer: 'NOT RUN', physical_camera: 'NOT RUN' };
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2));
