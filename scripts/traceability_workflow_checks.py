@@ -55,7 +55,9 @@ class TraceabilityChecks:
         self.env['ORDER_TRACEABILITY_TOKEN_FILE']=str(folder/'trace-resolver-token')
         self.env['NODE_EXTRA_CA_CERTS']=str(self.cert)
         self.env['JAVA_TOOL_OPTIONS']='-Xms32m -Xmx384m'
-        self.env.update(PEER_ADMIN_ADDRESS=f"127.0.0.1:{ports['trace_inventory']}",
+        # Kong reaches native fixture handlers through the Docker host gateway.
+        # Linux bridge traffic cannot reach a host listener bound to loopback.
+        self.env.update(PEER_ADMIN_ADDRESS=f"0.0.0.0:{ports['trace_inventory']}",
             PEER_ADMIN_ISSUER=self.origin+'/realms/order-auth-test-'+suffix,
             PEER_ADMIN_KEY_FILE=str(folder/'jwt-public.pem'))
         self.env.update(TRACEABILITY_MEDIA_HTTP_UPSTREAM_URL=f"http://127.0.0.1:{ports['trace_media']}/api/v1/media",
@@ -86,7 +88,7 @@ class TraceabilityChecks:
         self.container('codex-trace-media-'+self.suffix,image,[*args,'-p',f"127.0.0.1:{self.ports['trace_media']}:8007",'-p',f"127.0.0.1:{self.ports['trace_media_grpc']}:9007"])
         self.wait(f"http://127.0.0.1:{self.ports['trace_media']}/fixture-health",expected=404)
         self.env.update(APP_MODE='integration',DATABASE_URL=f"postgres://{role}:{role_secret}@127.0.0.1:{self.ports['db']}/{trace_db}?sslmode=disable",
-            HTTP_ADDR=f"127.0.0.1:{self.ports['trace_http']}",PUBLIC_WEB_BASE_URL=self.origin,
+            HTTP_ADDR=f"0.0.0.0:{self.ports['trace_http']}",PUBLIC_WEB_BASE_URL=self.origin,
             TRACEABILITY_SCOPED_API_ENABLED='true',TRACEABILITY_CURSOR_HMAC_KEY=secrets.token_urlsafe(40),
             TRACEABILITY_ORDER_RESOLVER_ENABLED='true',TRACEABILITY_ORDER_RESOLVER_TOKEN=self.resolver_token,
             GRPC_ADDR=f"127.0.0.1:{self.ports['trace_grpc']}",GRPC_TLS_CERT_FILE=str(self.cert),GRPC_TLS_KEY_FILE=str(self.key),
