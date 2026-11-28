@@ -37,13 +37,13 @@ jobs:
       - name: Start isolated PostgreSQL and Kafka-compatible broker
         run: |
           docker network create traceability-ci
-          docker run -d --name traceability-ci-db --network traceability-ci \
+          docker run -d --name traceability-ci-db --label codex.task=traceability-ci --network traceability-ci \
             -p 127.0.0.1:15403:5432 \
             -e POSTGRES_DB=om_traceability_db -e POSTGRES_USER=trace_migrator \
             -e POSTGRES_PASSWORD="$TRACEABILITY_DB_PASSWORD" \
             --health-cmd='pg_isready -U trace_migrator -d om_traceability_db' \
             --health-interval=2s --health-timeout=2s --health-retries=30 postgres:16-alpine
-          docker run -d --name traceability-ci-kafka --network traceability-ci \
+          docker run -d --name traceability-ci-kafka --label codex.task=traceability-ci --network traceability-ci \
             -p 127.0.0.1:19093:19092 \
             --health-cmd='rpk cluster info --brokers 127.0.0.1:9092' \
             --health-interval=2s --health-timeout=2s --health-retries=30 \
@@ -73,9 +73,21 @@ jobs:
           go build ./...
       - name: Race and integration tests with aggregate coverage
         run: |
-          go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out
+          # Test every package, but measure handwritten code, including cmd.
+          # Generated protobuf stubs are checked by the contract/codegen gates.
+          coverage_packages=$(go list ./... | awk '!/\/pkg\/proto\//' | paste -sd, -)
+          test -n "$coverage_packages"
+          go test -race -count=1 -coverpkg="$coverage_packages" -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tee coverage-summary.txt
           go tool cover -func=coverage.out | awk '$1=="total:" {gsub("%","",$3); if ($3<75) exit 1}'
+      - name: Retain handwritten coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceability-coverage
+          path: |
+            services/traceability-service/coverage.out
+            services/traceability-service/coverage-summary.txt
       - name: Validate draft contracts
         run: |
           python3 -m venv /tmp/traceability-spec
