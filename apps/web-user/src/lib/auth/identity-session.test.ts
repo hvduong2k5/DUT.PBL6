@@ -42,7 +42,7 @@ describe("identitySession /users/me routing", () => {
       if (url === "/.well-known/openid-configuration") return send({ issuer, authorization_endpoint: `${issuer}/auth`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/certs`, end_session_endpoint: `${issuer}/logout` });
       if (url === "/certs") return send({ keys: [jwk] });
       hits.push(url);
-      if (url === "/id/users/me") return send({ success: true, data: { principalId, idpSubject: subject, principalType: "EMPLOYEE", provisioningStatus: "ACTIVE", email: "staff@test.local", roles: [{ roleCode: "ADMIN", scopeType: "GLOBAL", scopeId: null }], permissions: ["ORDER_VIEW", "FULFILLMENT_TASK_READ"] } });
+      if (url === "/id/users/me") return send({ success: true, data: { principalId, idpSubject: subject, principalType: "EMPLOYEE", provisioningStatus: "ACTIVE", email: "staff@test.local", roles: [{ roleCode: "ADMIN", scopeType: "GLOBAL", scopeId: null }], permissions: ["ORDER_VIEW", "FULFILLMENT_TASK_READ", "traceability.create"], permissionGrants: [{ permissionCode: "traceability.create", scopeType: "WAREHOUSE", scopeId: customerId }] } });
       if (url === "/cc/users/me") return send({ success: true, data: { principalId, idpSubject: subject, principalType: "CUSTOMER", provisioningStatus: "ACTIVE", email: "customer@test.local", roles: ["CUSTOMER"], permissions: [] } });
       if (url === "/cc/profile") return send({ id: customerId, user_id: principalId, full_name: "Cust Omer", status: "ACTIVE" });
       return send({ code: "UNSUPPORTED" }, 501);
@@ -72,6 +72,7 @@ describe("identitySession /users/me routing", () => {
     expect(hits).toEqual(["/id/users/me"]);
     expect(session.principal.principalType).toBe("EMPLOYEE");
     expect(session.principal.permissions).toContain("ORDER_VIEW");
+    expect(session.principal.permissionGrants).toEqual([{ permissionCode: "traceability.create", scopeType: "WAREHOUSE", scopeId: customerId }]);
   });
 
   it("keeps a CUSTOMER profile on the customer core for /users/me and /profile", async () => {

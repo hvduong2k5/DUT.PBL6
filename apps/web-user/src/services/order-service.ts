@@ -1,3 +1,4 @@
+import type { OrderTraceability } from "@/lib/orders/traceability";
 import { formatDecimalVersion, requestPublicJson } from "@/lib/api-contract";
 import type { OrderCancellation, OrderTrackingResponse, OwnedOrder, OwnedOrdersResponse } from "@/lib/api-contract";
 import { mapMvpCancellation, mapMvpOrderDetail, mapMvpOrderListResponse } from "@/lib/orders/mvp";
@@ -30,6 +31,11 @@ export const orderService = {
   async detail(orderId: string, mockScenario?: string) {
     const response = await requestPublicJson<OwnedOrder>(endpoint(`/${encodeURIComponent(orderId)}`, mockScenario), { credentials: "include" });
     return mapMvpOrderDetail(response.data);
+  },
+
+  async traceability(orderId: string): Promise<OrderTraceability> {
+    const response = await requestPublicJson<OrderTraceability>(endpoint(`/${encodeURIComponent(orderId)}/traceability`), { credentials: "include" });
+    return response.data;
   },
 
   async tracking(orderId: string, mockScenario?: string): Promise<OrderTrackingResponse> {

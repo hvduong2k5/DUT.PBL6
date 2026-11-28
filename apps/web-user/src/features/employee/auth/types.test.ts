@@ -108,4 +108,18 @@ describe("employee session projection from identity profiles", () => {
     expect(session?.permissions).not.toContain("PRODUCT_VIEW");
     expect(session?.permissions).not.toContain("PRODUCT_MANAGE");
   });
+
+  it("preserves warehouse Traceability grants even with an unrelated global role", () => {
+    const scopeId = "11111111-1111-4111-8111-111111111111";
+    const permissionGrants = ["traceability.read_internal", "traceability.create"].map((permissionCode) => ({ permissionCode, scopeType: "WAREHOUSE", scopeId }));
+    const session = toEmployeeSession({ ...profileWith(["traceability.read_internal", "traceability.create"]), permissionGrants });
+    expect(session?.permissionGrants).toEqual(permissionGrants);
+    expect(session?.scopes).toContainEqual({ resource: "TRACEABILITY", level: "ASSIGNED_ONLY" });
+    expect(session?.scopes).not.toContainEqual({ resource: "TRACEABILITY", level: "ALL" });
+    expect(parseAdminSession(session)?.permissionGrants).toEqual(permissionGrants);
+  });
+  it("does not grant Traceability access from roles or flat permissions without valid scope tuples", () => {
+    expect(toEmployeeSession(profileWith(["traceability.create"]))?.permissions).not.toContain("traceability.create");
+    expect(toEmployeeSession({ ...profileWith(["traceability.create"]), permissionGrants: [{ permissionCode: "traceability.create", scopeType: "STORE", scopeId: "a" }] })?.permissions).not.toContain("traceability.create");
+  });
 });

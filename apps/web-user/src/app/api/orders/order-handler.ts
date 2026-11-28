@@ -1,3 +1,5 @@
+import { readBoundedText } from "@/lib/server/read-bounded-text";
+import { isOrderTraceability } from "@/lib/orders/traceability";
 import { hasTrustedOrigin } from "@/lib/auth/request-origin";
 import {
   isValidIdempotencyKey,
@@ -70,10 +72,11 @@ async function upstream(
     headers: upstreamHeaders(request, scenario, body !== undefined, idempotencyKey, ifMatch),
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
-    redirect: "manual"
+    redirect: "manual",
+    ...(path.endsWith("/traceability") ? { signal: AbortSignal.timeout(6500) } : {})
   });
   const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() as unknown : undefined;
+  const payload = contentType.includes("application/json") ? path.endsWith("/traceability") ? JSON.parse(await readBoundedText(response.body, 524288)) as unknown : await response.json() as unknown : undefined;
   return { response, payload };
 }
 
@@ -165,7 +168,7 @@ async function handleResolvedOrderRequest(request: NextRequest, path: string[]):
     && !hasCustomerCredential(request)
     && guestAccess?.orderId === route.orderId;
 
-  const sessionGuestRead = !hasCustomerCredential(request) && MVP_FEATURE_GATES.guestOrder && request.cookies.has(GUEST_COOKIE) && (route.operation === "detail" || route.operation === "tracking");
+  const sessionGuestRead = !hasCustomerCredential(request) && MVP_FEATURE_GATES.guestOrder && request.cookies.has(GUEST_COOKIE) && (route.operation === "detail" || route.operation === "tracking" || route.operation === "traceability");
   if (sessionGuestRead) {
     try { await authorizeStorefrontCapability(request,"ORDER_HISTORY_VIEW"); }
     catch(cause) { const failure=customerAccessFailure(cause);return publicErrorResponse(failure.status,failure.code,failure.message,"BFF-ORDER-GUEST-ACCESS"); }
@@ -248,6 +251,14 @@ async function handleResolvedOrderRequest(request: NextRequest, path: string[]):
         return publicErrorResponse(502, "INVALID_ORDER_RESPONSE", "Order detail không đúng public contract.", "BFF-ORDER-DETAIL");
       }
       return NextResponse.json(result.payload, { headers: responseHeaders(result.response) });
+    }
+
+    if (route.operation === "traceability" && route.orderId) {
+      const result = await upstream(request, `orders/${route.orderId}/traceability`, "GET");
+      if (!result.response.ok) return relayError(result.payload, result.response);
+      const origins = [process.env.NEXT_PUBLIC_TRACEABILITY_PUBLIC_ORIGIN, process.env.WEB_PUBLIC_URL, process.env.NODE_ENV !== "production" && !process.env.WEB_PUBLIC_URL && !process.env.NEXT_PUBLIC_TRACEABILITY_PUBLIC_ORIGIN ? request.nextUrl.origin : undefined].filter((value): value is string => Boolean(value)).map((value) => new URL(value).origin);
+      if (result.response.status !== 200 || !isOrderTraceability(result.payload, route.orderId, origins)) return publicErrorResponse(502, "INVALID_TRACEABILITY_RESPONSE", "Thông tin nguồn gốc chưa đúng hợp đồng.", "BFF-ORDER-TRACEABILITY");
+      return NextResponse.json(result.payload, { headers: { "Cache-Control": "no-store" } });
     }
 
     if (route.operation === "tracking" && route.orderId) {

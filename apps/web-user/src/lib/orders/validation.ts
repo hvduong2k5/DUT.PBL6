@@ -7,7 +7,7 @@ const SCENARIO_PATTERN = /^[a-z0-9-]+$/u;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PHONE_PATTERN = /^(?:\+?84|0)[0-9]{9,10}$/u;
 
-export type OrderOperation = "list" | "detail" | "tracking" | "cancel" | "guest-challenge" | "guest-verify";
+export type OrderOperation = "list" | "detail" | "tracking" | "traceability" | "cancel" | "guest-challenge" | "guest-verify";
 
 export interface OrderRouteValidation {
   operation?: OrderOperation;
@@ -53,6 +53,7 @@ export function parseOrderRoute(method: string, path: string[], params: URLSearc
   if (!path[0] || !UUID_PATTERN.test(path[0])) return { error: { field: "path", message: "Order route is not available." } };
   if (method === "GET" && path.length === 1) return { operation: "detail", orderId: path[0], mockScenario };
   if (method === "GET" && path.length === 2 && path[1] === "tracking") return { operation: "tracking", orderId: path[0], mockScenario };
+  if (method === "GET" && path.length === 2 && path[1] === "traceability") return { operation: "traceability", orderId: path[0], mockScenario };
   if (method === "POST" && path.length === 2 && path[1] === "cancel") return { operation: "cancel", orderId: path[0], mockScenario };
   return { error: { field: "path", message: "Order route is not available." } };
 }

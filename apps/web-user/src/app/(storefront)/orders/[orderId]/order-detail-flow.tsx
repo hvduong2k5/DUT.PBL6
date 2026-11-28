@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { OrderTraceabilityPanel } from "@/components/orders/order-traceability";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useCustomerSession } from "@/components/auth/customer-session-provider";
@@ -129,6 +130,7 @@ export function OrderDetailFlow({ orderId }: { orderId: string }) {
 
     <div className="order-detail-layout"><div className="order-detail-main">
       <section className="order-detail-card"><header><span className="gh-emblem" aria-hidden="true" /><div><h2>Danh mục thức quà</h2><p>{order.snapshotAvailable ? "Danh sách sản phẩm tại thời điểm đặt hàng." : "Đơn này chưa có danh sách sản phẩm chi tiết."}</p></div></header>{order.lines.length ? <div className="order-lines">{order.lines.map((line) => <article key={line.lineId}><span className="gh-emblem" aria-hidden="true" /><div><strong>{line.productName}</strong><small>{line.skuLabel}</small><em>{lineAmount(line.unitPriceVnd)} × {line.quantity}</em></div><b>{lineAmount(line.lineSubtotalVnd)}</b></article>)}</div> : <div className="orders-state"><p>Đơn này chưa có dòng sản phẩm.</p></div>}</section>
+      <OrderTraceabilityPanel key={`${order.orderId}:${order.version}`} orderId={order.orderId} lines={order.lines} />
       <section className="order-detail-card"><header><span className="gh-emblem" aria-hidden="true" /><div><h2>Thông tin nhận hàng</h2><p>Thông tin người nhận tại thời điểm đặt hàng.</p></div></header>{order.recipient ? <dl className="order-recipient"><div><dt>Người nhận</dt><dd>{order.recipient.fullName}</dd></div><div><dt>Điện thoại</dt><dd>{order.recipient.phoneDisplay}</dd></div><div><dt>Địa chỉ</dt><dd>{order.recipient.addressDisplay}</dd></div></dl> : <div className="orders-state"><p>Đơn này chưa có thông tin địa chỉ giao hàng.</p></div>}</section>
     </div><aside>
       <section className="order-total-card"><span className="eyebrow">Chi tiết số tiền</span><dl><div><dt>Tạm tính</dt><dd>{VND.format(order.pricing.subtotalVnd)}</dd></div><div><dt>Phí vận chuyển</dt><dd>{VND.format(order.pricing.shippingFeeVnd)}</dd></div><div className="grand"><dt>Tổng thanh toán</dt><dd>{VND.format(order.pricing.totalVnd)}</dd></div></dl></section>

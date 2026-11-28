@@ -20,6 +20,7 @@ function formatDate(value: string) {
 export function TraceExperience({ qrCode }: { qrCode: string }) {
   const searchParams = useSearchParams();
   const scenario = searchParams.get("mockScenario") ?? undefined;
+  const [loadedCode, setLoadedCode] = useState<string>();
   const [record, setRecord] = useState<TraceabilityRecord>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ status?: number; message: string }>();
@@ -28,9 +29,10 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
   useEffect(() => {
     let active = true;
     customerCoreService.getTraceability(qrCode, scenario)
-      .then((payload) => { if (active) setRecord(payload); })
+      .then((payload) => { if (active) { setLoadedCode(qrCode); setRecord(payload); setError(undefined); } })
       .catch((cause: unknown) => {
         if (!active) return;
+        setLoadedCode(qrCode); setRecord(undefined);
         setError(cause instanceof CustomerCoreApiError
           ? { status: cause.status, message: cause.message }
           : { message: "Chưa thể truy xuất thông tin sản phẩm lúc này." });
@@ -65,21 +67,21 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
       <section className="gh-page-section" aria-live="polite">
         <Motif name="03-canh-tra" className="gh-page-section__branch" />
         <div className="gh-wrap">
-          {loading ? <div className="gh-skeleton-grid" aria-busy="true" aria-label="Đang tải hồ sơ truy xuất">
+          {loading || loadedCode !== qrCode ? <div className="gh-skeleton-grid" aria-busy="true" aria-label="Đang tải hồ sơ truy xuất">
             {[0, 1, 2].map((index) => <div key={index} className="gh-frame-card gh-skeleton-card" />)}
           </div> : null}
 
-          {!loading && error ? <div className="gh-frame-functional gh-frame-functional--fold gh-state" role="alert">
-            <span className="gh-kicker">{error.status === 404 ? "Mã chưa có trong hệ thống" : "Kết nối gián đoạn"}</span>
-            <h2>{error.status === 404 ? "Không tìm thấy mã truy xuất" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
-            <p>{error.message}</p>
+          {!loading && loadedCode === qrCode && error ? <div className="gh-frame-functional gh-frame-functional--fold gh-state" role="alert">
+            <span className="gh-kicker">{error.status === 404 ? "Mã chưa có trong hệ thống" : error.status === 410 ? "Hồ sơ đã dừng công khai" : "Kết nối gián đoạn"}</span>
+            <h2>{error.status === 404 ? "Không tìm thấy mã truy xuất" : error.status === 410 ? "Hồ sơ hiện không còn được công bố" : "Chưa thể mở hồ sơ nguồn gốc"}</h2>
+            <p>{error.status === 410 ? "Thông tin nguồn gốc cho mã này đã dừng công khai. Liên hệ cửa hàng nếu bạn cần đối chiếu đơn hàng." : error.message}</p>
             <div className="gh-state__actions">
-              {error.status !== 404 ? <button type="button" className="gh-btn gh-btn--brown" onClick={retryTraceability}>Thử lại</button> : null}
+              {error.status !== 404 && error.status !== 410 ? <button type="button" className="gh-btn gh-btn--brown" onClick={retryTraceability}>Thử lại</button> : null}
               <Link className="gh-btn gh-btn--paper" href="/products">Khám phá sản phẩm</Link>
             </div>
           </div> : null}
 
-          {!loading && !error && record ? <>
+          {!loading && loadedCode === qrCode && !error && record ? <>
             <div className="gh-frame-plaque gh-trace-cert">
               <div>
                 <span className="gh-badge gh-badge--gold">Hồ sơ hợp lệ</span>
@@ -100,7 +102,7 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
                 <dl>
                   <div><dt>Ngày sản xuất</dt><dd>{formatDate(record.production_date)}</dd></div>
                   <div><dt>Hạn sử dụng</dt><dd>{formatDate(record.expiry_date)}</dd></div>
-                  <div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name}</dd></div>
+                  <div><dt>Nghệ nhân phụ trách</dt><dd>{record.artisan_name || "Chưa có thông tin trong hồ sơ công khai"}</dd></div>
                   <div><dt>Xưởng sản xuất</dt><dd>{record.workshop_location}</dd></div>
                 </dl>
               </article>
@@ -114,7 +116,7 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
                 <Motif name="12-hoa-sen-cung-dinh" className="gh-trace-card__motif" />
                 <span className="gh-kicker">An toàn thực phẩm</span>
                 <h3>Chứng nhận kiểm định</h3>
-                <p>{record.food_safety_cert}</p>
+                <p>{record.food_safety_cert || "Chưa có chứng nhận ATTP trong hồ sơ công khai."}</p>
               </article>
             </div>
 
@@ -122,6 +124,8 @@ export function TraceExperience({ qrCode }: { qrCode: string }) {
               <div>
                 <span className="gh-kicker">Minh bạch từ xưởng</span>
                 <h2>Xem quy trình tạo nên thức quà</h2>
+                {record.producer ? <p>Cơ sở sản xuất: {record.producer}</p> : null}
+                {record.process ? <p>{record.process}</p> : null}
                 <p>Hồ sơ được liên kết với đúng mã lô để khách hàng có thể kiểm chứng trước khi sử dụng hoặc mua lại.</p>
               </div>
               <div className="gh-state__actions">

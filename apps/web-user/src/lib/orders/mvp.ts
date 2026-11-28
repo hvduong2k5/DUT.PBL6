@@ -278,6 +278,7 @@ export function mapMvpOrderDetail(value: OwnedOrder): OrderDetail {
       lineId: item.item_id || `${value.order_id}-${index + 1}`,
       productName: item.product_name || item.sku_code,
       skuLabel: `Mã SKU: ${item.sku_code}`,
+      skuCode: item.sku_code,
       quantity: item.quantity,
       ...(unitPriceVnd !== undefined ? { unitPriceVnd } : {}),
       ...(lineSubtotalVnd !== undefined ? { lineSubtotalVnd } : {})

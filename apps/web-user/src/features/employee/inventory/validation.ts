@@ -45,6 +45,7 @@ export function validateInventoryReceipt(value: unknown): { ok: true; data: Inve
   const batchMode = text(parsed.source.batchMode) as InventoryReceiptInput["batchMode"];
   const batchId = text(parsed.source.batchId);
   const batchCode = text(parsed.source.batchCode);
+  const supplierId = text(parsed.source.supplierId);
   const manufacturingDate = text(parsed.source.manufacturingDate);
   const expiresAt = text(parsed.source.expiresAt);
   const quantity = positiveInteger(parsed.source.quantity, "quantity", parsed.errors);
@@ -52,6 +53,7 @@ export function validateInventoryReceipt(value: unknown): { ok: true; data: Inve
   if (batchMode !== "EXISTING" && batchMode !== "NEW") parsed.errors.push({ field: "batchMode", message: "Cách ghi nhận Batch không hợp lệ." });
   if (batchMode === "EXISTING" && !batchId) parsed.errors.push({ field: "batchId", message: "Hãy chọn Batch nhận hàng." });
   if (batchMode === "NEW") {
+    if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/iu.test(supplierId)) parsed.errors.push({ field: "supplierId", message: "Hãy nhập mã định danh nhà cung cấp trên phiếu nguồn hàng." });
     if (batchCode.length < 2 || batchCode.length > 80) parsed.errors.push({ field: "batchCode", message: "Mã Batch phải từ 2 đến 80 ký tự." });
     const manufactured = Date.parse(manufacturingDate);
     const expiry = Date.parse(expiresAt);
@@ -60,7 +62,7 @@ export function validateInventoryReceipt(value: unknown): { ok: true; data: Inve
     if (!Number.isNaN(manufactured) && !Number.isNaN(expiry) && expiry <= manufactured) parsed.errors.push({ field: "expiresAt", message: "Hạn sử dụng phải sau ngày sản xuất." });
   }
   if (parsed.errors.length) return { ok: false, errors: parsed.errors };
-  return { ok: true, data: { skuId: parsed.skuId!, batchMode, batchId: batchId || undefined, batchCode: batchCode || undefined, manufacturingDate: manufacturingDate || undefined, expiresAt: expiresAt || undefined, quantity, sourceReference, expectedRevision: parsed.expectedRevision!, idempotencyKey: parsed.idempotencyKey! } };
+  return { ok: true, data: { skuId: parsed.skuId!, batchMode, supplierId: batchMode === "NEW" ? supplierId : undefined, batchId: batchId || undefined, batchCode: batchCode || undefined, manufacturingDate: manufacturingDate || undefined, expiresAt: expiresAt || undefined, quantity, sourceReference, expectedRevision: parsed.expectedRevision!, idempotencyKey: parsed.idempotencyKey! } };
 }
 
 export function validateInventoryIssue(value: unknown): { ok: true; data: InventoryIssueInput } | { ok: false; errors: ValidationError[] } {
