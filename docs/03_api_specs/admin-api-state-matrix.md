@@ -373,3 +373,5 @@ Loading/empty/error/auth states đi qua [Web BFF draft](traceability-web-bff-dra
 |---|---|---|---|---|
 | GET `/api/v1/admin/media/{file_id}/download-url` | 200 `{ download_url, expires_at }` (15m presigned GET URL); empty N/A | Pending presigned URL fetch | 401 missing/invalid token; 403 insufficient payment/evidence staff permission | 503 `MEDIA_SERVICE_UNAVAILABLE` when Media gRPC is unreachable |
 | `/api/v1/admin/payments/reconciliation-cases*`, `/api/v1/admin/payments/refunds*`, `/api/v1/admin/payments/evidence*` | 200/201/202 per operation; empty lists return `200` with empty `items` | Pending request / mutation in progress | 401 missing/invalid staff bearer; 403 missing `payment.*` permission or scope | 400/409 validation or idempotency/version conflict; 429 rate limited; 503 upstream unavailable |
+
+Checkpoint sau PR176: [report13](../04_testing/traceability-service/13_after_pr176_2026-11-28.md) là nguồn kiểm chứng mới; các mục pending của amendment27/11 là lịch sử. Các trạng thái/response hiện hành không được suy từ checkpoint cũ.

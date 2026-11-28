@@ -4,7 +4,7 @@
 
 Cập nhật 28/11/2026 · Owner nghiệp vụ/contract: người phụ trách Traceability.
 
-**Bản hiện hành 0.4.0-draft theo plan Dương và PR #175:** dùng canonical CatalogService.GetTraceabilityBinding và MediaInternalService đã merge trên dev@ac5395c5; [guide hiện hành](traceability-workflow-grpc.md), [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md). Phiếu 0.3.0/0.2.2 là lịch sử; không giao lại RPC GetSkuBinding đã gỡ. Web/BFF/public/admin/customer giữ REST. Phần bổ sung Identity current-grants, Inventory receipt binding, Fulfillment sealed lines, Order resolver consumer và Web đã có trên nhánh này; xem [report12 và phạm vi kiểm chứng hiện hành](../04_testing/traceability-service/12_full_workflow_2026-11-28.md) trước khi giao việc để tránh code trùng. Plan Order pricing/checkout của Dương vẫn giữ ranh giới riêng.
+**Bản hiện hành 0.4.0-draft theo plan Dương và PR #175:** dùng canonical CatalogService.GetTraceabilityBinding và MediaInternalService đã merge trên dev@ac5395c5; [guide hiện hành](traceability-workflow-grpc.md), [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md). Phiếu 0.3.0/0.2.2 là lịch sử; không giao lại RPC GetSkuBinding đã gỡ. Web/BFF/public/admin/customer giữ REST. Phần bổ sung Identity current-grants, Inventory receipt binding, Fulfillment sealed lines, Order resolver consumer và Web đã có trên nhánh này; xem [report13 sau PR176 và phạm vi kiểm chứng hiện hành](../04_testing/traceability-service/13_after_pr176_2026-11-28.md) trước khi giao việc để tránh code trùng. PR176 pricing/checkout của Dương đã merge vào dev@05047000 và nhánh này; giữ writer/canonicalizer mới, bổ sung adapter đọc snapshot lịch sử bảo toàn hash.
 
 ## Mục đích và thứ tự đọc
 

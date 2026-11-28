@@ -142,7 +142,7 @@ Target **0.4.0-draft** theo canonical Catalog/Media của Dương. Bắt đầu 
 | Giao tiếp giữa service | [Guide gRPC hiện hành](traceability-workflow-grpc.md), canonical `packages/proto/`; không khôi phục internal REST hoặc GetSkuBinding đã gỡ |
 | REST scoped/admin và Web | [Admin v2](traceability-scoped-admin-draft.openapi.yaml), [Web BFF](traceability-web-bff-draft.openapi.yaml), [Identity cookie transport](traceability-workflow-bff-draft.openapi.yaml), [Order customer](traceability-workflow-draft.openapi.yaml) |
 | Bàn giao triển khai/tích hợp | [Task/OUT](traceability-workflow-peer-handoff.md), [sáu file Markdown theo owner](traceability-owner-handoffs/README.md), [ranh giới plan Dương](traceability-workflow-supplement.md) |
-| Kiểm thử và bằng chứng | [Acceptance](traceability-workflow-acceptance.md), [testing index](../04_testing/traceability-service/README.md), [report12 local toàn luồng trước PR176](../04_testing/traceability-service/12_full_workflow_2026-11-28.md) |
+| Kiểm thử và bằng chứng | [Acceptance](traceability-workflow-acceptance.md), [testing index](../04_testing/traceability-service/README.md), [report13 toàn luồng sau PR176](../04_testing/traceability-service/13_after_pr176_2026-11-28.md) |
 | Trạng thái UI | [Admin matrix](admin-api-state-matrix.md), [customer matrix](customer-api-state-matrix.md) |
 | Kafka | [Event catalog](02_kafka_event_catalog.md); packing không tự lập/công bố hồ sơ hoặc kích hoạt QR |
 

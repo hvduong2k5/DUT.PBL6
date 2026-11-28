@@ -1,5 +1,7 @@
 # Kiểm chứng toàn luồng Traceability và rule — 28/11/2026
 
+Checkpoint lịch sử trước PR176. [Report13 sau khi ghép dev mới](13_after_pr176_2026-11-28.md) là nguồn trạng thái hiện hành; giữ nguyên source SHA và kết quả của lượt này.
+
 Trạng thái: **PASS toàn luồng phần mềm trong môi trường local cô lập, chờ review/tích hợp release**. Worktree `DUT.PBL6-traceability-dev`, nhánh `codex/traceability-order-flow`; không merge dev/release hoặc deploy production. Đây là kết quả của lượt chạy được nêu dưới đây; CI theo HEAD phải xem trực tiếp tại [PR177](https://github.com/hvduong2k5/DUT.PBL6/pull/177), không suy CI xanh từ báo cáo local.
 
 ## Phạm vi

@@ -1,8 +1,8 @@
 # Traceability — mục lục kiểm thử và bằng chứng
 
-**Checkpoint hiện hành: target0.4.0 theo plan Dương.** [Report12](12_full_workflow_2026-11-28.md) theo dõi kiểm chứng toàn luồng và rule đóng gói; [report11](11_local_workflow_2026-11-28.md) giữ bằng chứng provider thật cho nhập kho–Media–QR. [Report09](09_grpc_transport_2026-11-27.md) là checkpoint transport lịch sử, trước canonical Catalog/Media ở dev.
+**Checkpoint hiện hành: target0.4.0 sau PR176.** [Report13](13_after_pr176_2026-11-28.md) ghi toàn luồng sau ghép dev và đọc lịch sử Order; [report12](12_full_workflow_2026-11-28.md) giữ checkpoint trước PR176 và rule đóng gói. Report09/11 giữ bằng chứng transport và nhập kho–Media–QR lịch sử.
 
-Cập nhật26/11/2026. Kết quả áp dụng đúng phạm vi của từng báo cáo, không suy thành full E2E.
+Cập nhật28/11/2026. Kết quả áp dụng đúng phạm vi của từng báo cáo, không suy thành full E2E.
 
 ## Target0.2.2: việc phải nghiệm thu
 
@@ -11,7 +11,7 @@ Cập nhật26/11/2026. Kết quả áp dụng đúng phạm vi của từng bá
 - [Bộ contract và task owner](../../03_api_specs/traceability-workflow-README.md): đầu vào triển khai và kiểm thử.
 - [08 scoped backend26/11](08_scoped_backend_2026-11-26.md): phần backend mới, PostgreSQL local/signed HTTP, contract response và runbook bật tính năng.
 
-Trạng thái chi tiết lấy từ report12; các mục PENDING/NOT RUN trong report cũ chỉ áp dụng tại thời điểm của report đó. Lint/schema/proto compatibility và fixture không chứng minh cookie transport, in tem hoặc source proof của peer thật. Không dùng evidence sandbox/v1/P8 bên dưới để đóng các case target. Mỗi run mới phải ghi SHA/image, mode/fixture/peer thật, testID, requestId và ảnh khi áp dụng; không đưa secrets/PII vào report. Bằng chứng mới thuộc `docs/04_testing/traceability-service/` theo runID, không ghi đè report lịch sử hoặc tạo catalog contract tại đây.
+Trạng thái chi tiết lấy từ report13; các mục PENDING/NOT RUN trong report cũ chỉ áp dụng tại thời điểm của report đó. Lint/schema/proto compatibility và fixture không chứng minh cookie transport, in tem hoặc source proof của peer thật. Không dùng evidence sandbox/v1/P8 bên dưới để đóng các case target. Mỗi run mới phải ghi SHA/image, mode/fixture/peer thật, testID, requestId và ảnh khi áp dụng; không đưa secrets/PII vào report. Bằng chứng mới thuộc `docs/04_testing/traceability-service/` theo runID, không ghi đè report lịch sử hoặc tạo catalog contract tại đây.
 
 ## Baseline đã có tài liệu bằng chứng
 

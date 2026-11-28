@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// Golden vectors are copied from dev@ac5395c5 before PR176. Keep their original
+// expected hashes; regenerating them with the new writer would hide regressions.
 func historicalSnapshots(t *testing.T) []fixture {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "order-snapshot.pre-pricing.examples.json"))
