@@ -154,7 +154,7 @@ func GuestRouteAllowed(method, path string) bool {
 			if e != nil {
 				return false
 			}
-			return segments[4] == "tracking" && method == "GET" || segments[4] == "guest-payment-access" && (method == "POST" || method == "DELETE")
+			return (segments[4] == "tracking" || segments[4] == "traceability") && method == "GET" || segments[4] == "guest-payment-access" && (method == "POST" || method == "DELETE")
 		}
 	}
 	return false

@@ -104,6 +104,9 @@ func Handler(s *app.Service) http.Handler {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			duration := 3 * time.Second
+			if r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/traceability") {
+				duration = 6 * time.Second
+			}
 			if r.Method == "POST" && r.URL.Path == "/api/v1/cart" {
 				duration = 15 * time.Second
 			}
@@ -369,6 +372,7 @@ func Handler(s *app.Service) http.Handler {
 				write(w, 200, s.OrderResponse(o, principal(r), true))
 			}
 		})
+		api.Get("/api/v1/orders/{id}/traceability", customerTraceability(s))
 		api.Get("/api/v1/orders/{id}/tracking", func(w http.ResponseWriter, r *http.Request) {
 			o, e := s.GetOrder(r.Context(), chi.URLParam(r, "id"), principal(r), false)
 			if e != nil {
