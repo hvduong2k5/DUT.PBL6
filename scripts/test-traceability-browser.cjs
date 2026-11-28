@@ -28,6 +28,8 @@ fs.rmSync(path.join(output, 'result.json'), { force: true });
     assert.equal(await panel.$$eval('p', rows => rows.filter(row => / · 1 sản phẩm/.test(row.textContent)).length), 2);
     await panel.screenshot({ path: path.join(output, 'order-two-sealed-batches.png') });
     await page.setViewport({ width: 390, height: 844 });
+    assert.equal(await page.$eval('#nguon-goc', element => element.scrollWidth <= element.clientWidth), true);
+    await panel.screenshot({ path: path.join(output, 'order-two-sealed-batches-mobile.png') });
     await page.goto(fixture.qr_url, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => document.body.innerText.includes('Isolated traceability product'), { timeout: 60000 });
     assert.equal(await page.evaluate(() => document.body.innerText.includes('UNPUBLISHED CONTENT MUST NOT APPEAR')), false);
