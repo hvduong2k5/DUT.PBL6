@@ -1,8 +1,10 @@
 # PBL6 — Bàn giao Frontend / Gateway: WEB-TRC-01
 
-Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564`**.
+Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`95f9ab117cca0cc231412dc3cbdfc878a9437386`**.
 
 **Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
+
+**Checkpoint28/11:** phần bổ sung đã có trên nhánh này; đọc report11 để tránh code trùng và phân biệt live-provider checks với fixture. Owner bảo đảm tương thích khi ghép, không thay phần pricing/checkout trong plan Order Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -14,25 +16,27 @@ File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu c�
 
 | Tài liệu liên quan trong repository | Link bất biến |
 | --- | --- |
-| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
-| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-acceptance.md) |
-| `docs/03_api_specs/traceability-workflow-supplement.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-supplement.md) |
-| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-service-spec.md) |
-| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
-| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-grpc.md) |
-| `docs/03_api_specs/customer-stable.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/customer-stable.openapi.yaml) |
-| `docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-service.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-service.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml) |
-| `services/api-gateway/docker-compose.yml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/services/api-gateway/docker-compose.yml) |
+| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
+| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-acceptance.md) |
+| `docs/03_api_specs/traceability-workflow-supplement.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-supplement.md) |
+| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-service-spec.md) |
+| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
+| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-grpc.md) |
+| `docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) |
+| `docs/03_api_specs/customer-stable.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/customer-stable.openapi.yaml) |
+| `docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-service.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-service.openapi.yaml) |
+| `docs/03_api_specs/traceability-web-bff-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-web-bff-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml) |
+| `services/api-gateway/config/kong.yml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/services/api-gateway/config/kong.yml) |
 
 Trong repository đã clone, các lệnh đọc sau không checkout/reset hay ghi đè source đang làm:
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564:docs/03_api_specs/traceability-workflow-grpc.md
-git show fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564:docs/03_api_specs/traceability-workflow-peer-handoff.md
+git show 95f9ab117cca0cc231412dc3cbdfc878a9437386:docs/03_api_specs/traceability-workflow-grpc.md
+git show 95f9ab117cca0cc231412dc3cbdfc878a9437386:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
 ## Bắt đầu thực hiện
@@ -187,9 +191,16 @@ Bên Order, ưu tiên file riêng cho traceability read/provider/DTO/tests và g
 
 Không đảm bảo Git tuyệt đối không conflict: nhánh remote có thể tiếp tục thay đổi hoặc Dương còn code local chưa push. Phần làm độc lập vẫn tiếp tục; trước tích hợp cập nhật baseline, so diff theo file và chạy regression/contract gate. Không gửi tin nhắn cho Dương hoặc sửa nhánh của bạn ấy bằng công cụ trong lượt xác nhận này.
 
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
+
 ## Quy định transport mới và contract gRPC
 
-**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
+**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
 
 Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR #175, `dev@ac5395c5`. Bản này thay phiếu 0.3.0 về Catalog và bổ sung tích hợp Media. Nghiệp vụ nhập kho độc lập hồ sơ, scope kho, duyệt độc lập và QR theo lô giữ nguyên. Không yêu cầu Dương triển khai CatalogTraceabilitySource/GetSkuBinding; target chưa phát hành đó đã được gỡ.
 
@@ -197,12 +208,12 @@ Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR
 
 | Kết nối | Canonical/target | Mức sẵn sàng |
 | --- | --- | --- |
-| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
-| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
-| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
-| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
-| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
-| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
+| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
+| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
+| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
+| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
+| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
+| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
 | Web/BFF/admin/customer/public | REST/OpenAPI | Không viết gRPC browser client |
 
 Không thay canonical Catalog/Media method/message để khớp proposal riêng. Generate clients từ đúng file và common imports. Root AGENTS.md hiện đã bỏ internal REST Catalog và catalog-checkout OpenAPI; không khôi phục các artifact đã decommission trong PR #175. OIDC discovery/JWKS giữ HTTPS, BFF proxy giữ REST/Origin/CSRF; Kafka vẫn thông báo sau local commit, không kích hoạt QR.
@@ -274,6 +285,13 @@ Catalog/Media dùng implementation đã merge, không giao lại việc viết R
 
 Migrate 000003 rồi cấp lại GrantRuntime để bổ sung media_bind_jobs. Không sửa checksum migration000001/000002. Bật Media sau khi upload complete/READY và provider integration đã kiểm; khi tắt flag, worker dừng, job cũ được giữ và cần bật worker lại để drain. Không drop pending jobs khi rollback. Scoped/resolver flags độc lập và giữ yêu cầu Inventory/Identity hiện có. Không merge/release/deploy production trong đợt local này.
 
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
+
 ## Contract HTTP nhúng — không cần tải thêm file để đọc schema
 
 Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi thành nội bộ khối này. Có thể chép nguyên khối vào `owner-contract.openapi.yaml` để lint. Server URLs là ví dụ cấu hình; giữ path/method/header/field/status theo contract. Không tạo endpoint mới nếu lớp hiện có đã trả đúng đầu ra; khác wire thì làm adapter trong phần mình phụ trách.
@@ -286,7 +304,7 @@ info:
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: Distribution snapshot from documentation commit fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564. Direct
+  description: Distribution snapshot from documentation commit 95f9ab117cca0cc231412dc3cbdfc878a9437386. Direct
     implementation target, not runtime acceptance. All references are local to this embedded contract.
 tags:
 - name: Frontend / Gateway
@@ -1939,6 +1957,2334 @@ paths:
       - url: http://127.0.0.1:8000
       tags:
       - Frontend / Gateway
+  /api/admin/trace/records:
+    get:
+      operationId: listTraceabilityProfilesScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: listTraceabilityProfilesScopedV2
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 256
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Instance-scoped list; internal evidence requires its own permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Scoped_Profile'
+                  next_cursor:
+                    type:
+                    - string
+                    - 'null'
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Rows returned in this page, not a count of all matching database rows.
+              examples:
+                empty:
+                  value:
+                    items: []
+                    next_cursor: null
+                    total: 0
+                success:
+                  value:
+                    items:
+                    - id: 11111111-1111-4111-8111-111111111111
+                      mode: integration
+                      product_id: 22222222-2222-4222-8222-222222222222
+                      sku_code: MX-001
+                      source_namespace: inventory
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      warehouse_id: 44444444-4444-4444-8444-444444444444
+                      qr_code: abcdefghijklmnopqrstuv
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      version: 1
+                      status: ACTIVE
+                      public_revision: null
+                      revisions:
+                      - number: 1
+                        status: DRAFT
+                        content:
+                          product_name: Me xung LOT-A
+                          producer: Co so O Ma
+                          workshop_location: Hue
+                          artisan_name: null
+                          process: Che bien va dong goi theo ho so lo
+                          ingredients:
+                          - name: Me
+                            origin: Quang Dien
+                          evidence:
+                          - id: 55555555-5555-4555-8555-555555555555
+                            reference: document:66666666-6666-4666-8666-666666666666
+                            kind: CERTIFICATE
+                            description: Ho so OCOP da kiem tra thu cong
+                          certificates:
+                          - id: 77777777-7777-4777-8777-777777777777
+                            type: OCOP
+                            number: OCOP-TEST-01
+                            issuer: Don vi cap chung nhan
+                            scope: BATCH
+                            scope_id: 33333333-3333-4333-8333-333333333333
+                            issued_on: '2026-01-01'
+                            valid_until: '2027-12-31'
+                            no_expiry_stated: false
+                            review_due_at: null
+                            stars: 4
+                            verification_method: MANUAL
+                            verified_at: '2026-11-20T00:00:00Z'
+                            revoked: false
+                            evidence_ids:
+                            - 55555555-5555-4555-8555-555555555555
+                          crafting_video_url: null
+                    next_cursor: null
+                    total: 1
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+    post:
+      operationId: createTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: createTraceabilityProfileScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - product_id
+              - sku_code
+              - source_namespace
+              - batch_id
+              - content
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                sku_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                source_namespace:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                batch_id:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                content:
+                  $ref: '#/components/schemas/Scoped_Content'
+            example:
+              product_id: 22222222-2222-4222-8222-222222222222
+              sku_code: MX-001
+              source_namespace: inventory
+              batch_id: 33333333-3333-4333-8333-333333333333
+              content:
+                product_name: Me xung LOT-A
+                producer: Co so O Ma
+                workshop_location: Hue
+                artisan_name: null
+                process: Che bien va dong goi theo ho so lo
+                ingredients:
+                - name: Me
+                  origin: Quang Dien
+                evidence:
+                - id: 55555555-5555-4555-8555-555555555555
+                  reference: document:66666666-6666-4666-8666-666666666666
+                  kind: CERTIFICATE
+                  description: Ho so OCOP da kiem tra thu cong
+                certificates:
+                - id: 77777777-7777-4777-8777-777777777777
+                  type: OCOP
+                  number: OCOP-TEST-01
+                  issuer: Don vi cap chung nhan
+                  scope: BATCH
+                  scope_id: 33333333-3333-4333-8333-333333333333
+                  issued_on: '2026-01-01'
+                  valid_until: '2027-12-31'
+                  no_expiry_stated: false
+                  review_due_at: null
+                  stars: 4
+                  verification_method: MANUAL
+                  verified_at: '2026-11-20T00:00:00Z'
+                  revoked: false
+                  evidence_ids:
+                  - 55555555-5555-4555-8555-555555555555
+                crafting_video_url: null
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    get:
+      operationId: getTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: getTraceabilityProfileScopedV2
+      parameters: []
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    post:
+      operationId: createTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: createTraceabilityRevisionScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+                    - number: 2
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - from_revision
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                from_revision:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Required when withdrawing an existing working revision
+            example:
+              expected_version: 5
+              from_revision: 1
+              reason: Prepare a corrected revision
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions/{revision}:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    - $ref: '#/components/parameters/Scoped_RevisionNumber'
+    patch:
+      operationId: replaceDraftContentScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: replaceDraftContentScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 2
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - content
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                content:
+                  $ref: '#/components/schemas/Scoped_Content'
+            example:
+              expected_version: 1
+              content:
+                product_name: Me xung LOT-A
+                producer: Co so O Ma
+                workshop_location: Hue
+                artisan_name: null
+                process: Che bien va dong goi theo ho so lo
+                ingredients:
+                - name: Me
+                  origin: Quang Dien
+                evidence:
+                - id: 55555555-5555-4555-8555-555555555555
+                  reference: document:66666666-6666-4666-8666-666666666666
+                  kind: CERTIFICATE
+                  description: Ho so OCOP da kiem tra thu cong
+                certificates:
+                - id: 77777777-7777-4777-8777-777777777777
+                  type: OCOP
+                  number: OCOP-TEST-01
+                  issuer: Don vi cap chung nhan
+                  scope: BATCH
+                  scope_id: 33333333-3333-4333-8333-333333333333
+                  issued_on: '2026-01-01'
+                  valid_until: '2027-12-31'
+                  no_expiry_stated: false
+                  review_due_at: null
+                  stars: 4
+                  verification_method: MANUAL
+                  verified_at: '2026-11-20T00:00:00Z'
+                  revoked: false
+                  evidence_ids:
+                  - 55555555-5555-4555-8555-555555555555
+                crafting_video_url: null
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions/{revision}/submit:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    - $ref: '#/components/parameters/Scoped_RevisionNumber'
+    post:
+      operationId: submitTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: submitTraceabilityRevisionScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 3
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: IN_REVIEW
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Scoped_Command'
+            example:
+              expected_version: 2
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions/{revision}/approve:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    - $ref: '#/components/parameters/Scoped_RevisionNumber'
+    post:
+      operationId: approveTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: approveTraceabilityRevisionScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: APPROVED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Scoped_Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions/{revision}/reject:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    - $ref: '#/components/parameters/Scoped_RevisionNumber'
+    post:
+      operationId: rejectTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: rejectTraceabilityRevisionScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: REJECTED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Scoped_Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/revisions/{revision}/publish:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    - $ref: '#/components/parameters/Scoped_RevisionNumber'
+    post:
+      operationId: publishTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: publishTraceabilityRevisionScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 5
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Scoped_Command'
+            example:
+              expected_version: 4
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/suspend:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    post:
+      operationId: suspendTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: suspendTraceabilityProfileScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: SUSPENDED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Scoped_Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/{id}/archive:
+    parameters:
+    - $ref: '#/components/parameters/Scoped_ProfileID'
+    post:
+      operationId: archiveTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: archiveTraceabilityProfileScopedV2
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scoped_Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ARCHIVED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/Scoped_BadRequest'
+        '401':
+          $ref: '#/components/responses/Scoped_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Scoped_Forbidden'
+        '404':
+          $ref: '#/components/responses/Scoped_NotFound'
+        '409':
+          $ref: '#/components/responses/Scoped_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Scoped_Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/records/by-batch:
+    get:
+      operationId: findScopedTraceabilityByBatchDraftIdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: Find the existing profile before creating a draft
+      parameters:
+      - $ref: '#/components/parameters/Workflow_ProductId'
+      - $ref: '#/components/parameters/Workflow_SkuCode'
+      - $ref: '#/components/parameters/Workflow_BatchId'
+      - name: source_namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - inventory
+      responses:
+        '200':
+          description: Exact match or empty collection; never 404 for an empty lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - total
+                properties:
+                  items:
+                    type: array
+                    maxItems: 1
+                    items:
+                      type: object
+                      required:
+                      - profile_id
+                      - version
+                      properties:
+                        profile_id:
+                          type: string
+                          format: uuid
+                        version:
+                          type: integer
+                          format: int64
+                          minimum: 1
+                  total:
+                    type: integer
+                    minimum: 0
+                    maximum: 1
+              examples:
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                found:
+                  value:
+                    items:
+                    - profile_id: 11111111-1111-4111-8111-111111111111
+                      version: 1
+                    total: 1
+        '401':
+          $ref: '#/components/responses/Workflow_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Workflow_Forbidden'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '409':
+          $ref: '#/components/responses/Workflow_Conflict'
+        '400':
+          $ref: '#/components/responses/Workflow_BadRequest'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace/batches/{batch_id}/context:
+    get:
+      operationId: getScopedBatchTraceabilityContextIdentityBffWeb
+      tags:
+      - Frontend / Gateway
+      summary: Bootstrap a traceability form from an authoritative receipt batch
+      parameters:
+      - name: batch_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Workflow_SkuCode'
+      responses:
+        '200':
+          description: Verified binding for prefilled form; not a public eligibility approval
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - product_id
+                - sku_code
+                - source_namespace
+                - batch_id
+                - warehouse_id
+                - batch_code
+                - production_date
+                - expiry_date
+                - restricted
+                - depleted
+                - catalog_version
+                - batch_version
+                properties:
+                  product_id:
+                    type: string
+                    format: uuid
+                  sku_code:
+                    type: string
+                  source_namespace:
+                    type: string
+                    enum:
+                    - inventory
+                  batch_id:
+                    type: string
+                    format: uuid
+                  warehouse_id:
+                    type: string
+                    format: uuid
+                  batch_code:
+                    type: string
+                  production_date:
+                    type: string
+                    format: date
+                  expiry_date:
+                    type: string
+                    format: date
+                  restricted:
+                    type: boolean
+                  depleted:
+                    type: boolean
+                  catalog_version:
+                    type: string
+                  batch_version:
+                    type: string
+              examples:
+                success:
+                  value:
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    batch_code: LOT-A
+                    production_date: '2026-11-01'
+                    expiry_date: '2027-11-01'
+                    restricted: false
+                    depleted: false
+                    catalog_version: variant:1:1
+                    batch_version: '1'
+        '400':
+          $ref: '#/components/responses/Workflow_BadRequest'
+        '401':
+          $ref: '#/components/responses/Workflow_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Workflow_Forbidden'
+        '404':
+          $ref: '#/components/responses/Workflow_NotFound'
+        '409':
+          $ref: '#/components/responses/Workflow_Conflict'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace-media/upload-sessions:
+    post:
+      operationId: createTraceCertificateUploadWeb
+      tags:
+      - Frontend / Gateway
+      summary: Create an employee-owned OCOP scan upload session
+      description: Requires current EMPLOYEE read_internal and create or edit grant. Private Media receives only
+        a derived X-User-Id. Web validates JSON at 16KiB and scan size at 20MiB. Reusing a key preserves client
+        intent; legacy Media does not guarantee deduplication of session creation after a lost response. Unreferenced
+        orphan sessions do not create duplicate Traceability evidence.
+      parameters:
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/traceability_web_bff_draft_openapi_UploadInput'
+      responses:
+        '201':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_UploadSession'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace-media/upload-sessions/{sessionId}/complete:
+    post:
+      operationId: completeTraceCertificateUploadWeb
+      tags:
+      - Frontend / Gateway
+      summary: Complete only the upload session issued to this employee
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,128}$
+      - name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      - name: X-Upload-Permit
+        in: header
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_FileMetadata'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace-media/files/{fileId}:
+    get:
+      operationId: readTraceCertificateUploadWeb
+      tags:
+      - Frontend / Gateway
+      summary: Poll metadata of the current employee upload capability
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Upload-Permit
+        in: header
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_FileMetadata'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/admin/trace-files/{profileId}/{evidenceId}:
+    get:
+      operationId: openScopedTraceEvidenceWeb
+      tags:
+      - Frontend / Gateway
+      summary: Open the scan after current Traceability evidence and warehouse authorization
+      description: Read profile through the scoped backend first. A redacted/missing reference cannot be converted
+        into a Media link. Only document:fileId with purpose OCOP_CERTIFICATE is accepted. The 307 storage destination
+        is pinned to the public Media origin.
+      parameters:
+      - name: profileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: evidenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '307':
+          description: No-store redirect to the permitted certificate scan
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/orders/{order_id}/traceability:
+    get:
+      operationId: readCustomerOrderTraceabilityWeb
+      tags:
+      - Frontend / Gateway
+      summary: Read exact sealed batch links for an owned order
+      description: Uses existing Order history capability and guest session policy. The response is limited to 512KiB
+        and validates order echo, row uniqueness, status/URL presence and configured public origin before relaying.
+        The UI joins only an explicit unique SKU field and verifies full frozen quantities; never parse a display
+        label or array index.
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Sealed batch rows, or an explicit pending/unavailable state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - READY
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Workflow_OrderBatchTraceResult'
+                      maxItems: 1000
+                      minItems: 1
+                    total:
+                      type: integer
+                      minimum: 1
+                      description: Number of line-batch rows, not number of products
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - PACKING_PENDING
+                      - NOT_APPLICABLE
+                      - UNAVAILABLE
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Workflow_OrderBatchTraceResult'
+                      maxItems: 0
+                    total:
+                      type: integer
+                      const: 0
+              examples:
+                pending:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: PACKING_PENDING
+                    items: []
+                    total: 0
+                unavailable:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: UNAVAILABLE
+                    items: []
+                    total: 0
+                cancelledBeforePacking:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: NOT_APPLICABLE
+                    items: []
+                    total: 0
+                oneLineTwoBatches:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: READY
+                    items:
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      batch_code: LOT-A
+                      packed_quantity: 3
+                      status: AVAILABLE
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      sku_code: MX-001
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 44444444-4444-4444-8444-444444444444
+                      batch_code: LOT-B
+                      packed_quantity: 2
+                      status: NOT_AVAILABLE
+                      qr_url: null
+                      sku_code: MX-001
+                    total: 2
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
+  /api/auth/me:
+    get:
+      operationId: readBrowserIdentityWithScopedTraceGrants
+      tags:
+      - Frontend / Gateway
+      summary: Preserve scoped Identity grants in the existing browser session projection
+      description: Additive permissionGrants field on principal; authentication uses the existing Identity session
+        or OIDC cookies. ACTIVE employee/customer profile still comes from Identity. No tokens or service credentials
+        are exposed. Malformed permission tuples fail closed.
+      responses:
+        '200':
+          description: Authenticated principal projection, no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - authenticated
+                - principal
+                - customerAccess
+                - customer
+                properties:
+                  authenticated:
+                    type: boolean
+                    const: true
+                  principal:
+                    type: object
+                    required:
+                    - principalId
+                    - principalType
+                    - displayName
+                    - roles
+                    - permissions
+                    properties:
+                      principalId:
+                        type: string
+                        format: uuid
+                      principalType:
+                        type: string
+                        enum:
+                        - EMPLOYEE
+                        - CUSTOMER
+                      displayName:
+                        type: string
+                      email:
+                        type: string
+                      customerId:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - roleCode
+                          properties:
+                            roleCode:
+                              type: string
+                            roleName:
+                              type: string
+                            scopeType:
+                              type: string
+                            scopeId:
+                              type:
+                              - string
+                              - 'null'
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      permissionGrants:
+                        type: array
+                        description: Optional legacy-compatible projection of current Identity permission/scope
+                          tuples. A missing list never grants Traceability access. An unrelated GLOBAL role cannot
+                          widen a WAREHOUSE Traceability grant.
+                        items:
+                          type: object
+                          required:
+                          - permissionCode
+                          - scopeType
+                          - scopeId
+                          properties:
+                            permissionCode:
+                              type: string
+                            scopeType:
+                              type: string
+                            scopeId:
+                              type:
+                              - string
+                              - 'null'
+                  customerAccess:
+                    type: boolean
+                  customer:
+                    type:
+                    - object
+                    - 'null'
+                  sessionExpiresAt:
+                    type: string
+                    format: date-time
+        '401':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '403':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+        '503':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/traceability_web_bff_draft_openapi_Error'
+      security:
+      - traceability_web_bff_draft_openapi_identityCookie: []
+      - traceability_web_bff_draft_openapi_oidcCookie: []
+      servers:
+      - url: https://shop.example.test
   /api/v1/media/upload-sessions:
     post:
       tags:
@@ -2669,6 +5015,99 @@ components:
           type: string
         request_id:
           type: string
+    traceability_web_bff_draft_openapi_Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+    traceability_web_bff_draft_openapi_UploadInput:
+      type: object
+      required:
+      - purpose
+      - fileName
+      - mediaType
+      - sizeBytes
+      - sha256
+      properties:
+        purpose:
+          type: string
+          const: OCOP_CERTIFICATE
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 250
+        mediaType:
+          type: string
+          enum:
+          - application/pdf
+          - image/jpeg
+          - image/png
+          - image/webp
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 20971520
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    traceability_web_bff_draft_openapi_UploadSession:
+      type: object
+      required:
+      - fileId
+      - uploadSessionId
+      - uploadUrl
+      - requiredHeaders
+      - uploadPermit
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        uploadSessionId:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+          description: Origin pinned to configured public storage; PUT directly with requiredHeaders and omit credentials.
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        uploadPermit:
+          type: string
+          description: Opaque server HMAC permit; send only to this BFF in X-Upload-Permit, never in URLs.
+        expiresAt:
+          type: string
+          format: date-time
+    traceability_web_bff_draft_openapi_FileMetadata:
+      type: object
+      required:
+      - fileId
+      - status
+      - sha256Checksum
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - PROCESSING
+          - READY
+          - PROCESSING_FAILED
+          - ARCHIVED
+        sha256Checksum:
+          type:
+          - string
+          - 'null'
     MediaStable_Error:
       type: object
       required:
@@ -3036,6 +5475,14 @@ components:
       scheme: bearer
       description: Existing authoritative Order detail guest credential only; payment-read grants do not authorize
         this operation. No new credential or header is introduced.
+    traceability_web_bff_draft_openapi_identityCookie:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+    traceability_web_bff_draft_openapi_oidcCookie:
+      type: apiKey
+      in: cookie
+      name: oma_access_token
     MediaStable_bearerAuth:
       type: http
       scheme: bearer
@@ -3099,14 +5546,14 @@ components:
       schema:
         type: string
         format: uuid
-x-source-commit: fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564
+x-source-commit: 95f9ab117cca0cc231412dc3cbdfc878a9437386
 ```
 
 ## Mapping cookie transport do Identity cung cấp
 
 | BFF route | Backend route qua Kong |
 | --- | --- |
-| `/api/v2/admin/trace-api/...` | `/api/v2/admin/trace/...` |
+| `/api/v1/admin/trace-api/...` | `/api/v2/admin/trace/...` |
 | `/api/v1/admin/inventory-api/workbench` | `/api/v1/admin/inventory/workbench` |
 | `/api/v1/admin/inventory-api/workbench/receipts` | `/api/v1/admin/inventory/workbench/receipts` |
 
@@ -3114,4 +5561,4 @@ Cookie mode chuyển `OMAMA_SESSION` server-side qua Identity; forward Origin đ
 
 ## Tính toàn vẹn bản gửi
 
-Nguồn commit: `fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564`. SHA-256 tập source: `35b30e5def7225e234ff95ccb2d126c751f34f6b782437742f8a6d694d679970`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn đặc tả và nội dung nhúng dùng cùng commit; liên kết bằng chứng Git/PR lịch sử ghi SHA provider riêng trong phần đối chiếu. Không có token/password trong file.
+Nguồn commit: `95f9ab117cca0cc231412dc3cbdfc878a9437386`. SHA-256 tập source: `f1fd141e1d5e099d9082eb860048d34717a69b1229a4f97b35553d222f0a55ab`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn đặc tả và nội dung nhúng dùng cùng commit; liên kết bằng chứng Git/PR lịch sử ghi SHA provider riêng trong phần đối chiếu. Không có token/password trong file.

@@ -1,8 +1,10 @@
 # PBL6 — Bàn giao Identity / Keycloak: IAM-TRC-01
 
-Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564`**.
+Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`95f9ab117cca0cc231412dc3cbdfc878a9437386`**.
 
 **Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
+
+**Checkpoint28/11:** phần bổ sung đã có trên nhánh này; đọc report11 để tránh code trùng và phân biệt live-provider checks với fixture. Owner bảo đảm tương thích khi ghép, không thay phần pricing/checkout trong plan Order Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -14,24 +16,25 @@ File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu c�
 
 | Tài liệu liên quan trong repository | Link bất biến |
 | --- | --- |
-| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
-| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-acceptance.md) |
-| `docs/03_api_specs/traceability-workflow-supplement.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-supplement.md) |
-| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-service-spec.md) |
-| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
-| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-grpc.md) |
-| `docs/03_api_specs/admin-stable.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/admin-stable.openapi.yaml) |
-| `docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml) |
-| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
-| `packages/proto/identity/v1/staff_authorization.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/identity/v1/staff_authorization.proto) |
+| `docs/03_api_specs/traceability-workflow-peer-handoff.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-peer-handoff.md) |
+| `docs/03_api_specs/traceability-workflow-acceptance.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-acceptance.md) |
+| `docs/03_api_specs/traceability-workflow-supplement.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-supplement.md) |
+| `docs/03_api_specs/traceability-workflow-service-spec.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-service-spec.md) |
+| `docs/03_api_specs/traceability-workflow-review-2026-11-25.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-review-2026-11-25.md) |
+| `docs/03_api_specs/traceability-workflow-grpc.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-grpc.md) |
+| `docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) |
+| `docs/03_api_specs/admin-stable.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/admin-stable.openapi.yaml) |
+| `docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-scoped-admin-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml) |
+| `docs/03_api_specs/traceability-workflow-draft.openapi.yaml` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-draft.openapi.yaml) |
+| `packages/proto/identity/v1/staff_authorization.proto` | [Mở đúng commit](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/identity/v1/staff_authorization.proto) |
 
 Trong repository đã clone, các lệnh đọc sau không checkout/reset hay ghi đè source đang làm:
 
 ```powershell
 git fetch origin codex/traceability-order-flow
-git show fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564:docs/03_api_specs/traceability-workflow-grpc.md
-git show fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564:docs/03_api_specs/traceability-workflow-peer-handoff.md
+git show 95f9ab117cca0cc231412dc3cbdfc878a9437386:docs/03_api_specs/traceability-workflow-grpc.md
+git show 95f9ab117cca0cc231412dc3cbdfc878a9437386:docs/03_api_specs/traceability-workflow-peer-handoff.md
 ```
 
 ## Bắt đầu thực hiện
@@ -63,7 +66,7 @@ Chỉ báo **BLOCKED** khi không thể đáp ứng contract mà không vi phạ
 
 **Mục đích:** cấp các permission đã có cho đúng nhân viên/kho. Không thêm role bypass hoặc scope claim mới.
 
-**Đầu ra bắt buộc:** IAM-OUT-01: token và `/users/me` biểu diễn đúng permission gắn scopeId kho; IAM-OUT-02: nhân viên soạn/duyệt được gán đúng nhóm quyền, thời hạn và thu hồi có hiệu lực theo contract; IAM-OUT-03: có bộ actor test kiểm kho A/B và tách nhiệm vụ. Phần IAM grants có thể chỉ cần cấu hình/test. IAM-OUT-04: trong cookie mode cung cấp các transport trong [BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml), guard ACTIVE EMPLOYEE cho cả v2, giữ Origin/CSRF và chuyển cookie thành bearer server-side; không mặc định Identity chỉ cần cấu hình. Direct OIDC mode không cần cookie adapter. Không bắt tạo role mới.
+**Đầu ra bắt buộc:** IAM-OUT-01: token và `/users/me` biểu diễn đúng permission gắn scopeId kho; IAM-OUT-02: nhân viên soạn/duyệt được gán đúng nhóm quyền, thời hạn và thu hồi có hiệu lực theo contract; IAM-OUT-03: có bộ actor test kiểm kho A/B và tách nhiệm vụ. Phần IAM grants có thể chỉ cần cấu hình/test. IAM-OUT-04: trong cookie mode cung cấp các transport trong [BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-bff-draft.openapi.yaml), guard ACTIVE EMPLOYEE cho cả v2, giữ Origin/CSRF và chuyển cookie thành bearer server-side; không mặc định Identity chỉ cần cấu hình. Direct OIDC mode không cần cookie adapter. Không bắt tạo role mới.
 
 | Bundle nhiệm vụ | Permissions được gán |
 | --- | --- |
@@ -78,7 +81,7 @@ Nhân viên thực hiện cả nhập kho phải giữ các quyền Inventory n�
 
 Giữ thời hạn assignment, sync token mới, revoke/disable/thu hồi theo cơ chế service hiện có. Không sửa V20/V21 để gắn user test; nếu cần seed mới dùng migration mới hoặc API quản trị trong môi trường test. Cấp hai actor soạn/duyệt ở kho A, actor kho B, GLOBAL auditor và actor thiếu read_evidence; lưu ID test không lưu password/token trong báo cáo.
 
-**IAM-OUT-05 — phần mới bắt buộc:** triển khai `/omamx.identity.v1.StaffAuthorization/GetCurrentStaffGrants` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/identity/v1/staff_authorization.proto) và [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-grpc.md#identity--iam-out-05). Request rỗng; xác minh cả service credential trong authorization và employee JWT trong x-staff-authorization qua TLS. Không lấy userId do caller truyền để bỏ kiểm JWT. Trả current scoped traceability grants đầy đủ, cùng principalId/subject, EMPLOYEE ACTIVE; cap128grant/32KiB, budget2s. ErrorInfo phân biệt lỗi staff401/403 với service config503. Cập nhật gRPC interceptor đúng full method; HTTP security filter không tự bảo vệ RPC. Không log token/metadata đầy đủ. Tái sử dụng principal resolver/effective-grant query và revocation logic hiện có; không dùng RPC tài chính thay thế. Nghiệm thu GRPC-IAM-01…04 cùng T-SCOPE-03; proto/copies/codegen theo file canonical mới, không đổi method cũ.
+**IAM-OUT-05 — phần mới bắt buộc:** triển khai `/omamx.identity.v1.StaffAuthorization/GetCurrentStaffGrants` theo [shared proto](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/identity/v1/staff_authorization.proto) và [gRPC guide](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-grpc.md#identity--iam-out-05). Request rỗng; xác minh cả service credential trong authorization và employee JWT trong x-staff-authorization qua TLS. Không lấy userId do caller truyền để bỏ kiểm JWT. Trả current scoped traceability grants đầy đủ, cùng principalId/subject, EMPLOYEE ACTIVE; cap128grant/32KiB, budget2s. ErrorInfo phân biệt lỗi staff401/403 với service config503. Cập nhật gRPC interceptor đúng full method; HTTP security filter không tự bảo vệ RPC. Không log token/metadata đầy đủ. Tái sử dụng principal resolver/effective-grant query và revocation logic hiện có; không dùng RPC tài chính thay thế. Nghiệm thu GRPC-IAM-01…04 cùng T-SCOPE-03; proto/copies/codegen theo file canonical mới, không đổi method cũ.
 
 **Nộp:** cấu hình/seed test actor và kết quả token+me đã lọc, case revoke/expiry và không mất scopeId. Nghiệm thu T-SCOPE-01…03, IAM-01. Thay đổi consumer GLOBAL-only thành scoped nằm ở Traceability, không yêu cầu Identity viết code đọc DB Traceability.
 
@@ -187,9 +190,16 @@ Bên Order, ưu tiên file riêng cho traceability read/provider/DTO/tests và g
 
 Không đảm bảo Git tuyệt đối không conflict: nhánh remote có thể tiếp tục thay đổi hoặc Dương còn code local chưa push. Phần làm độc lập vẫn tiếp tục; trước tích hợp cập nhật baseline, so diff theo file và chạy regression/contract gate. Không gửi tin nhắn cho Dương hoặc sửa nhánh của bạn ấy bằng công cụ trong lượt xác nhận này.
 
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
+
 ## Quy định transport mới và contract gRPC
 
-**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
+**Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
 
 Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR #175, `dev@ac5395c5`. Bản này thay phiếu 0.3.0 về Catalog và bổ sung tích hợp Media. Nghiệp vụ nhập kho độc lập hồ sơ, scope kho, duyệt độc lập và QR theo lô giữ nguyên. Không yêu cầu Dương triển khai CatalogTraceabilitySource/GetSkuBinding; target chưa phát hành đó đã được gỡ.
 
@@ -197,12 +207,12 @@ Chốt ngày 27/11/2026 theo plan của Dương và provider đã merge trong PR
 
 | Kết nối | Canonical/target | Mức sẵn sàng |
 | --- | --- | --- |
-| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
-| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
-| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
-| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
-| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
-| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
+| Traceability → Catalog | [CatalogService.GetProductVariant/GetTraceabilityBinding](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/catalog/v1/catalog.proto) | Provider đã có trên dev; consumer theo đúng proto này |
+| Traceability → Media | [MediaInternalService.ValidateMediaReference/BindMediaToEntity](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/media/v1/media_service.proto) | Provider đã có trên dev; adapter và durable binding của Traceability theo bản này |
+| Traceability → Inventory | [BatchSource candidate warehouse9](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-candidates/batch_source.proto) | Giữ yêu cầu scope đã chốt |
+| Traceability → Identity | [StaffAuthorization.GetCurrentStaffGrants](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/identity/v1/staff_authorization.proto) | Còn là yêu cầu mới cho owner IAM; PR #175 chỉ thêm Media client, chưa có RPC này |
+| Order → Traceability | [BatchLinkResolver.ResolveBatchLinks](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/packages/proto/traceability/v1/batch_links.proto) | Traceability đã implement; consumer Order còn phải tích hợp |
+| Order → Fulfillment | [Packing candidate field14](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-workflow-candidates/packing.proto) | Giữ exact sealed proof, không dùng live allocation |
 | Web/BFF/admin/customer/public | REST/OpenAPI | Không viết gRPC browser client |
 
 Không thay canonical Catalog/Media method/message để khớp proposal riêng. Generate clients từ đúng file và common imports. Root AGENTS.md hiện đã bỏ internal REST Catalog và catalog-checkout OpenAPI; không khôi phục các artifact đã decommission trong PR #175. OIDC discovery/JWKS giữ HTTPS, BFF proxy giữ REST/Origin/CSRF; Kafka vẫn thông báo sau local commit, không kích hoạt QR.
@@ -274,6 +284,13 @@ Catalog/Media dùng implementation đã merge, không giao lại việc viết R
 
 Migrate 000003 rồi cấp lại GrantRuntime để bổ sung media_bind_jobs. Không sửa checksum migration000001/000002. Bật Media sau khi upload complete/READY và provider integration đã kiểm; khi tắt flag, worker dừng, job cũ được giữ và cần bật worker lại để drain. Không drop pending jobs khi rollback. Scoped/resolver flags độc lập và giữ yêu cầu Inventory/Identity hiện có. Không merge/release/deploy production trong đợt local này.
 
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](https://github.com/hvduong2k5/DUT.PBL6/blob/95f9ab117cca0cc231412dc3cbdfc878a9437386/docs/03_api_specs/traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
+
 ## Contract HTTP nhúng — không cần tải thêm file để đọc schema
 
 Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi thành nội bộ khối này. Có thể chép nguyên khối vào `owner-contract.openapi.yaml` để lint. Server URLs là ví dụ cấu hình; giữ path/method/header/field/status theo contract. Không tạo endpoint mới nếu lớp hiện có đã trả đúng đầu ra; khác wire thì làm adapter trong phần mình phụ trách.
@@ -286,7 +303,7 @@ info:
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: Distribution snapshot from documentation commit fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564. Direct
+  description: Distribution snapshot from documentation commit 95f9ab117cca0cc231412dc3cbdfc878a9437386. Direct
     implementation target, not runtime acceptance. All references are local to this embedded contract.
 tags:
 - name: Identity / Keycloak
@@ -294,7 +311,7 @@ tags:
 servers:
 - url: http://127.0.0.1
 paths:
-  /api/v2/admin/trace-api/records:
+  /api/v1/admin/trace-api/records:
     get:
       operationId: listTraceabilityProfilesScopedV2IdentityBff
       parameters:
@@ -431,7 +448,7 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
@@ -613,13 +630,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}:
+  /api/v1/admin/trace-api/records/{id}:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     get:
@@ -715,13 +732,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions:
+  /api/v1/admin/trace-api/records/{id}/revisions:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     post:
@@ -893,13 +910,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}:
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     - $ref: '#/components/parameters/Scoped_RevisionNumber'
@@ -1063,13 +1080,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/submit:
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/submit:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     - $ref: '#/components/parameters/Scoped_RevisionNumber'
@@ -1190,13 +1207,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/submit
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/approve:
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/approve:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     - $ref: '#/components/parameters/Scoped_RevisionNumber'
@@ -1323,13 +1340,13 @@ paths:
       x-contributor-policy: actor must not be a contributor of the revision
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/approve
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/reject:
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/reject:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     - $ref: '#/components/parameters/Scoped_RevisionNumber'
@@ -1455,13 +1472,13 @@ paths:
       x-contributor-policy: actor must not be a contributor of the revision
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/reject
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/publish:
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/publish:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     - $ref: '#/components/parameters/Scoped_RevisionNumber'
@@ -1583,13 +1600,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/publish
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/suspend:
+  /api/v1/admin/trace-api/records/{id}/suspend:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     post:
@@ -1713,13 +1730,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/suspend
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/{id}/archive:
+  /api/v1/admin/trace-api/records/{id}/archive:
     parameters:
     - $ref: '#/components/parameters/Scoped_ProfileID'
     post:
@@ -1843,13 +1860,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/archive
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/records/by-batch:
+  /api/v1/admin/trace-api/records/by-batch:
     get:
       tags:
       - Identity / Keycloak
@@ -1940,13 +1957,13 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/by-batch
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
-  /api/v2/admin/trace-api/batches/{batch_id}/context:
+  /api/v1/admin/trace-api/batches/{batch_id}/context:
     get:
       tags:
       - Identity / Keycloak
@@ -2065,7 +2082,7 @@ paths:
                 requestId: req-proxy-example
       x-forward-to: /api/v2/admin/trace/batches/{batch_id}/context
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
@@ -2368,7 +2385,7 @@ paths:
                 requestId: req-proxy-example
       x-forward-to: /api/v1/admin/inventory/workbench
       x-body-limit-bytes: 0
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
@@ -2586,12 +2603,140 @@ paths:
           maxLength: 128
       x-forward-to: /api/v1/admin/inventory/workbench/receipts
       x-body-limit-bytes: 8192
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
       security:
       - IdentityBff_employeeSessionCookie: []
       - IdentityBff_identityStaffBearer: []
       servers:
       - url: http://127.0.0.1:8016
+  /api/v1/customer-api/orders/{order_id}/traceability:
+    get:
+      operationId: getCustomerOrderTraceabilityIdentityBffDraft
+      summary: Forward an owned customer order traceability read
+      description: Requires a known ACTIVE CUSTOMER resolved from the existing session or verified bearer. Order
+        checks ownership before any provider RPC. No new guest transport is introduced.
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Sealed batch rows, or an explicit pending/unavailable state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - READY
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Workflow_OrderBatchTraceResult'
+                      maxItems: 1000
+                      minItems: 1
+                    total:
+                      type: integer
+                      minimum: 1
+                      description: Number of line-batch rows, not number of products
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - PACKING_PENDING
+                      - NOT_APPLICABLE
+                      - UNAVAILABLE
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Workflow_OrderBatchTraceResult'
+                      maxItems: 0
+                    total:
+                      type: integer
+                      const: 0
+              examples:
+                pending:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: PACKING_PENDING
+                    items: []
+                    total: 0
+                unavailable:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: UNAVAILABLE
+                    items: []
+                    total: 0
+                cancelledBeforePacking:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: NOT_APPLICABLE
+                    items: []
+                    total: 0
+                oneLineTwoBatches:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: READY
+                    items:
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      batch_code: LOT-A
+                      packed_quantity: 3
+                      status: AVAILABLE
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      sku_code: MX-001
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 44444444-4444-4444-8444-444444444444
+                      batch_code: LOT-B
+                      packed_quantity: 2
+                      status: NOT_AVAILABLE
+                      qr_url: null
+                      sku_code: MX-001
+                    total: 2
+        '401':
+          $ref: '#/components/responses/Workflow_Unauthorized'
+        '403':
+          $ref: '#/components/responses/Workflow_Forbidden'
+        '404':
+          $ref: '#/components/responses/Workflow_NotFound'
+        '503':
+          $ref: '#/components/responses/Workflow_Unavailable'
+      security:
+      - IdentityBff_customerSessionCookie: []
+      - IdentityBff_identityCustomerBearer: []
+      servers:
+      - url: http://127.0.0.1:8016
+      tags:
+      - Identity / Keycloak
 components:
   schemas:
     Scoped_Profile:
@@ -3004,6 +3149,85 @@ components:
           type: object
           additionalProperties: true
       additionalProperties: false
+    Workflow_OrderBatchTraceResult:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - order_line_id
+        - batch_id
+        - batch_code
+        - packed_quantity
+        - sku_code
+        - status
+        - qr_url
+        properties:
+          order_line_id:
+            type: string
+            format: uuid
+          batch_id:
+            type: string
+            format: uuid
+            description: Stable row identity together with order_line_id; batch_code alone is not unique
+          batch_code:
+            type: string
+          packed_quantity:
+            type: integer
+            minimum: 1
+            format: int32
+            maximum: 2147483647
+          sku_code:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Authoritative unique-per-order SKU to bridge customer detail rows that lack canonical line
+              IDs. Never parse skuLabel.
+          status:
+            type: string
+            enum:
+            - AVAILABLE
+            - NO_LONGER_PUBLIC
+          qr_url:
+            type: string
+            format: uri
+      - type: object
+        additionalProperties: false
+        required:
+        - order_line_id
+        - batch_id
+        - batch_code
+        - packed_quantity
+        - sku_code
+        - status
+        - qr_url
+        properties:
+          order_line_id:
+            type: string
+            format: uuid
+          batch_id:
+            type: string
+            format: uuid
+            description: Stable row identity together with order_line_id; batch_code alone is not unique
+          batch_code:
+            type: string
+          packed_quantity:
+            type: integer
+            minimum: 1
+            format: int32
+            maximum: 2147483647
+          sku_code:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Authoritative unique-per-order SKU to bridge customer detail rows that lack canonical line
+              IDs. Never parse skuLabel.
+          status:
+            type: string
+            enum:
+            - NOT_AVAILABLE
+            - UNAVAILABLE
+          qr_url:
+            type: 'null'
   responses:
     Scoped_Unauthorized:
       description: Missing or invalid verified identity
@@ -3246,6 +3470,16 @@ components:
       bearerFormat: JWT
       description: Verified Identity/Keycloak employee token; same active principal checks apply. Not a forged user/role
         header.
+    IdentityBff_customerSessionCookie:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+      description: Existing ACTIVE CUSTOMER session for the named customer adapter only.
+    IdentityBff_identityCustomerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified ACTIVE CUSTOMER token for the named customer adapter only.
   parameters:
     Scoped_IdempotencyKey:
       name: Idempotency-Key
@@ -3292,7 +3526,7 @@ components:
       schema:
         type: string
         format: uuid
-x-source-commit: fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564
+x-source-commit: 95f9ab117cca0cc231412dc3cbdfc878a9437386
 ```
 
 ## Proto target nhúng: `packages/proto/identity/v1/staff_authorization.proto`
@@ -3334,4 +3568,4 @@ message StaffPermissionGrant {
 
 ## Tính toàn vẹn bản gửi
 
-Nguồn commit: `fe90c20b5d16b86341e0d2fdb8cf4b0357dfe564`. SHA-256 tập source: `3608d50baaa8a4c95c42e760593c5d74c31207e9d360d92c2df057fa9e9cc32d`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn đặc tả và nội dung nhúng dùng cùng commit; liên kết bằng chứng Git/PR lịch sử ghi SHA provider riêng trong phần đối chiếu. Không có token/password trong file.
+Nguồn commit: `95f9ab117cca0cc231412dc3cbdfc878a9437386`. SHA-256 tập source: `9781e24de07fd147e6fd1be14454f2d18c98f831d21e7eb07d07480fda91b5a8`. Đây là snapshot phân phối được sinh từ nguồn đã commit, không sửa riêng file gửi Zalo rồi coi là contract mới. Nếu scope/contract đổi, owner nghiệp vụ phát lại snapshot version/commit mới. Các link nguồn đặc tả và nội dung nhúng dùng cùng commit; liên kết bằng chứng Git/PR lịch sử ghi SHA provider riêng trong phần đối chiếu. Không có token/password trong file.
