@@ -35,9 +35,15 @@ func TestOIDCTransportAcceptsOnlyTrustedTLSAndDoesNotFollowRedirect(t *testing.T
 	if response.StatusCode != 302 {
 		t.Fatal("followed issuer redirect")
 	}
-	client.CloseIdleConnections()
-	client.Transport.(*http.Transport).TLSClientConfig.ServerName = "different-issuer.invalid"
-	if response, err = client.Get(server.URL); err == nil {
+	// Configure a fresh transport before its first request: mutating a transport
+	// already used by HTTP can retain an established connection on newer Go releases.
+	wrongHost, err := oidcHTTPClient(ca)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer wrongHost.CloseIdleConnections()
+	wrongHost.Transport.(*http.Transport).TLSClientConfig.ServerName = "different-issuer.invalid"
+	if response, err = wrongHost.Get(server.URL); err == nil {
 		response.Body.Close()
 		t.Fatal("hostname verification disabled")
 	}
