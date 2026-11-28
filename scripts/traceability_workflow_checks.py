@@ -186,7 +186,7 @@ class TraceabilityChecks:
         public=call('/api/customer-core/trace/'+profile['qr_code'],actor=customer)
         assert public['product_name']==content['product_name'],'Published record mismatch'
         original_url=profile['qr_url']
-        profile=call(path+'/revisions',{'from_revision':1,'expected_version':profile['version']},'POST')
+        profile=call(path+'/revisions',{'from_revision':1,'expected_version':profile['version']},'POST',expected=201)
         changed={**content,'product_name':'UNPUBLISHED CONTENT MUST NOT APPEAR'}
         profile=call(path+'/revisions/2',{'expected_version':profile['version'],'content':changed},'PATCH')
         assert call('/api/customer-core/trace/'+profile['qr_code'],actor=customer)['product_name']==content['product_name'] and profile['qr_url']==original_url,'Draft leaked into public revision'
