@@ -2,7 +2,7 @@
 
 **Phiên bản:** `order-core-1.0-review` · **Ngày:** 17/10/2026 · **Trạng thái:** Đề xuất thiết kế để review.
 
-[Chỉ mục](README.md) · [Payment 1.1](09_payment_sepay_vietqr_design.md) · [Cart/Checkout](11_cart_checkout_design.md) · [Snapshot schema](../../../03_api_specs/order-snapshot.v1.schema.json) · [Snapshot examples](../../../03_api_specs/order-snapshot.v1.examples.json) · [Order Core API candidate](../../../03_api_specs/order-core.candidate.openapi.yaml)
+[Chỉ mục](README.md) · [Payment 1.1](09_payment_sepay_vietqr_design.md) · [Cart/Checkout](11_cart_checkout_design.md) · [Snapshot schema](../../../../services/order-service/testdata/order-snapshot.v1.schema.json) · [Snapshot examples](../../../../services/order-service/testdata/order-snapshot.v1.examples.json) · [Order Core API candidate](../../../03_api_specs/order-core.candidate.openapi.yaml)
 
 ## 1. Scope, ownership và trách nhiệm
 
