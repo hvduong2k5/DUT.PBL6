@@ -51,7 +51,7 @@ docker compose -p codex-order-payment-review -f infra/docker/stacks/order-test.c
 Chạy từ repository root, dùng project riêng và ports không bị chiếm. Command trong test container chạy `go vet ./...` và `go test -race -count=1 ./...` với PostgreSQL/Redis/Kafka thật. Các external HTTP/gRPC stand-ins không gửi tiền hoặc gọi bank mutation. Để đối chiếu actual JSON với candidate schemas, lưu output `go test -json` rồi chạy:
 
 ```powershell
-python scripts/verify-payment-evidence.py --test-log <absolute-path-to-go-test.jsonl>
+python services/order-service/scripts/verify-payment-evidence.py --test-log <absolute-path-to-go-test.jsonl>
 ```
 
 Nếu virtual clock lùi, domain trả deadline guard và không booking/paid. Kiểm tra đồng hồ DB/VM; không gỡ guard hoặc backdate quyết định để test pass. Ghi lại cả lần fail lẫn rerun. Chỉ dừng project test do mình tạo; không dọn dự án Docker khác.
