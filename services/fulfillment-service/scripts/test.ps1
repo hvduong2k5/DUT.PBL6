@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
-$compose = Join-Path $workspace 'services/fulfillment-service/docker-compose.test.yml'
+$compose = Join-Path $workspace 'infra/docker/stacks/fulfillment-test.compose.yml'
 $project = 'fulfillment-test-' + $PID
 Push-Location -LiteralPath $workspace
 try {
-    docker build -f services/fulfillment-service/Dockerfile.tools -t omamx/fulfillment-go-tools:local services/fulfillment-service
+    docker build --build-arg SERVICE_PATH=services/fulfillment-service -f infra/docker/go-tools.Dockerfile -t omamx/fulfillment-go-tools:local .
     if ($LASTEXITCODE -ne 0) { throw 'Go toolchain build failed' }
     docker compose -p $project -f $compose run --rm tests
     if ($LASTEXITCODE -ne 0) { throw 'Fulfillment runtime tests failed' }

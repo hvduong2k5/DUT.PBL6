@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: order_test_local
     ports: ["127.0.0.1:15434:5432"]
     volumes:
-      - ./tests/fixtures/init-databases.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+      - ../../../services/order-service/tests/fixtures/init-databases.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
       - order_db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U order_test -d order_runtime"]
@@ -65,7 +65,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: ["/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic order.events.v2 --partitions 3 --replication-factor 1 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic order.sources.v1 --partitions 3 --replication-factor 1"]
   simulator:
-    build: .
+    build: {context: ../../../services/order-service}
     image: omamx/order-service:sandbox
     command: ["order-simulator"]
     environment:
@@ -76,7 +76,7 @@ services:
     depends_on:
       db: {condition: service_healthy}
   api:
-    build: .
+    build: {context: ../../../services/order-service}
     image: omamx/order-service:sandbox
     environment:
       <<: *app-env
@@ -104,7 +104,7 @@ services:
     profiles: ["test"]
     working_dir: /workspace/services/order-service
     volumes:
-      - ../..:/workspace
+      - ../../..:/workspace
       - order_go_mod:/go/pkg/mod
       - order_go_build:/root/.cache/go-build
     environment:

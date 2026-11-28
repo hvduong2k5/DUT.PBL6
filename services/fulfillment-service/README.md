@@ -1,5 +1,8 @@
 # MS-02 Fulfillment Service
 
+
+> Container packaging: local `Dockerfile` consumes prebuilt Linux artifacts; `Dockerfile.coolify` builds independently from source. Shared test infrastructure and pinned tools are maintained in [infra](../../infra/docker/stacks/README.md).
+
 Go1.22, PostgreSQL, REST8002/gRPC9002, transactional inbox/outbox, private S3-compatible media. Xem [luồng Order–Inventory–Fulfillment–Shipping, quyền và cách bật MVP](../../packages/contracts/mvp/fulfillment-integration.md) để tích hợp trên `dev`. [HLD/LLD](../../docs/02_architecture/services/fulfillment-service/README.md) và [evidence ban đầu](../../docs/04_testing/fulfillment-service/03_implementation_verification.md) ghi lại nền thiết kế; evidence cũ không thay thế lần chạy E2E hiện tại.
 
 ## Phần đã có code
@@ -15,7 +18,8 @@ Go1.22, PostgreSQL, REST8002/gRPC9002, transactional inbox/outbox, private S3-co
 ## Chạy local
 
 ```powershell
-docker compose -f services/fulfillment-service/docker-compose.yml up --build -d
+./infra/scripts/build-go-artifacts.ps1 -Service fulfillment-service
+docker compose -f infra/docker/stacks/fulfillment-local.compose.yml up --build -d
 Invoke-RestMethod http://localhost:18002/health/ready
 ```
 

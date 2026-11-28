@@ -12,7 +12,7 @@ services:
       timeout: 3s
       retries: 30
   migrate:
-    build: .
+    build: {context: ../../../services/fulfillment-service}
     image: omamx/fulfillment-service:local
     entrypoint: [fulfillment-migrate]
     environment:
@@ -26,7 +26,7 @@ services:
       FULFILLMENT_DATABASE_URL: postgres://fulfillment_local:fulfillment_local_only@db:5432/fulfillment_local?sslmode=disable
       FULFILLMENT_JWT_ISSUER: ${FULFILLMENT_JWT_ISSUER:-}
       FULFILLMENT_JWT_PUBLIC_KEY: ${FULFILLMENT_JWT_PUBLIC_KEY:-}
-    volumes: [./local-keys:/keys:ro]
+    volumes: [../../../services/fulfillment-service/local-keys:/keys:ro]
     ports: ["127.0.0.1:18002:8002", "127.0.0.1:19002:9002"]
     depends_on:
       migrate: {condition: service_completed_successfully}

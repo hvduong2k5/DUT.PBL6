@@ -35,7 +35,7 @@ services:
     image: ${FULFILLMENT_GO_TOOLS_IMAGE:-omamx/fulfillment-go-tools:local}
     working_dir: /workspace/services/fulfillment-service
     volumes:
-      - ../..:/workspace
+      - ../../..:/workspace
       - go_mod:/go/pkg/mod
       - go_build:/root/.cache/go-build
     environment:

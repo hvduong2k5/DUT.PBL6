@@ -1,4 +1,4 @@
-# Overlay docker-compose.test.yml; configuration comes from a private --env-file.
+# Overlay the central order-test.compose.yml; configuration comes from a private --env-file.
 # Only the webhook may be routed through a tunnel. Simulator/admin stay local.
 x-private-env: &private-env
   ORDER_INTERNAL_TOKEN: ${ORDER_INTERNAL_TOKEN:?Private internal token required}

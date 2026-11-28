@@ -4,3 +4,11 @@ tests/results/
 local-keys/
 *.pem
 *.key
+
+.git
+.idea
+.gradle
+coverage.out
+*.test
+.sandbox/
+.system_generated/

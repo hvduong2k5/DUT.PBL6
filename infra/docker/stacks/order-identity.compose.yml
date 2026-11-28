@@ -1,4 +1,4 @@
-# Overlay on docker-compose.test.yml; these URLs must be reachable from the API container.
+# Overlay on the central order-test.compose.yml; these URLs must be reachable from the API container.
 services:
   api:
     environment:

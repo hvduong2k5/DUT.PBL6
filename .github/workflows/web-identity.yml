@@ -9,6 +9,8 @@ on:
         default: false
   pull_request:
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'apps/web-user/**'
       - 'apps/mobile-app/**'
       - 'services/catalog-service/**'
@@ -38,6 +40,8 @@ on:
   push:
     branches: [dev]
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'apps/web-user/**'
       - 'apps/mobile-app/**'
       - 'services/order-service/**'
@@ -94,7 +98,12 @@ jobs:
         working-directory: services/profile-service
         run: go vet ./... && go test -race -count=1 ./...
       - name: Build the real Fulfillment video runtime
-        run: docker build -t omamx/fulfillment-service:integration services/fulfillment-service
+        run: |
+          cd services/fulfillment-service
+          mkdir -p build
+          CGO_ENABLED=0 go build -trimpath -o build/fulfillment-server ./cmd/server
+          CGO_ENABLED=0 go build -trimpath -o build/fulfillment-migrate ./cmd/migrate
+          docker build -t omamx/fulfillment-service:integration .
       - name: Real Web, Identity, Order, Inventory, Fulfillment video and Shipping
         run: |
           python -m pip install -r packages/contracts/mvp/requirements.txt

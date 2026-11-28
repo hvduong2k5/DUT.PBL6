@@ -83,7 +83,7 @@ loopback mới được dùng HTTP với `ORDER_OIDC_ALLOW_LOCAL_HTTP=true`.
 môi trường trên, chạy:
 
 ```powershell
-docker compose -f services/order-service/docker-compose.test.yml -f services/order-service/docker-compose.identity.yml up -d --build api
+docker compose -f infra/docker/stacks/order-test.compose.yml -f infra/docker/stacks/order-identity.compose.yml up -d --build api
 ```
 
 Override chỉ đổi auth và Profile của API; các provider khác vẫn theo stack test.

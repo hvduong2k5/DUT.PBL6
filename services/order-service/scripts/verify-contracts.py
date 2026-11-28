@@ -19,7 +19,7 @@ from openapi_schema_validator import OAS30Validator
 
 ROOT = Path(__file__).resolve().parents[3]
 EVIDENCE = ROOT / "docs/04_testing/order-service"
-COMPOSE = ["docker", "compose", "-f", str(ROOT / "services/order-service/docker-compose.test.yml")]
+COMPOSE = ["docker", "compose", "-f", str(ROOT / "infra/docker/stacks/order-test.compose.yml")]
 
 
 def command(args):
