@@ -2,9 +2,9 @@
 
 **Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
 
-Cập nhật 27/11/2026 · Owner nghiệp vụ/contract: người phụ trách Traceability.
+Cập nhật 28/11/2026 · Owner nghiệp vụ/contract: người phụ trách Traceability.
 
-**Bản hiện hành 0.4.0-draft theo plan Dương và PR #175:** dùng canonical CatalogService.GetTraceabilityBinding và MediaInternalService đã merge trên dev@ac5395c5; [guide hiện hành](traceability-workflow-grpc.md), [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md). Phiếu 0.3.0/0.2.2 là lịch sử; không giao lại RPC GetSkuBinding đã gỡ. Web/BFF/public/admin/customer giữ REST, Identity current-grants và Order resolver là phần việc riêng còn cần owner triển khai.
+**Bản hiện hành 0.4.0-draft theo plan Dương và PR #175:** dùng canonical CatalogService.GetTraceabilityBinding và MediaInternalService đã merge trên dev@ac5395c5; [guide hiện hành](traceability-workflow-grpc.md), [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md). Phiếu 0.3.0/0.2.2 là lịch sử; không giao lại RPC GetSkuBinding đã gỡ. Web/BFF/public/admin/customer giữ REST. Phần bổ sung Identity current-grants, Inventory receipt binding, Fulfillment sealed lines, Order resolver consumer và Web đã có trên nhánh này; xem [report12 và phạm vi kiểm chứng hiện hành](../04_testing/traceability-service/12_full_workflow_2026-11-28.md) trước khi giao việc để tránh code trùng. Plan Order pricing/checkout của Dương vẫn giữ ranh giới riêng.
 
 ## Mục đích và thứ tự đọc
 

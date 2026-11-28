@@ -1,5 +1,7 @@
 # Kiểm chứng luồng nguồn gốc trên local — 28/11/2026
 
+> Checkpoint tiếp theo: [report12](12_full_workflow_2026-11-28.md). Báo cáo này giữ kết quả và giới hạn của lượt local trước đó.
+
 Nhánh: `codex/traceability-order-flow`, worktree riêng. Baseline `dev@ac5395c5` / PR #175 của Dương; nhánh Order của Dương được đối chiếu tại `20322d1c`. Không merge nhánh Order đang làm vào nhánh này, không sửa projection giá/checkout/migration000013 của Dương, không thử trên production/release.
 
 ## Phần triển khai bổ sung

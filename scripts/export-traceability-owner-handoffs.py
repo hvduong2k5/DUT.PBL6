@@ -27,7 +27,7 @@ INTEGRATION = BASE + "traceability-workflow-draft.openapi.yaml"
 ADMIN = BASE + "traceability-scoped-admin-draft.openapi.yaml"
 BFF = BASE + "traceability-workflow-bff-draft.openapi.yaml"
 WEB = BASE + "traceability-web-bff-draft.openapi.yaml"
-LOCAL_REPORT = "docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md"
+LOCAL_REPORT = "docs/04_testing/traceability-service/12_full_workflow_2026-11-28.md"
 CUSTOMER_STABLE = BASE + "customer-stable.openapi.yaml"
 STABLE = BASE + "admin-stable.openapi.yaml"
 LEGACY = BASE + "traceability-service.openapi.yaml"
@@ -285,7 +285,7 @@ Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`{sou
 
 **Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
 
-**Checkpoint28/11:** phần bổ sung đã có trên nhánh này; đọc report11 để tránh code trùng và phân biệt live-provider checks với fixture. Owner bảo đảm tương thích khi ghép, không thay phần pricing/checkout trong plan Order Dương.
+**Checkpoint28/11:** phần bổ sung đã có trên nhánh này; đọc report12 để tránh code trùng, xem kết quả toàn luồng và giới hạn nghiệm thu. Owner bảo đảm tương thích khi ghép, không thay phần pricing/checkout trong plan Order Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 

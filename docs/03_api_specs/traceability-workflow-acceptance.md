@@ -1,10 +1,14 @@
 # Nghiệm thu và rollout Traceability workflow
 
-Version0.3.0-draft · 27/11/2026. Mỗi ca bên dưới là yêu cầu, **chưa phải kết quả PASS runtime**. [Index](traceability-workflow-README.md) và [đặc tả service](traceability-workflow-service-spec.md) là context. Người thực hiện điền evidence theo SHA/runID.
+Version0.4.0-draft · 28/11/2026. Mỗi ca bên dưới là yêu cầu, **chưa phải kết quả PASS runtime**. [Index](traceability-workflow-README.md) và [đặc tả service](traceability-workflow-service-spec.md) là context. Người thực hiện điền evidence theo SHA/runID.
 
-Checkpoint hiện hành 27/11: [report09 gRPC](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) ghi kiểm thử PostgreSQL, signed JWT và TLS gRPC với provider mô phỏng. [Report08 scoped backend](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md) là checkpoint transport cũ; các mục ghi NOT RUN của lượt tài liệu25/11 bên dưới là lịch sử. Provider thật, Web/print và Order E2E vẫn pending, không suy PASS từ fixture.
+Checkpoint lịch sử 27/11: [report09 gRPC](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) ghi kiểm thử PostgreSQL, signed JWT và TLS gRPC với provider mô phỏng. [Report08 scoped backend](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md) là checkpoint transport cũ; các mục ghi NOT RUN của lượt tài liệu25/11 bên dưới là lịch sử. Provider thật, Web/print và Order E2E vẫn pending, không suy PASS từ fixture.
 
 Nghiệm thu theo đầu ra OUT và contract đích trong [phiếu handoff](traceability-workflow-peer-handoff.md); không có gate gửi ACCEPT trước code. Không bắt tạo bảng/PR mới nếu capability hiện tại đã đáp ứng. Owner tự map logic/API nội bộ ra contract đích, ghi mapping và bằng chứng trong kết quả cuối. Các ca semantics/quyền/lỗi/lịch sử luôn áp dụng; field9/14 phải đúng ở bề mặt proto đích, dù provider tái sử dụng logic nào phía sau. Không dùng khác biệt implementation để bỏ test hoặc đổi wire consumer.
+
+## Checkpoint hiện hành — 28/11/2026
+
+[Report12: toàn luồng và tuân thủ đóng gói](../04_testing/traceability-service/12_full_workflow_2026-11-28.md) là nguồn trạng thái hiện hành; [report11](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) giữ bằng chứng nhập kho–hồ sơ–Media–QR trước đó. Các mục NOT RUN của ngày25/11 và report09 bên dưới chỉ mô tả lịch sử, không ghi đè checkpoint mới. Phân biệt code/unit/fixture, provider thật, browser và thiết bị in; không suy nghiệm thu Traceability Order từ gate MVP chung.
 
 ## 1. Fixture dùng chung
 
@@ -150,6 +154,6 @@ Catalog canonical/Media provider ở dev@ac5395c5 đã thay proposal GetSkuBindi
 
 ## Checkpoint triển khai local — 28/11/2026
 
-Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; [report12 toàn luồng](../04_testing/traceability-service/12_full_workflow_2026-11-28.md) là nguồn trạng thái hiện hành và [Web BFF contract](traceability-web-bff-draft.openapi.yaml) giữ contract0.4.0-draft. Lượt local đã kiểm receipt/replay → hồ sơ/tệp chứng nhận Media → người khác duyệt/publish → QR; đơn Order thật với hai lô FEFO từ exact sealed Fulfillment proof, public410, resolver outage và IAM revoke/expiry. Browser kiểm desktop/mobile, giải mã QR và render bản in; thiết bị in/camera vật lý vẫn NOT RUN. Report11 giữ checkpoint trước đó. Dương tiếp tục phần pricing/checkout theo plan riêng; không làm lại phần bổ sung đã có trên nhánh này, chỉ ghép và chạy regression khi review. CI theo HEAD kiểm tại PR177; chưa deploy production hoặc tự promote stable.
 
 Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
