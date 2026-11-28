@@ -79,7 +79,7 @@ Có thể đặt `ORDER_OIDC_JWKS_URL` nếu mạng nội bộ cần URL khác; 
 server tin cậy, không đọc từ header token. HTTPS bắt buộc; chỉ khi chạy sandbox trên
 loopback mới được dùng HTTP với `ORDER_OIDC_ALLOW_LOCAL_HTTP=true`.
 
-Đã có [Compose override](docker-compose.identity.yml). Từ root, sau khi đặt các biến
+Đã có [Compose override](../../infra/docker/stacks/order-identity.compose.yml). Từ root, sau khi đặt các biến
 môi trường trên, chạy:
 
 ```powershell
