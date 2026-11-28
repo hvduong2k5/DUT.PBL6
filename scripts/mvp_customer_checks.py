@@ -11,17 +11,28 @@ import yaml
 from openapi_schema_validator import OAS30Validator
 from jsonschema import FormatChecker
 
+_root = Path(__file__).resolve().parents[1]
 _spec = yaml.safe_load(
-    (
-        Path(__file__).resolve().parents[1]
-        / "docs/03_api_specs/customer-stable.openapi.yaml"
-    ).read_text(encoding="utf-8")
+    (_root / "docs/03_api_specs/customer-stable.openapi.yaml").read_text(
+        encoding="utf-8"
+    )
+)
+_order_spec = yaml.safe_load(
+    (_root / "services/order-service/docs/contracts/order-service.openapi.yaml").read_text(
+        encoding="utf-8"
+    )
 )
 
 
 def contract(name, payload):
+    if name.startswith("Order") and name[5:] in _order_spec["components"]["schemas"]:
+        schema_name = name[5:]
+        components = _order_spec["components"]
+    else:
+        schema_name = name
+        components = _spec["components"]
     OAS30Validator(
-        {"$ref": "#/components/schemas/" + name, "components": _spec["components"]},
+        {"$ref": "#/components/schemas/" + schema_name, "components": components},
         format_checker=FormatChecker(),
     ).validate(payload)
 
