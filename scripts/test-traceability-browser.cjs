@@ -8,12 +8,17 @@ const folder = path.resolve(process.argv[2]);
 const fixture = JSON.parse(fs.readFileSync(path.join(folder, 'trace-browser-private.json'), 'utf8'));
 const output = path.join(folder, 'browser-evidence');
 fs.mkdirSync(output, { recursive: true });
+for (const name of fs.readdirSync(output)) {
+  if (name.startsWith('ma-nguon-goc-') && /\.(?:png|svg|crdownload)$/.test(name)) fs.unlinkSync(path.join(output, name));
+}
+fs.rmSync(path.join(output, 'result.json'), { force: true });
 
 (async () => {
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME_BINARY,
     headless: true, acceptInsecureCerts: true, userDataDir: path.join(folder, 'chrome-qa-profile') });
+  let page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 1080 });
     await browser.setCookie({ name: 'OMAMA_SESSION', value: fixture.customer_session, domain: '127.0.0.1', path: '/', httpOnly: true });
     await page.goto(fixture.web + '/orders/' + fixture.second_order_id, { waitUntil: 'domcontentloaded' });
@@ -40,6 +45,8 @@ fs.mkdirSync(output, { recursive: true });
     }
     await click('Kiểm tra và chuẩn bị tem');
     await page.waitForSelector('.trace-print-label:not([hidden]) canvas', { timeout: 60000 });
+    await page.waitForFunction(() => document.querySelector('.trace-print-label:not([hidden]) canvas')?.width === 256
+      && Array.from(document.querySelectorAll('button')).some(button => button.textContent === 'Kiểm tra và chuẩn bị tem' && !button.disabled));
     await page.addScriptTag({ path: process.env.JSQR_MODULE || require.resolve('jsqr') });
     const decodeCanvas = () => {
       const canvas = document.querySelector('.trace-print-label:not([hidden]) canvas');
@@ -74,12 +81,23 @@ fs.mkdirSync(output, { recursive: true });
     await page.waitForFunction(() => window.__fixturePrintInvoked === true);
     await page.emulateMediaType('print');
     await page.waitForSelector('body > .trace-print-sheet', { visible: true });
-    await page.pdf({ path: path.join(output, 'source-label-print.pdf'), format: 'A4', printBackground: true });
     await (await page.$('body > .trace-print-sheet')).screenshot({ path: path.join(output, 'source-label-print.png') });
+    // PDF generation fires afterprint; the UI correctly removes its portal then.
+    await page.pdf({ path: path.join(output, 'source-label-print.pdf'), format: 'A4', printBackground: true });
+    await page.emulateMediaType('screen');
     const result = { status: 'PASS', real_order_two_batches: true, public_mobile_no_overflow: true,
       gone_mobile: true, draft_not_public: true, canvas_qr_decoded: true, downloaded_png_decoded: true,
       svg_download: true, print_portal_rendered: true, physical_printer: 'NOT RUN', physical_camera: 'NOT RUN' };
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(result, null, 2));
+    fs.rmSync(path.join(output, 'failure.json'), { force: true });
+    fs.rmSync(path.join(output, 'failure.png'), { force: true });
     console.log(JSON.stringify(result));
+  } catch (error) {
+    if (page) {
+      await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }).catch(() => {});
+      fs.writeFileSync(path.join(output, 'failure.json'), JSON.stringify({ type: error.name,
+        path: new URL(page.url()).pathname, text: (await page.$eval('body', element => element.innerText)).slice(0, 2000) }, null, 2));
+    }
+    throw error;
   } finally { await browser.close(); }
 })().catch(error => { console.error(error.name + ': ' + error.message); process.exitCode = 1; });
