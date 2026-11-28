@@ -14,16 +14,20 @@ import (
 	"dut-pbl6/inventory-service/internal/infrastructure/postgres"
 	"dut-pbl6/inventory-service/internal/infrastructure/worker"
 	provider "dut-pbl6/inventory-service/internal/presentation/grpc"
+	"dut-pbl6/inventory-service/internal/presentation/httpapi"
 	api "dut-pbl6/inventory-service/pkg/proto/inventory/v1"
 	packing "dut-pbl6/inventory-service/pkg/proto/packing/v1"
+	traceability "dut-pbl6/inventory-service/pkg/proto/traceability/v1"
 	"encoding/json"
 	"encoding/pem"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +56,33 @@ func main() {
 		_, e = db.Exec(string(b))
 		must(e)
 	}
+	if address := os.Getenv("PEER_ADMIN_ADDRESS"); address != "" {
+		migration, e := os.ReadFile("migrations/000005_stock_receipts.up.sql")
+		must(e)
+		_, e = db.Exec(string(migration))
+		must(e)
+		go func() {
+			for {
+				if _, e := os.Stat(os.Getenv("PEER_STOP_FILE")); e == nil {
+					return
+				}
+				data, e := os.ReadFile(os.Getenv("PEER_ADMIN_KEY_FILE"))
+				if e != nil {
+					time.Sleep(time.Second)
+					continue
+				}
+				key, e := jwt.ParseRSAPublicKeyFromPEM(data)
+				must(e)
+				receipt := httpapi.ReceiptHandler{DB: db, Key: key, Issuer: os.Getenv("PEER_ADMIN_ISSUER"), Audience: "omama-api"}
+				mux := http.NewServeMux()
+				mux.Handle("POST "+httpapi.ReceiptPath, receipt)
+				mux.Handle("GET "+httpapi.WorkbenchPath, httpapi.WorkbenchHandler{ReceiptHandler: receipt})
+				server := &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 3 * time.Second}
+				must(server.ListenAndServe())
+				return
+			}
+		}()
+	}
 	_, err = db.Exec(`INSERT INTO inventory_items(sku,warehouse_id,physical_qty) VALUES('PEER','00000000-0000-0000-0000-000000000001',100)`)
 	must(err)
 	_, err = db.Exec(`INSERT INTO batches(id,batch_code,sku,supplier_id,mfg_date,exp_date,physical_qty,status) VALUES($1,'PEER','PEER',$2,CURRENT_DATE-1,CURRENT_DATE+30,100,'ACTIVE')`, uuid.NewString(), uuid.NewString())
@@ -73,6 +104,9 @@ func main() {
 	terminal := &provider.TerminalServer{InventoryServiceServer: &api.UnimplementedInventoryServiceServer{}, DB: db, Token: os.Getenv("PEER_TOKEN"), CatalogToken: os.Getenv("PEER_CATALOG_TOKEN")}
 	api.RegisterInventoryServiceServer(server, terminal)
 	packing.RegisterInventoryPackingInputsCandidateServer(server, &provider.PackingServer{Terminal: terminal, Token: os.Getenv("PEER_PACKING_TOKEN")})
+	if token := os.Getenv("PEER_TRACEABILITY_TOKEN"); token != "" {
+		traceability.RegisterBatchSourceServer(server, &provider.TraceabilitySource{DB: db, Token: token})
+	}
 	if brokers := os.Getenv("PEER_KAFKA_BROKERS"); brokers != "" {
 		publisher := kafkainfra.NewKafkaProducer(strings.Split(brokers, ","))
 		defer publisher.Close()

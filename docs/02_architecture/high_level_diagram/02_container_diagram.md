@@ -1,5 +1,9 @@
 # BỘ SƠ ĐỒ CONTAINER KIẾN TRÚC TỔNG (CONTAINER DIAGRAMS - C4 LEVEL 2)
 
+> **Traceability transport27/11 —0.3.0:** [gRPC guide/shared contracts](../../03_api_specs/traceability-workflow-grpc.md) thay internal REST của target0.2.2; Web/BFF giữ REST, OIDC giữ HTTPS. Ba proto mới additive; candidate Inventory9/packing14 vẫn theo task provider.
+
+> **Traceability 21/11/2026:** [Thiết kế toàn luồng](../../03_api_specs/traceability-workflow-design-2026-11-21.md) là tham chiếu cho QR theo lô, scope kho, in tem sau publish và nguồn gốc từ đơn. Sơ đồ supply bên dưới không còn nối packing → kích hoạt QR. Những mũi tên khác là tổng quan legacy, không phải bằng chứng runtime hoặc rollout target Order 3.2.
+
 ## 1. Vị Trí & Vai Trò Trong Tài Liệu HLD
 - **Cấp độ kiến trúc:** Kiến trúc tổng thể container (Level 2 trong mô hình C4).
 - **Vị trí trong HLD:** Đặt tại **Chương 1 (Mục 1.3 - Sơ đồ kiến trúc tổng quan)** — Trả lời câu hỏi: *Hệ thống gồm những Container phần mềm nào (Web, App, Gateway, Microservices, Databases, Message Brokers, Storage), công nghệ gì, và ai nói chuyện với ai?*
@@ -150,8 +154,8 @@ C4Container
         Container(ms_pro, "MS-08: procurement-service", "Go, Port: 8008", "Quản lý hợp đồng nhà cung cấp HTX Huế, đơn mua nguyên liệu PO")
         ContainerDb(db_pro, "Procurement DB", "PostgreSQL 16", "Bảng suppliers, raw_materials, purchase_orders")
 
-        Container(ms_trc, "MS-03: traceability-service", "Go, Port: 8003", "Kích hoạt mã QR tem OCOP trên từng hộp kẹo, minh bạch nguồn nguyên liệu")
-        ContainerDb(db_trc, "Traceability DB", "PostgreSQL 16", "Bảng batch_origins, ocop_certifications")
+        Container(ms_trc, "MS-03: traceability-service", "Go, Port: 8003", "Hồ sơ theo lô, duyệt và công bố QR; in tem qua Web")
+        ContainerDb(db_trc, "Traceability DB", "PostgreSQL 16", "Profiles, revisions, dependency snapshots và outbox")
     }
 
     Rel(ms_order_client, ms_inv, "ReserveStock() / ReleaseReservation()", "gRPC sync")
@@ -166,7 +170,8 @@ C4Container
     Rel(kafka_sc, ms_shp, "Consume PackingCompletedEvent", "Kafka async")
     Rel(ms_shp, ext_3pl_api, "Gọi API tạo vận đơn, truyền cân nặng/kích thước", "REST API HTTPS")
 
-    Rel(kafka_sc, ms_trc, "Consume PackingCompletedEvent (Gán mã QR lô kẹo)", "Kafka async")
+    Rel(ms_trc, ms_inv, "GetTraceabilityBatch: xác minh lô trước publish", "gRPC sync")
+    Rel(ms_order_client, ms_trc, "Batch links từ sealed proof (draft)", "Internal REST")
     Rel(ext_coop_farm, ms_pro, "Cung ứng nguyên liệu mè/đậu đạt chuẩn VietGAP", "Biên bản giao nhận")
     Rel(ms_pro, kafka_sc, "Publish GoodsReceivedEvent (Nhập lô mè mới)", "Kafka async")
     Rel(kafka_sc, ms_inv, "Consume GoodsReceivedEvent (Tạo Lô mới)", "Kafka async")
@@ -229,3 +234,5 @@ C4Container
    - **Audit Plane** được đóng khung riêng biệt `Container_Boundary(audit_boundary)` tại Sơ đồ 2.4 theo đúng Dòng 9 của quy định.
    - Mọi mũi tên đều được định danh rõ `gRPC sync` hoặc `Kafka async` trong nhãn (Dòng 5 & 7).
    - Hệ thống ngoài đều dùng chuẩn `System_Ext(...)`.
+
+Traceability 0.4.0 (27/11/2026) follows Duong's canonical Catalog/Media in PR #175/dev@ac5395c5. The [current guide](../../03_api_specs/traceability-workflow-grpc.md) replaces the unshipped GetSkuBinding proposal, adds OCOP validation and durable post-publication binding, and preserves other workflow contracts. See [report10](../../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md) and reissued owner briefs; fixture results are not real-provider acceptance.

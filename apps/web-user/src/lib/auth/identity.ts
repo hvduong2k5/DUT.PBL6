@@ -1,6 +1,21 @@
 import type { PrincipalRole, PrincipalType } from "./types";
 
+export interface IdentityPermissionGrant { permissionCode: string; scopeType: string; scopeId: string | null }
+
+export function parseIdentityPermissionGrants(value: unknown): IdentityPermissionGrant[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const result: IdentityPermissionGrant[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+    const grant = item as Record<string, unknown>;
+    if (typeof grant.permissionCode !== "string" || !grant.permissionCode || typeof grant.scopeType !== "string" || !grant.scopeType || !(grant.scopeId === null || typeof grant.scopeId === "string")) return undefined;
+    result.push({ permissionCode: grant.permissionCode, scopeType: grant.scopeType, scopeId: grant.scopeId });
+  }
+  return result;
+}
+
 export interface IdentityProfile {
+  permissionGrants?: IdentityPermissionGrant[];
   customerId?: string;
   customerStatus?: "ACTIVE" | "PENDING_VERIFICATION";
   principalId: string;
@@ -64,6 +79,9 @@ export function parseIdentityProfile(value: unknown): IdentityProfile | undefine
     }];
   }) : [];
 
+  const permissionGrants = source.permissionGrants === undefined ? undefined : parseIdentityPermissionGrants(source.permissionGrants);
+  if (source.permissionGrants !== undefined && !permissionGrants) return undefined;
+
   const email = text(source.email) ?? "";
   const displayName = text(source.displayName)
     ?? [text(source.firstName), text(source.lastName)].filter(Boolean).join(" ")
@@ -73,6 +91,7 @@ export function parseIdentityProfile(value: unknown): IdentityProfile | undefine
   return {
     principalId,
     principalType,
+    ...(permissionGrants ? { permissionGrants } : {}),
     email,
     displayName: displayName || email || principalId,
     provisioningStatus: text(source.provisioningStatus) ?? "ACTIVE",

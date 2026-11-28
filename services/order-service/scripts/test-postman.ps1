@@ -4,7 +4,8 @@ $orderTaskRoot = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 Push-Location $orderTaskRoot
 try {
     if ($StartStack) {
-        docker compose -f services/order-service/docker-compose.test.yml up -d --build
+        & ./infra/scripts/build-go-artifacts.ps1 -Service order-service
+        docker compose -f infra/docker/stacks/order-test.compose.yml up -d --build
         if ($LASTEXITCODE -ne 0) { throw 'Order sandbox startup failed.' }
     }
     $orderReady = $false

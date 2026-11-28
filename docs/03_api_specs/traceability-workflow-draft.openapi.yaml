@@ -1,0 +1,569 @@
+openapi: 3.1.0
+info:
+  title: Traceability workflow integration proposal
+  version: 0.4.0-draft
+  x-implementation-report: ../04_testing/traceability-service/09_grpc_transport_2026-11-27.md
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: North-south REST integration target 0.4.0-draft. Business East-West calls use the shared gRPC contracts
+    in traceability-workflow-grpc.md. The unshipped internal REST resolver and Catalog binding proposals from 0.2.2
+    are removed. Public/customer/scoped admin semantics remain unchanged. Backend fixture verification does not
+    establish peer acceptance or stable promotion.
+servers:
+- url: http://127.0.0.1:8003
+tags:
+- name: Staff
+  description: Traceability-owned scoped staff lookup
+- name: Customer
+  description: Order-owned authenticated subresource
+x-contract-deltas:
+  inventory-receipt-applied-additions:
+    provider: /api/v1/admin/inventory/workbench/receipts
+    bff: /api/admin/inventory/workbench/receipts
+    schema:
+      $ref: '#/components/schemas/ReceiptBindingExtension'
+paths:
+  /api/v1/orders/{order_id}/traceability:
+    get:
+      servers:
+      - url: http://127.0.0.1:8004
+      tags:
+      - Customer
+      operationId: getCustomerOrderTraceabilityDraft
+      summary: Read traceability for the sealed batches of an owned order
+      description: Owned by Order. Apply the same ownership and existing guest capability checks as order detail
+        before calling peers. No new guest credential type. A known identity without order ownership returns 403
+        under repository rules; a nonexistent order returns 404. Derive all bindings from validated sealed proof
+        and frozen Order lines; never accept batch IDs from this request. Mixed resolver failures do not remove
+        order lines and do not affect the existing order detail endpoint. state PACKING_PENDING or NOT_APPLICABLE
+        has empty items and total 0; READY means sealed batch bindings exist, not that every link is available.
+        Internal schema/capability mismatch yields UNAVAILABLE rather than guessed data. Current Order/Inventory
+        manifest supports one line per SKU. Every output row includes exact sku_code for UI bridging. More than
+        1000 rows or an unrepresentable response returns root UNAVAILABLE with empty items/total 0; never truncate
+        valid-looking data. Resolver chunks not completed within the outer 5-second budget stay UNAVAILABLE.
+      security:
+      - customerBearer: []
+      - guestCapability: []
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Sealed batch rows, or an explicit pending/unavailable state
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - READY
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/OrderBatchTraceResult'
+                      maxItems: 1000
+                      minItems: 1
+                    total:
+                      type: integer
+                      minimum: 1
+                      description: Number of line-batch rows, not number of products
+                - type: object
+                  required:
+                  - order_id
+                  - state
+                  - items
+                  - total
+                  properties:
+                    order_id:
+                      type: string
+                      format: uuid
+                    state:
+                      type: string
+                      enum:
+                      - PACKING_PENDING
+                      - NOT_APPLICABLE
+                      - UNAVAILABLE
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/OrderBatchTraceResult'
+                      maxItems: 0
+                    total:
+                      type: integer
+                      const: 0
+              examples:
+                pending:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: PACKING_PENDING
+                    items: []
+                    total: 0
+                unavailable:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: UNAVAILABLE
+                    items: []
+                    total: 0
+                cancelledBeforePacking:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: NOT_APPLICABLE
+                    items: []
+                    total: 0
+                oneLineTwoBatches:
+                  value:
+                    order_id: 22222222-2222-4222-8222-222222222222
+                    state: READY
+                    items:
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      batch_code: LOT-A
+                      packed_quantity: 3
+                      status: AVAILABLE
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      sku_code: MX-001
+                    - order_line_id: 77777777-7777-4777-8777-777777777777
+                      batch_id: 44444444-4444-4444-8444-444444444444
+                      batch_code: LOT-B
+                      packed_quantity: 2
+                      status: NOT_AVAILABLE
+                      qr_url: null
+                      sku_code: MX-001
+                    total: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v2/admin/trace/records/by-batch:
+    get:
+      tags:
+      - Staff
+      operationId: findScopedTraceabilityByBatchDraft
+      summary: Find the existing profile before creating a draft
+      description: Requires traceability.read_internal for the authoritative warehouse from Inventory. Validate
+        scope even when no profile exists. Warehouse is never trusted from browser input. Existing profile responses
+        follow evidence redaction rules. Return at most one exact-binding match; no fuzzy SKU lookup. This literal
+        route must take precedence over /records/{id}.
+      security:
+      - staffBearer: []
+      parameters:
+      - $ref: '#/components/parameters/ProductId'
+      - $ref: '#/components/parameters/SkuCode'
+      - $ref: '#/components/parameters/BatchId'
+      - name: source_namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - inventory
+      responses:
+        '200':
+          description: Exact match or empty collection; never 404 for an empty lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - total
+                properties:
+                  items:
+                    type: array
+                    maxItems: 1
+                    items:
+                      type: object
+                      required:
+                      - profile_id
+                      - version
+                      properties:
+                        profile_id:
+                          type: string
+                          format: uuid
+                        version:
+                          type: integer
+                          format: int64
+                          minimum: 1
+                  total:
+                    type: integer
+                    minimum: 0
+                    maximum: 1
+              examples:
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                found:
+                  value:
+                    items:
+                    - profile_id: 11111111-1111-4111-8111-111111111111
+                      version: 1
+                    total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/v2/admin/trace/batches/{batch_id}/context:
+    get:
+      tags:
+      - Staff
+      operationId: getScopedBatchTraceabilityContext
+      summary: Bootstrap a traceability form from an authoritative receipt batch
+      description: Traceability-owned. Requires read_internal for the resource warehouse. Read Inventory first,
+        check scope, then resolve Product by exact SKU from Catalog within a shared 2-second budget. No client-supplied
+        product/warehouse identity. Does not create a draft or change stock. Restricted/expired source may be displayed
+        for draft preparation, but existing submit/publish guards still apply. No dependency on unimplemented Inventory
+        SKU detail endpoints or Catalog prices.
+      security:
+      - staffBearer: []
+      parameters:
+      - name: batch_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/SkuCode'
+      responses:
+        '200':
+          description: Verified binding for prefilled form; not a public eligibility approval
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - product_id
+                - sku_code
+                - source_namespace
+                - batch_id
+                - warehouse_id
+                - batch_code
+                - production_date
+                - expiry_date
+                - restricted
+                - depleted
+                - catalog_version
+                - batch_version
+                properties:
+                  product_id:
+                    type: string
+                    format: uuid
+                  sku_code:
+                    type: string
+                  source_namespace:
+                    type: string
+                    enum:
+                    - inventory
+                  batch_id:
+                    type: string
+                    format: uuid
+                  warehouse_id:
+                    type: string
+                    format: uuid
+                  batch_code:
+                    type: string
+                  production_date:
+                    type: string
+                    format: date
+                  expiry_date:
+                    type: string
+                    format: date
+                  restricted:
+                    type: boolean
+                  depleted:
+                    type: boolean
+                  catalog_version:
+                    type: string
+                  batch_version:
+                    type: string
+              examples:
+                success:
+                  value:
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    batch_code: LOT-A
+                    production_date: '2026-11-01'
+                    expiry_date: '2027-11-01'
+                    restricted: false
+                    depleted: false
+                    catalog_version: variant:1:1
+                    batch_version: '1'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  securitySchemes:
+    staffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    customerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    guestCapability:
+      type: http
+      scheme: bearer
+      description: Existing authoritative Order detail guest credential only; payment-read grants do not authorize
+        this operation. No new credential or header is introduced.
+  parameters:
+    ProductId:
+      name: product_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SkuCode:
+      name: sku_code
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+    BatchId:
+      name: batch_id
+      in: query
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    ReceiptBindingExtension:
+      description: Proposed additive APPLIED receipt result fields for Inventory provider and Web BFF. This is a
+        delta, not the full existing response. Store these fields atomically with the idempotency response. Old
+        stored results may omit them; callers must reread the authoritative batch instead of fabricating values.
+      type: object
+      required:
+      - batchId
+      - batchCode
+      - skuCode
+      - warehouseId
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        batchCode:
+          type: string
+        skuCode:
+          type: string
+        warehouseId:
+          type: string
+          format: uuid
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable code
+        message:
+          type: string
+          description: Safe user-visible message
+        requestId:
+          type: string
+    OrderBatchTraceResult:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - order_line_id
+        - batch_id
+        - batch_code
+        - packed_quantity
+        - sku_code
+        - status
+        - qr_url
+        properties:
+          order_line_id:
+            type: string
+            format: uuid
+          batch_id:
+            type: string
+            format: uuid
+            description: Stable row identity together with order_line_id; batch_code alone is not unique
+          batch_code:
+            type: string
+          packed_quantity:
+            type: integer
+            minimum: 1
+            format: int32
+            maximum: 2147483647
+          sku_code:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Authoritative unique-per-order SKU to bridge customer detail rows that lack canonical line
+              IDs. Never parse skuLabel.
+          status:
+            type: string
+            enum:
+            - AVAILABLE
+            - NO_LONGER_PUBLIC
+          qr_url:
+            type: string
+            format: uri
+      - type: object
+        additionalProperties: false
+        required:
+        - order_line_id
+        - batch_id
+        - batch_code
+        - packed_quantity
+        - sku_code
+        - status
+        - qr_url
+        properties:
+          order_line_id:
+            type: string
+            format: uuid
+          batch_id:
+            type: string
+            format: uuid
+            description: Stable row identity together with order_line_id; batch_code alone is not unique
+          batch_code:
+            type: string
+          packed_quantity:
+            type: integer
+            minimum: 1
+            format: int32
+            maximum: 2147483647
+          sku_code:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Authoritative unique-per-order SKU to bridge customer detail rows that lack canonical line
+              IDs. Never parse skuLabel.
+          status:
+            type: string
+            enum:
+            - NOT_AVAILABLE
+            - UNAVAILABLE
+          qr_url:
+            type: 'null'
+  responses:
+    Unauthorized:
+      description: Absent, expired or invalid authentication; code UNAUTHENTICATED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            UNAUTHENTICATED:
+              value:
+                code: UNAUTHENTICATED
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Forbidden:
+      description: Known identity without required permission, scope or capability; code FORBIDDEN
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            FORBIDDEN:
+              value:
+                code: FORBIDDEN
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    NotFound:
+      description: Resource does not exist; code NOT_FOUND
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            NOT_FOUND:
+              value:
+                code: NOT_FOUND
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Unavailable:
+      description: Required authority or storage unavailable; code DEPENDENCY_UNAVAILABLE
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            DEPENDENCY_UNAVAILABLE:
+              value:
+                code: DEPENDENCY_UNAVAILABLE
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Conflict:
+      description: Authoritative warehouse changed for an existing profile; code WAREHOUSE_BINDING_CONFLICT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            WAREHOUSE_BINDING_CONFLICT:
+              value:
+                code: WAREHOUSE_BINDING_CONFLICT
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    BadRequest:
+      description: Invalid staff binding input; code INVALID_INPUT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INVALID_INPUT
+            message: Invalid request.
+            requestId: req-traceability-example

@@ -4,6 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /workspace
 
 RUN apk add --no-cache python3 make g++ vips-dev
+RUN apk add --no-cache openssl
 
 COPY packages/proto ./packages/proto
 COPY services/media-service/package*.json ./services/media-service/
@@ -20,6 +21,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache vips
+RUN apk add --no-cache openssl
 
 COPY --from=builder /workspace/services/media-service/package*.json ./
 COPY --from=builder /workspace/services/media-service/node_modules ./node_modules
@@ -28,7 +30,7 @@ COPY --from=builder /workspace/services/media-service/prisma ./prisma
 COPY --from=builder /workspace/packages/proto ./packages/proto
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
-    && chown -R appuser:appgroup /app
+    && mkdir -p /home/appuser
 
 USER appuser
 

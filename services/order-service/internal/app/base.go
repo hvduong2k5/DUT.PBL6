@@ -23,6 +23,7 @@ import (
 	"github.com/omamx/order-service/internal/persistence"
 	"github.com/omamx/order-service/internal/sepay"
 	"github.com/omamx/order-service/internal/shippingprovider"
+	"github.com/omamx/order-service/internal/traceabilityprovider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
@@ -132,6 +133,7 @@ func LoadConfig() (Config, error) {
 }
 
 type Service struct {
+	Traceability         *traceabilityprovider.Adapter
 	GuestStore           *persistence.Payment
 	Catalog              *catalogprovider.Adapter
 	Media                *mediaprovider.Adapter

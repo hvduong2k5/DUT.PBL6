@@ -530,6 +530,11 @@ paths:
   /api/v1/orders/{id}:
     get:
       operationId: getOwnedOrder
+      description: >-
+        Reads the owned order from its immutable commercial snapshot. Historical
+        pre-pricing Catalog evidence remains readable with its original logical
+        hash and prices; it is not rebuilt from live Catalog or Inventory data.
+        Storage compatibility does not change ownership or integrity checks.
       summary: getOwnedOrder
       responses:
         '200':
@@ -1171,6 +1176,7 @@ paths:
         values are not proof. Not enabled until its provider protocol is agreed.'
   /livez:
     get:
+      security: []
       operationId: liveness
       summary: liveness
       responses:
@@ -1212,6 +1218,7 @@ paths:
                 $ref: '#/components/schemas/ApiError'
   /readyz:
     get:
+      security: []
       operationId: readiness
       summary: readiness
       responses:
@@ -1368,6 +1375,7 @@ paths:
           type: string
   /api/v1/guest-sessions:
     post:
+      security: []
       summary: Create a sandbox guest session
       operationId: createGuestSession
       description: Sandbox opaque Guest principal without account registration
@@ -1377,6 +1385,7 @@ paths:
   /internal/cancellations/approve:
     post:
       operationId: applyCareCancellationApproval
+      summary: Apply an approved care cancellation
       security:
       - serviceIdentity: []
       requestBody:

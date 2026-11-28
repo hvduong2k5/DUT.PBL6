@@ -1,5 +1,7 @@
 # Xác minh sản phẩm, SKU và lô trước khi publish QR
 
+> Bổ sung thiết kế đích 21/11/2026: `BatchSnapshot.warehouse_id` là dữ liệu authoritative cần thêm để giới hạn nhân viên theo kho. Proto hiện tại chưa có trường này; chưa đổi wire/codegen. Xem [thiết kế và gate Inventory](../../../03_api_specs/traceability-workflow-design-2026-11-21.md#4-scope-kho-và-mô-hình-dữ-liệu).
+
 **Ngày lập:** 13/11/2026 (UTC+7) · **Mốc:** `dev@239c8db` · **Trạng thái:** Chốt thiết kế ngày 13/11/2026
 
 `GetBatchFEFODetails` đọc theo SKU, trả mã lô và thông tin FEFO nhưng thiếu UUID và revision. `GetCommittedPackingAllocation` có UUID và eligibility revision nhưng yêu cầu reservation đã commit. Traceability cần kiểm tra lô trước khi có đơn hàng. Contract checkout của Catalog phục vụ Order và dữ liệu bán hàng.

@@ -957,6 +957,8 @@ EPIC 25  Customer Analytics & DSS                  [Size: XL] [Phase 3]
 
 # 26. EPIC 19 — OCOP TRACEABILITY
 
+**Bổ sung nghiệp vụ21–25/11/2026:** [EPIC19 mục6.5](epics/EPIC_19_OCOP_Traceability.md) và [bộ đặc tả dự án](../03_api_specs/traceability-workflow-README.md) làm rõ US-OCOP-01~04: hồ sơ/QR theo lô; nhân viên đúng kho lập/xem hồ sơ ngay sau nhập kho nhưng transaction độc lập; duyệt/công bố rồi tải/in tem; khách quét công khai hoặc xem lô thực giao từ chi tiết đơn. Giữ các priority bên dưới; không tự chuyển toàn bộ US-OCOP-05~06 sang MVP. Review/publish tối thiểu là guard trước công khai, không tuyên bố đã tích hợp provider tự động hoặc hoàn thành chức năng nâng cao. Scope, contract, test và task owner theo target0.2.2-draft, chưa nghiệm thu runtime.
+
 ### US-OCOP-01
 > Là khách hàng, tôi muốn quét QR trên sản phẩm để kiểm tra nguồn gốc.
 **Priority:** Must Have — 3rd

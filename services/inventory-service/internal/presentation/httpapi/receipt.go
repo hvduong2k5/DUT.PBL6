@@ -44,14 +44,18 @@ type receiptRequest struct {
 }
 
 type receiptResult struct {
-	ID       string    `json:"operationId"`
-	Status   string    `json:"status"`
-	Label    string    `json:"statusLabel"`
-	Movement string    `json:"movementId"`
-	Approval *string   `json:"approvalRequestId"`
-	Occurred time.Time `json:"occurredAt"`
-	Revision int64     `json:"revision"`
-	Message  string    `json:"message"`
+	BatchID     string    `json:"batchId,omitempty"`
+	BatchCode   string    `json:"batchCode,omitempty"`
+	SKUCode     string    `json:"skuCode,omitempty"`
+	WarehouseID string    `json:"warehouseId,omitempty"`
+	ID          string    `json:"operationId"`
+	Status      string    `json:"status"`
+	Label       string    `json:"statusLabel"`
+	Movement    string    `json:"movementId"`
+	Approval    *string   `json:"approvalRequestId"`
+	Occurred    time.Time `json:"occurredAt"`
+	Revision    int64     `json:"revision"`
+	Message     string    `json:"message"`
 }
 
 type receiptError struct {
@@ -63,6 +67,7 @@ func (e receiptError) Error() string { return e.code }
 
 func (h ReceiptHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
 	requestID := uuid.NewString()
 	w.Header().Set("X-Request-Id", requestID)
 	fail := func(status int, code string) {
@@ -212,7 +217,7 @@ func (h ReceiptHandler) receive(ctx context.Context, actor uuid.UUID, global boo
 			SELECT $1::varchar,$2::varchar,$3::uuid,$4::date,$5::date,$6::integer,CASE WHEN $5::date <= CURRENT_DATE+45 THEN 'NEAR_EXPIRY' ELSE 'ACTIVE' END
 			WHERE $4::date<=CURRENT_DATE AND $5::date>CURRENT_DATE
 			  AND NOT EXISTS(SELECT 1 FROM batches WHERE sku=$2 AND batch_code=$1)
-			RETURNING id::text`, req.BatchCode, req.SKU, req.SupplierID, req.Manufactured, req.Expires, req.Quantity).Scan(&batchID)
+			RETURNING id::text,batch_code`, req.BatchCode, req.SKU, req.SupplierID, req.Manufactured, req.Expires, req.Quantity).Scan(&batchID, &result.BatchCode)
 	} else {
 		if req.BatchMode == "" {
 			var candidates int
@@ -227,7 +232,7 @@ func (h ReceiptHandler) receive(ctx context.Context, actor uuid.UUID, global boo
 		}
 		err = tx.QueryRowContext(ctx, `UPDATE batches SET physical_qty=physical_qty+$3,version=version+1
 			WHERE id=$1 AND sku=$2 AND exp_date>CURRENT_DATE AND status IN ('ACTIVE','NEAR_EXPIRY')
-			RETURNING id::text`, req.BatchID, req.SKU, req.Quantity).Scan(&batchID)
+			RETURNING id::text,batch_code`, req.BatchID, req.SKU, req.Quantity).Scan(&batchID, &result.BatchCode)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, receiptError{422, "INVALID_BATCH"}
@@ -250,6 +255,7 @@ func (h ReceiptHandler) receive(ctx context.Context, actor uuid.UUID, global boo
 	if err = tx.QueryRowContext(ctx, `SELECT inventory_version FROM inventory_items WHERE sku=$1`, req.SKU).Scan(&result.Revision); err != nil {
 		return result, err
 	}
+	result.BatchID, result.SKUCode, result.WarehouseID = batchID, req.SKU, warehouse
 	result.Status, result.Label, result.Message = "APPLIED", "Đã áp dụng", "Đã ghi nhận nhập kho."
 	response, err := json.Marshal(result)
 	if err != nil {

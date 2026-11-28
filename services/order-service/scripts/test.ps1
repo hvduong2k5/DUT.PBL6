@@ -3,16 +3,17 @@ $ErrorActionPreference = 'Stop'
 $orderRepo = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 Push-Location $orderRepo
 try {
-    docker build -f services/order-service/Dockerfile.tools -t omamx/order-go-tools:local services/order-service
+    docker build --build-arg SERVICE_PATH=services/order-service -f infra/docker/go-tools.Dockerfile -t omamx/order-go-tools:local .
     if ($LASTEXITCODE -ne 0) { throw 'Go toolchain build failed.' }
     if ($StartStack) {
-        docker compose -f services/order-service/docker-compose.test.yml up -d --build
+        & ./infra/scripts/build-go-artifacts.ps1 -Service order-service
+        docker compose -f infra/docker/stacks/order-test.compose.yml up -d --build
         if ($LASTEXITCODE -ne 0) { throw 'Order stack startup failed.' }
     } else {
-        docker compose -f services/order-service/docker-compose.test.yml up -d db redis kafka-init
+        docker compose -f infra/docker/stacks/order-test.compose.yml up -d db redis kafka-init
         if ($LASTEXITCODE -ne 0) { throw 'Order test infrastructure startup failed.' }
     }
-    docker compose -f services/order-service/docker-compose.test.yml run --rm tests sh -c 'test -z "$(gofmt -l cmd internal migrations tests)" && go vet ./... && go test -race -count=1 -v ./...' 2>&1 |
+    docker compose -f infra/docker/stacks/order-test.compose.yml run --rm tests sh -c 'test -z "$(gofmt -l cmd internal migrations tests)" && go vet ./... && go test -race -count=1 -v ./...' 2>&1 |
         Tee-Object -FilePath docs/04_testing/order-service/go-test-race-output.txt
     $orderGoExit = $LASTEXITCODE
     if ($orderGoExit -ne 0) { throw 'Order Go release gates failed.' }

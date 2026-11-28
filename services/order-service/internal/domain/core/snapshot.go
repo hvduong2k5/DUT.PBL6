@@ -157,6 +157,8 @@ type SnapshotInput struct {
 type Snapshot struct {
 	canonical string
 	hash      PayloadHash
+	// Read projection for the historical Catalog envelope; canonical bytes stay frozen.
+	legacyCatalog *CatalogEvidence
 }
 
 func NewSnapshot(input SnapshotInput) (Snapshot, error) {
@@ -192,6 +194,9 @@ func (s Snapshot) Hash() PayloadHash { return s.hash }
 func (s Snapshot) Data() SnapshotInput {
 	var input SnapshotInput
 	_ = json.Unmarshal([]byte(s.canonical), &input) // Constructor owns these bytes.
+	if s.legacyCatalog != nil {
+		input.Catalog = *s.legacyCatalog
+	}
 	return input
 }
 

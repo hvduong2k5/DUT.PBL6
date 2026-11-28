@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useEmployeeSession } from "@/components/auth/employee-session-provider";
 import type { InventoryOperationResult, WarehouseWorkbenchContext } from "@/features/employee/inventory/types";
 import { AdminInventoryApiError } from "@/features/employee/inventory/types";
+import Link from "next/link";
 import { adminInventoryService } from "@/features/employee/inventory/service";
 
 type Operation = "RECEIPT" | "ISSUE" | "ADJUSTMENT";
@@ -23,6 +24,8 @@ export function WarehouseWorkbench() {
   const [batchId, setBatchId] = useState("");
   const [batchMode, setBatchMode] = useState<"EXISTING" | "NEW">("EXISTING");
   const [batchCode, setBatchCode] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const receiptKeys = useRef(new Map<string, string>());
   const [manufacturingDate, setManufacturingDate] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -64,14 +67,23 @@ export function WarehouseWorkbench() {
     if (!selectedSku) return;
     setSubmitting(true); setOperationError(""); setResult(null);
     try {
-      const common = { skuId: selectedSku.skuId, expectedRevision: selectedSku.revision, idempotencyKey: crypto.randomUUID() };
+      const intent = JSON.stringify({operation, skuId: selectedSku.skuId, revision: selectedSku.revision, batchMode, batchId, batchCode, supplierId, manufacturingDate, expiresAt, quantity, reference, reason, purpose, adjustmentKind});
+      let idempotencyKey = receiptKeys.current.get(intent);
+      if (!idempotencyKey) { idempotencyKey = crypto.randomUUID(); receiptKeys.current.set(intent, idempotencyKey); }
+      const common = { skuId: selectedSku.skuId, expectedRevision: selectedSku.revision, idempotencyKey };
       const operationResult = operation === "RECEIPT"
-        ? await adminInventoryService.receive({ ...common, batchMode, batchId: batchMode === "EXISTING" ? batchId : undefined, batchCode: batchMode === "NEW" ? batchCode : undefined, manufacturingDate: batchMode === "NEW" ? manufacturingDate : undefined, expiresAt: batchMode === "NEW" ? expiresAt : undefined, quantity: Number(quantity), sourceReference: reference })
+        ? await adminInventoryService.receive({ ...common, batchMode, batchId: batchMode === "EXISTING" ? batchId : undefined, batchCode: batchMode === "NEW" ? batchCode : undefined, supplierId: batchMode === "NEW" ? supplierId : undefined, manufacturingDate: batchMode === "NEW" ? manufacturingDate : undefined, expiresAt: batchMode === "NEW" ? expiresAt : undefined, quantity: Number(quantity), sourceReference: reference })
         : operation === "ISSUE"
           ? await adminInventoryService.issue({ ...common, batchId, purpose, quantity: Number(quantity), reference, reason: reason || undefined })
           : await adminInventoryService.adjust({ ...common, batchId, kind: adjustmentKind, quantity: adjustmentKind === "COUNT" ? undefined : Number(quantity), countedQuantity: adjustmentKind === "COUNT" ? Number(quantity) : undefined, reference, reason });
       setResult(operationResult);
+      receiptKeys.current.delete(intent);
+      setData((current) => current ? { ...current, skus: current.skus.map((sku) => sku.skuId === selectedSku.skuId ? { ...sku, revision: operationResult.revision } : sku) } : current);
       setReference(""); setReason(""); setQuantity("1");
+      if (operationResult.status === "APPLIED") {
+        try { setData(await adminInventoryService.workbench()); }
+        catch { setOperationError("Phiếu đã ghi nhận; chưa tải lại được số dư. Không gửi lại phiếu để cập nhật màn hình."); }
+      }
     } catch (cause) { setOperationError(messageOf(cause)); }
     finally { setSubmitting(false); }
   }
@@ -96,7 +108,7 @@ export function WarehouseWorkbench() {
             <label>SKU<select value={skuId} onChange={(event) => changeSku(event.target.value)} required>{data.skus.map((item) => <option value={item.skuId} key={item.skuId}>{item.skuCode} · {item.productName} · {item.skuLabel}</option>)}</select></label>
             {operation === "RECEIPT" ? <label>Cách ghi nhận Batch<select value={batchMode} onChange={(event) => setBatchMode(event.target.value as "EXISTING" | "NEW")}><option value="EXISTING">Nhận thêm vào Batch hiện có</option><option value="NEW">Tạo Batch từ lần nhập này</option></select></label> : null}
             {(operation !== "RECEIPT" || batchMode === "EXISTING") ? <label>Batch<select value={batchId} onChange={(event) => setBatchId(event.target.value)} required>{selectedSku?.batches.map((batch) => <option value={batch.batchId} key={batch.batchId}>{batch.batchCode} · khả dụng {QUANTITY.format(batch.balance.available)}</option>)}</select></label> : null}
-            {operation === "RECEIPT" && batchMode === "NEW" ? <><label>Mã Batch<input value={batchCode} onChange={(event) => setBatchCode(event.target.value)} minLength={2} maxLength={80} required /></label><label>Ngày sản xuất<input type="date" value={manufacturingDate} onChange={(event) => setManufacturingDate(event.target.value)} required /></label><label>Hạn sử dụng<input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} required /></label></> : null}
+            {operation === "RECEIPT" && batchMode === "NEW" ? <><label>Mã Batch<input value={batchCode} onChange={(event) => setBatchCode(event.target.value)} minLength={2} maxLength={80} required /></label><label>Mã nhà cung cấp<input value={supplierId} onChange={(event) => setSupplierId(event.target.value)} required placeholder="Mã định danh trên phiếu nguồn hàng" /></label><label>Ngày sản xuất<input type="date" value={manufacturingDate} onChange={(event) => setManufacturingDate(event.target.value)} required /></label><label>Hạn sử dụng<input type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} required /></label></> : null}
             {operation === "ISSUE" ? <label>Mục đích xuất<select value={purpose} onChange={(event) => setPurpose(event.target.value as typeof purpose)}><option value="ORDER">Xuất cho Order</option><option value="APPROVED_NON_ORDER">Xuất ngoài Order đã được phê duyệt</option></select></label> : null}
             {operation === "ADJUSTMENT" ? <label>Loại biến động<select value={adjustmentKind} onChange={(event) => setAdjustmentKind(event.target.value as typeof adjustmentKind)}><option value="DAMAGE">Hàng hỏng</option><option value="LOSS">Thất thoát</option><option value="COUNT">Điều chỉnh sau kiểm kê</option></select></label> : null}
             <label>{operation === "ADJUSTMENT" && adjustmentKind === "COUNT" ? "Số lượng kiểm đếm thực tế" : "Số lượng"}<input type="number" min={operation === "ADJUSTMENT" && adjustmentKind === "COUNT" ? 0 : 1} step={1} value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
@@ -105,7 +117,7 @@ export function WarehouseWorkbench() {
           {(operation === "ADJUSTMENT" || (operation === "ISSUE" && purpose === "APPROVED_NON_ORDER")) ? <label className="warehouse-reason">Lý do nghiệp vụ<textarea value={reason} onChange={(event) => setReason(event.target.value)} minLength={10} maxLength={500} placeholder="Mô tả nguyên nhân để Audit và phê duyệt..." required /></label> : null}
           {selectedBatch ? <div className="warehouse-selected-batch"><span>Batch đang chọn</span><strong>{selectedBatch.batchCode}</strong><small>Vật lý {QUANTITY.format(selectedBatch.balance.onHand)} · Đang giữ {QUANTITY.format(selectedBatch.balance.reserved)} · Khả dụng {QUANTITY.format(selectedBatch.balance.available)} · HSD {DATE.format(new Date(selectedBatch.expiresAt))}</small></div> : null}
           {operationError ? <div className="admin-inline-error">{operationError}</div> : null}
-          {result ? <div className={`warehouse-result ${result.status.toLocaleLowerCase()}`}><strong>{result.statusLabel}</strong><p>{result.message}</p><small>{result.movementId ? `Movement ${result.movementId}` : `Yêu cầu ${result.approvalRequestId}`} · Revision {result.revision}</small></div> : null}
+          {result ? <div className={`warehouse-result ${result.status.toLocaleLowerCase()}`}><strong>{result.statusLabel}</strong><p>{result.message}</p>{operation === "RECEIPT" && result.status === "APPLIED" ? result.batchId && result.skuCode ? <p><Link className="admin-primary-button" href={`/admin/traceability?batchId=${encodeURIComponent(result.batchId)}&skuCode=${encodeURIComponent(result.skuCode)}`}>Lập / xem hồ sơ nguồn gốc</Link></p> : <p>Phiếu đã ghi nhận. Bản trả về cũ chưa có định danh lô để mở hồ sơ; không nhập lại phiếu để lấy mã.</p> : null}<small>{result.movementId ? `Movement ${result.movementId}` : `Yêu cầu ${result.approvalRequestId}`} · Revision {result.revision}</small></div> : null}
           <footer><span>Thực hiện bởi {session?.employee.displayName}. API quyết định áp dụng hay chờ duyệt.</span><button className="admin-primary-button" type="submit" disabled={!canSubmit || submitting || !selectedSku}>{submitting ? "Đang ghi nhận…" : !canSubmit ? "Không có quyền thao tác" : "Xác nhận nghiệp vụ"}</button></footer>
         </form>
       </main>

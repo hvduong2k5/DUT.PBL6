@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/application"
@@ -21,17 +22,23 @@ import (
 	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/jsonutil"
 	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/observability"
 	httptransport "github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/transport/http"
+	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func assemble(ctx context.Context, cfg config.Config, getenv func(string) string, logger *slog.Logger) (http.Handler, func(), error) {
+	handler, _, cleanup, err := assembleApplication(ctx, cfg, getenv, logger)
+	return handler, cleanup, err
+}
+
+func assembleApplication(ctx context.Context, cfg config.Config, getenv func(string) string, logger *slog.Logger) (http.Handler, *application.Resolver, func(), error) {
 	operations, err := config.LoadOperations(getenv)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	verifier, dependencies, closePeers, err := sourceAdapters(ctx, cfg.Mode, getenv)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	assembled := false
 	defer func() {
@@ -41,44 +48,116 @@ func assemble(ctx context.Context, cfg config.Config, getenv func(string) string
 	}()
 	dbConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
-		return nil, nil, errors.New("invalid runtime database configuration")
+		return nil, nil, nil, errors.New("invalid runtime database configuration")
 	}
 	dbConfig.MaxConns = 10
 	dbConfig.ConnConfig.ConnectTimeout = 3 * time.Second
 	dbConfig.ConnConfig.RuntimeParams["application_name"] = "traceability-service"
 	pool, err := pgxpool.NewWithConfig(ctx, dbConfig)
 	if err != nil {
-		return nil, nil, errors.New("cannot initialize runtime database")
+		return nil, nil, nil, errors.New("cannot initialize runtime database")
 	}
-	ready := func(ctx context.Context) error { return postgres.CheckRuntime(ctx, pool, cfg.Mode) }
+	ready := func(ctx context.Context) error {
+		if err := postgres.CheckRuntime(ctx, pool, cfg.Mode); err != nil {
+			return err
+		}
+		if cfg.ScopedAPIEnabled {
+			conn, err := pool.Acquire(ctx)
+			if err != nil {
+				return err
+			}
+			defer conn.Release()
+			return migrations.VerifyWarehouseWrites(ctx, conn.Conn())
+		}
+		return nil
+	}
 	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err = ready(checkCtx); err != nil {
 		pool.Close()
-		return nil, nil, errors.New("runtime database is not ready: verify explicit migrations, mode and unprivileged runtime grants")
+		return nil, nil, nil, errors.New("runtime database is not ready: verify explicit migrations, mode and unprivileged runtime grants")
 	}
 	store, err := postgres.NewProfiles(pool, cfg.Mode)
 	if err != nil {
 		pool.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	store.VideoHosts = cfg.VideoHosts
+	store.CursorKey = []byte(cfg.CursorHMACKey)
+	store.MediaEnabled = cfg.MediaEnabled
 	queue, err := postgres.NewOutbox(pool, postgres.OutboxOptions{Lease: 30 * time.Second, MaxAttempts: 10, BaseRetry: time.Second, MaxRetry: time.Minute})
 	if err != nil {
 		pool.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	metrics := observability.New(queue, operations.RelayEnabled)
 	source := observability.Dependency{Next: dependencies, Metrics: metrics}
 	service := &application.Drafts{Store: store, Dependencies: source, Clock: time.Now, VideoHosts: cfg.VideoHosts, PublicWebURL: cfg.PublicWebURL}
 	workflow := &application.Workflow{Store: store, Dependencies: source, Clock: time.Now, VideoHosts: cfg.VideoHosts, PublicWebURL: cfg.PublicWebURL}
+	if cfg.MediaEnabled {
+		media, ok := dependencies.(application.MediaVerifier)
+		if !ok {
+			pool.Close()
+			return nil, nil, nil, errors.New("media-enabled workflow requires a Media adapter")
+		}
+		workflow.Media = media
+	}
+	handlerConfig := httptransport.HandlerConfig{Readiness: ready, Logger: logger, Identity: verifier, Drafts: service, Workflow: workflow, Metrics: metrics}
+	if cfg.ScopedAPIEnabled {
+		scopedSources, ok := dependencies.(application.ScopedSources)
+		if !ok {
+			pool.Close()
+			return nil, nil, nil, errors.New("source adapter does not support warehouse context")
+		}
+		namespace := "inventory"
+		if cfg.Mode == "sandbox" {
+			namespace = "fixture"
+		}
+		handlerConfig.Scoped = &application.Scoped{Store: store, Sources: scopedSources, Drafts: service, Workflow: workflow, Namespace: namespace}
+	}
+	var resolver *application.Resolver
+	if cfg.OrderResolverEnabled {
+		resolver = &application.Resolver{Store: store, Clock: time.Now, PublicWebURL: cfg.PublicWebURL}
+	}
 	stopWorkers, err := background(ctx, operations, queue, store, metrics, logger)
 	if err != nil {
 		pool.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+	mediaCtx, stopMedia := context.WithCancel(ctx)
+	var mediaWorkers sync.WaitGroup
+	if cfg.MediaEnabled {
+		binder, ok := dependencies.(interface {
+			BindMedia(context.Context, string, string) error
+		})
+		if !ok {
+			stopMedia()
+			stopWorkers()
+			pool.Close()
+			return nil, nil, nil, errors.New("media-enabled workflow requires a binding adapter")
+		}
+		mediaWorkers.Add(1)
+		go func() {
+			defer mediaWorkers.Done()
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-mediaCtx.Done():
+					return
+				case <-ticker.C:
+					for n := 0; n < 10; n++ {
+						found, err := store.BindMediaJob(mediaCtx, binder.BindMedia)
+						if err != nil || !found {
+							break
+						}
+					}
+				}
+			}
+		}()
 	}
 	assembled = true
-	return httptransport.NewHandler(httptransport.HandlerConfig{Readiness: ready, Logger: logger, Identity: verifier, Drafts: service, Workflow: workflow, Metrics: metrics}), func() { stopWorkers(); pool.Close(); closePeers() }, nil
+	return httptransport.NewHandler(handlerConfig), resolver, func() { stopMedia(); mediaWorkers.Wait(); stopWorkers(); pool.Close(); closePeers() }, nil
 }
 
 func readBounded(path string, max int64) ([]byte, error) {

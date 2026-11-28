@@ -49,6 +49,7 @@ export interface OrderListResponse {
 }
 
 export interface OrderLine {
+  skuCode?: string;
   lineId: string;
   productName: string;
   skuLabel: string;

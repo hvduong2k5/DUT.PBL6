@@ -33,13 +33,13 @@ func CheckRuntime(ctx context.Context, pool *pgxpool.Pool, mode string) error {
 	if !safe {
 		return errors.New("runtime database role has elevated privileges")
 	}
-	for _, table := range []string{"traceability_profiles", "traceability_revisions", "review_decisions", "audit_entries", "outbox_events", "idempotency_records", "eligibility_observations", "schema_migrations", "service_metadata"} {
+	for _, table := range []string{"traceability_profiles", "traceability_revisions", "review_decisions", "audit_entries", "outbox_events", "media_bind_jobs", "idempotency_records", "eligibility_observations", "schema_migrations", "service_metadata"} {
 		var selectOK, insertOK, updateOK, deleteOK, truncateOK bool
 		err = conn.QueryRow(ctx, `SELECT has_table_privilege(current_user,$1,'SELECT'),has_table_privilege(current_user,$1,'INSERT'),has_table_privilege(current_user,$1,'UPDATE'),has_table_privilege(current_user,$1,'DELETE'),has_table_privilege(current_user,$1,'TRUNCATE')`, table).Scan(&selectOK, &insertOK, &updateOK, &deleteOK, &truncateOK)
 		if err != nil {
 			return err
 		}
-		mutable := table == "traceability_profiles" || table == "traceability_revisions" || table == "outbox_events"
+		mutable := table == "traceability_profiles" || table == "traceability_revisions" || table == "outbox_events" || table == "media_bind_jobs"
 		insertable := table != "schema_migrations" && table != "service_metadata"
 		if !selectOK || insertOK != insertable || updateOK != mutable || deleteOK || truncateOK {
 			return errors.New("runtime database privileges do not match service policy")

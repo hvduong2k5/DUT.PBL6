@@ -184,7 +184,7 @@ services/catalog-service/
 
 ### 4.3. Internal Communication (East-West)
 - Toàn bộ giao tiếp nội bộ giữa các microservices (Checkout pricing, Traceability binding, SKU lookup) đã chuyển 100% sang gRPC (`packages/proto/catalog/v1/catalog.proto`).
-- Các REST internal adapter cũ (`/api/v1/internal/prices/validate`, `/api/v1/internal/catalog/snapshots`, `/api/v1/internal/traceability/...`) và file `catalog-checkout.openapi.yaml` đã được decommission hoàn toàn.
+- Các REST internal adapter cũ (`/api/v1/internal/prices/validate`, `/api/v1/internal/catalog/snapshots`, `/api/v1/internal/traceability/...`) đã được decommission hoàn toàn. Giữ file `docs/03_api_specs/catalog-checkout.openapi.yaml` làm dấu mốc nghỉ dùng, không chứa operation HTTP; registry hiện hành trỏ canonical proto. Không khôi phục REST từ tài liệu lịch sử này.
 
 ### 4.4. gRPC Contract (`packages/proto/catalog/v1/catalog.proto`)
 - Chỉ dùng nội bộ. Không khôi phục `catalog_public.proto` / `catalog_admin.proto`.

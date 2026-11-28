@@ -72,7 +72,7 @@ và Service Boundary chủ yếu gom Payment vào MS-04, có hướng tách về
 Luồng trả trước: chọn SKU → cart (chưa giữ tồn) → checkout kiểm tra lại giá,
 địa chỉ, phí và ưu đãi → Order Saga giữ tồn → chờ Payment được xác minh →
 OrderPaid → Inventory commit và Fulfillment nhận việc → PackingCompleted →
-Shipping tạo vận đơn, Traceability kích hoạt QR theo thiết kế → tracking → hoàn tất.
+Shipping tạo vận đơn → tracking → hoàn tất. **Đính chính Traceability 21/11/2026:** QR theo lô được công bố qua workflow riêng trước in tem, không kích hoạt bằng packing; xem [thiết kế toàn luồng](../03_api_specs/traceability-workflow-design-2026-11-21.md).
 Các mốc Order/Payment/reservation/Packing/Shipment phải giữ vòng đời riêng.
 
 Marketplace: Channel chuẩn hóa webhook → Kafka → Order Saga tạo đơn/giữ tồn;

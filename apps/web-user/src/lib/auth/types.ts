@@ -1,3 +1,5 @@
+import type { IdentityPermissionGrant } from "./identity";
+
 export type CustomerStatus = "ACTIVE" | "PENDING_VERIFICATION";
 
 export interface CustomerSummary {
@@ -20,6 +22,7 @@ export interface PrincipalRole {
 }
 
 export interface PrincipalSummary {
+  permissionGrants?: IdentityPermissionGrant[];
   principalId: string;
   principalType: PrincipalType;
   displayName: string;

@@ -5282,6 +5282,13 @@ paths:
       summary: Warehouse Operations Workbench context for Epic 09 MVP. Balance values
         and approval counts are upstream projections; the UI does not recalculate
         them.
+      description: Read-only warehouse-scoped Inventory projection. Requires the intersection
+        of INVENTORY_VIEW and WAREHOUSE_WORKBENCH_VIEW permission grants. Lists at most
+        100 complete SKU rows and 1000 eligible batches; an oversized scope returns 503
+        instead of truncation. Labels use SKU codes until a separate Catalog label
+        projection is available. Quarantined batches and batches without authoritative
+        dates are excluded from receipt selection. Recent movements are the latest 100.
+        pendingApprovalCount is zero for this direct-apply receipt workflow.
       x-lifecycle: stable
       x-backlog:
       - EPIC_09
@@ -5843,6 +5850,20 @@ paths:
                 - revision
                 - message
                 properties:
+                  batchId:
+                    type: string
+                    format: uuid
+                    description: Authoritative batch UUID on fresh APPLIED receipts; legacy replay may omit.
+                  batchCode:
+                    type: string
+                    description: Committed batch display code; never use as UUID.
+                  skuCode:
+                    type: string
+                    description: Exact committed SKU code, including EXISTING batch receipts.
+                  warehouseId:
+                    type: string
+                    format: uuid
+                    description: Authoritative owning warehouse; present on fresh APPLIED receipts.
                   operationId:
                     type: string
                   status:

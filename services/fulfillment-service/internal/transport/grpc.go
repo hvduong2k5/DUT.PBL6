@@ -137,6 +137,7 @@ func (r *RPC) GetPackageRevision(ctx context.Context, in *p.GetPackageRevisionRe
 	t := v.Task
 	out := &p.PackageRevision{OrderId: t.OrderID, TaskId: t.ID, PackageId: t.Package.ID, SealedTaskVersion: t.Version, ReadyGeneration: t.Generation, ItemsDigest: t.Digest, WarehouseId: t.Warehouse, SealCode: *t.Package.Seal, PackedAt: timestamppb.New(v.Occurred), ContractVersion: d.Contract}
 	x := t.Package.Parcel
+	out.PackedLines = sealedBatchLines(t)
 	out.Parcel = &p.ParcelMeasurements{WeightGrams: x.Weight, LengthCm: x.Length, WidthCm: x.Width, HeightCm: x.Height, Fragile: x.Fragile}
 	if t.Package.EvidenceID != nil {
 		media, e := r.Service.Store.File(ctx, *t.Package.EvidenceID)

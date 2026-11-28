@@ -1,0 +1,38 @@
+// Integration target 0.3.0-draft. Provider: Traceability; consumer: Order.
+syntax = "proto3";
+package omamx.traceability.v1;
+option go_package = "github.com/omamx/proto/traceability/v1;traceabilityv1";
+option java_multiple_files = true;
+option java_package = "com.omamx.proto.traceability.v1";
+
+// Internal TLS plus a dedicated Order credential. Read-only, no idempotency key.
+// Budget <= 1.5s, 1..100 items, <=256KiB request, <=512KiB response.
+service BatchLinkResolver {
+  rpc ResolveBatchLinks(ResolveBatchLinksRequest) returns (ResolveBatchLinksResponse);
+}
+message ResolveBatchLinksRequest {
+  repeated TraceabilityBatchBinding items = 1;
+}
+message TraceabilityBatchBinding {
+  string source_namespace = 1;
+  string batch_id = 2;
+  string sku_code = 3;
+}
+enum BatchLinkStatus {
+  BATCH_LINK_STATUS_UNSPECIFIED = 0;
+  BATCH_LINK_STATUS_AVAILABLE = 1;
+  BATCH_LINK_STATUS_NOT_AVAILABLE = 2;
+  BATCH_LINK_STATUS_NO_LONGER_PUBLIC = 3;
+  BATCH_LINK_STATUS_UNAVAILABLE = 4;
+}
+message ResolvedBatchLink {
+  TraceabilityBatchBinding binding = 1;
+  BatchLinkStatus status = 2;
+  // Present only for AVAILABLE/NO_LONGER_PUBLIC. No internal IDs or evidence.
+  optional string qr_url = 3;
+}
+message ResolveBatchLinksResponse {
+  // Exactly one result per input, including duplicates, in the original order.
+  repeated ResolvedBatchLink items = 1;
+  int32 total = 2;
+}

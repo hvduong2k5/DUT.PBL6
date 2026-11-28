@@ -1,5 +1,7 @@
 # Thiết kế dữ liệu Traceability
 
+> Target0.2.2 bổ sung warehouse metadata, scoped query/cursor, versioned replay và migration/rollback guards tại [service spec](../../../03_api_specs/traceability-workflow-service-spec.md). Nội dung bên dưới giữ baseline v1; không sửa migration đã commit hoặc public snapshot cũ để ép theo mô hình mới. [Mục lục thiết kế](README.md) chỉ rõ nguồn từng phần.
+
 Trạng thái: thiết kế trước migration; implementation và PostgreSQL tests phải
 chứng minh từng invariant. Xem [thiết kế dịch vụ](./03_service_design.md).
 

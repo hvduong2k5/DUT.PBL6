@@ -131,3 +131,19 @@ npx @graphql-tools/mock-cli docs/03_api_specs/schema.graphql --port 4000
 # gRPC mock (ví dụ inventory, port 8001)
 npx @improbable-eng/grpc-web-fake-server --proto packages/proto/inventory/v1/inventory.proto
 ```
+
+## 4. Traceability theo lô — bộ tài liệu dự án
+
+Target **0.4.0-draft** theo canonical Catalog/Media của Dương. Bắt đầu tại [mục lục workflow](traceability-workflow-README.md); các phần Inventory/IAM/Fulfillment/Order/Web đã có trên nhánh Traceability, tránh giao lại công việc đã triển khai.
+
+| Nội dung | Nguồn có thẩm quyền |
+| --- | --- |
+| Nghiệp vụ, actor và quyết định | [EPIC19](../01_requirements/epics/EPIC_19_OCOP_Traceability.md), [service spec](traceability-workflow-service-spec.md) |
+| Giao tiếp giữa service | [Guide gRPC hiện hành](traceability-workflow-grpc.md), canonical `packages/proto/`; không khôi phục internal REST hoặc GetSkuBinding đã gỡ |
+| REST scoped/admin và Web | [Admin v2](traceability-scoped-admin-draft.openapi.yaml), [Web BFF](traceability-web-bff-draft.openapi.yaml), [Identity cookie transport](traceability-workflow-bff-draft.openapi.yaml), [Order customer](traceability-workflow-draft.openapi.yaml) |
+| Bàn giao triển khai/tích hợp | [Task/OUT](traceability-workflow-peer-handoff.md), [sáu file Markdown theo owner](traceability-owner-handoffs/README.md), [ranh giới plan Dương](traceability-workflow-supplement.md) |
+| Kiểm thử và bằng chứng | [Acceptance](traceability-workflow-acceptance.md), [testing index](../04_testing/traceability-service/README.md), [report13 toàn luồng sau PR176](../04_testing/traceability-service/13_after_pr176_2026-11-28.md) |
+| Trạng thái UI | [Admin matrix](admin-api-state-matrix.md), [customer matrix](customer-api-state-matrix.md) |
+| Kafka | [Event catalog](02_kafka_event_catalog.md); packing không tự lập/công bố hồ sơ hoặc kích hoạt QR |
+
+Nguồn Catalog nằm trong `docs/03_api_specs/` theo AGENTS.md. Sửa REST/quyền/UI states phải cập nhật đúng OpenAPI và state matrix; không sửa tay generated rows, không promote stable chỉ vì lint hoặc CI xanh. Các checkpoint cũ giữ làm lịch sử. PR176 đã merge vào dev@05047000 ngày28/11; khi ghép phải giữ pricing projection/checkout của Dương và kiểm lại tích hợp trên baseline mới.

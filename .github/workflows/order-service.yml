@@ -3,6 +3,8 @@ on:
   workflow_call:
   pull_request:
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'services/order-service/**'
       - 'packages/proto/**'
       - 'packages/contracts/**'
@@ -13,6 +15,8 @@ on:
   push:
     branches: [dev, main, develop]
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'services/order-service/**'
       - 'packages/proto/**'
       - 'packages/contracts/**'
@@ -26,17 +30,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build pinned test/codegen toolchain
-        run: docker build -f services/order-service/Dockerfile.tools -t omamx/order-go-tools:local services/order-service
+        run: docker build --build-arg SERVICE_PATH=services/order-service -f infra/docker/go-tools.Dockerfile -t omamx/order-go-tools:local .
       - name: Check protobuf regeneration and formatting
         run: |
           docker run --rm -v "$PWD:/workspace" omamx/order-go-tools:local sh -c 'sh scripts/generate-proto.sh && gofmt -l cmd internal migrations tests > /tmp/order-gofmt.txt && cat /tmp/order-gofmt.txt && test ! -s /tmp/order-gofmt.txt'
           git diff --exit-code -- services/order-service/internal/gen
+      - name: Build Linux runtime artifacts
+        run: |
+          docker run --rm -v "$PWD:/workspace" omamx/order-go-tools:local sh -c 'mkdir -p build && CGO_ENABLED=0 go build -trimpath -o build/order-api ./cmd/server && CGO_ENABLED=0 go build -trimpath -o build/order-simulator ./cmd/simulator'
       - name: Start isolated real infrastructure and sandbox APIs
-        run: docker compose -f services/order-service/docker-compose.test.yml up -d --build
+        run: docker compose -f infra/docker/stacks/order-test.compose.yml up -d --build
       - name: Unit, integration, contract and fault gates with race detector
         run: |
           set -o pipefail
-          docker compose -f services/order-service/docker-compose.test.yml run --rm tests sh -c 'go vet ./... && go test -race -count=1 -v ./...' 2>&1 | tee order-go-result.txt
+          docker compose -f infra/docker/stacks/order-test.compose.yml run --rm tests sh -c 'go vet ./... && go test -race -count=1 -v ./...' 2>&1 | tee order-go-result.txt
       - uses: actions/setup-node@v4
         if: hashFiles('postman/collections/MS-04 Order Regression/**') != ''
         with:
@@ -75,4 +82,4 @@ jobs:
             docs/04_testing/order-service/environment-evidence.json
       - name: Stop isolated stack
         if: always()
-        run: docker compose -f services/order-service/docker-compose.test.yml down
+        run: docker compose -f infra/docker/stacks/order-test.compose.yml down

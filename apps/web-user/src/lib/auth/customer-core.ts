@@ -1,6 +1,8 @@
 import type { AuthenticatedSession, PrincipalRole, PrincipalType } from "./types";
+import { parseIdentityPermissionGrants } from "./identity";
 
 export interface CustomerCoreUser {
+  permission_grants?: unknown;
   customer_status?: "ACTIVE" | "PENDING_VERIFICATION";
   customer_id?: string;
   customerId?: string;
@@ -75,6 +77,8 @@ export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSes
   const roles = mapRoles(user.roles, principalType);
   const permissions = [...new Set((user.permissions ?? []).map(clean).filter((value): value is string => Boolean(value)))];
   const customerAccess = Boolean(customerId);
+  const permissionGrants = user.permission_grants === undefined ? undefined : parseIdentityPermissionGrants(user.permission_grants);
+  if (user.permission_grants !== undefined && !permissionGrants) return undefined;
   return {
     authenticated: true,
     principal: {
@@ -84,6 +88,7 @@ export function mapCustomerCoreSession(user: CustomerCoreUser): AuthenticatedSes
       ...(clean(user.email) ? { email: clean(user.email) } : {}),
       roles,
       permissions,
+      ...(permissionGrants ? { permissionGrants } : {}),
       ...(customerId ? { customerId } : {})
     },
     customerAccess,

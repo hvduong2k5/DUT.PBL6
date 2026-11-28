@@ -17,7 +17,7 @@ Private directory hiện tại: `%LOCALAPPDATA%\PBL\sepay-test`. Có token/HMAC,
 ```powershell
 $privateDir = "$env:LOCALAPPDATA\PBL\sepay-test"
 python services/order-service/scripts/prepare-connected-runtime.py --directory $privateDir
-docker compose --env-file "$privateDir\runtime.env" -p codex-order-connected-20261024 -f services/order-service/docker-compose.test.yml -f services/order-service/docker-compose.connected.yml --profile tunnel up -d --build
+docker compose --env-file "$privateDir\runtime.env" -p codex-order-connected-20261024 -f infra/docker/stacks/order-test.compose.yml -f infra/docker/stacks/order-connected.compose.yml --profile tunnel up -d --build
 ```
 
 Script import file vào named volume `pbl-order-connected-secrets` với owner10001/permission0400; tránh phụ thuộc bind mount Windows private directory. Script giữ các identity/keys đã tạo; mất khóa phải restore bản gốc. `cryptography` cần cho lần tạo Guest P-256 key đầu tiên. `runtime-settings.json`, `runtime-receiver.json`, `runtime-guest-key.pem`, `runtime.env` và `runtime-tunnel-token.txt` đều ở private directory.
@@ -70,7 +70,7 @@ Verifier không tự tạo giao dịch hoặc sửa financial rows. SePay API da
 Sau khi hạ tầng healthy, chạy container test bằng `--no-deps` để không recreate PostgreSQL/Kafka khi bộ test đang chạy:
 
 ```powershell
-docker compose --env-file "$env:LOCALAPPDATA\PBL\sepay-test\runtime.env" -p codex-order-connected-20261024 -f services/order-service/docker-compose.test.yml -f services/order-service/docker-compose.connected.yml run --rm -T --no-deps tests sh -c 'go vet ./... && go test -race -json -count=1 ./...' > "$env:TEMP\order-connected-test.jsonl"
+docker compose --env-file "$env:LOCALAPPDATA\PBL\sepay-test\runtime.env" -p codex-order-connected-20261024 -f infra/docker/stacks/order-test.compose.yml -f infra/docker/stacks/order-connected.compose.yml run --rm -T --no-deps tests sh -c 'go vet ./... && go test -race -json -count=1 ./...' > "$env:TEMP\order-connected-test.jsonl"
 python services/order-service/scripts/verify-payment-evidence.py --test-log "$env:TEMP\order-connected-test.jsonl"
 python services/order-service/scripts/verify-connected-evidence.py --test-log "$env:TEMP\order-connected-test.jsonl"
 ```

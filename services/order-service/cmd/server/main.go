@@ -45,6 +45,10 @@ func main() {
 		slog.Error("target checkout configuration invalid")
 		os.Exit(1)
 	}
+	if err := s.EnableTraceabilityFromEnv(); err != nil {
+		slog.Error("traceability read provider configuration invalid")
+		os.Exit(1)
+	}
 	listener, e := net.Listen("tcp", cfg.GRPC)
 	if e != nil {
 		slog.Error("gRPC listen failed")
@@ -77,7 +81,7 @@ func main() {
 			cancel()
 		}
 	}()
-	httpServer := &http.Server{Addr: cfg.HTTP, Handler: transport.Handler(s), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+	httpServer := &http.Server{Addr: cfg.HTTP, Handler: transport.Handler(s), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 8 * time.Second, IdleTimeout: 60 * time.Second}
 	s.Start(ctx)
 	go func() {
 		if e := httpServer.ListenAndServe(); e != nil && e != http.ErrServerClosed {

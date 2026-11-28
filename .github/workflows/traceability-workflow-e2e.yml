@@ -1,0 +1,28 @@
+name: Traceability real-provider workflow
+on:
+  pull_request:
+    paths:
+      - 'services/traceability-service/**'
+      - 'services/identity-service/**'
+      - 'services/media-service/**'
+      - 'services/inventory-service/**'
+      - 'services/fulfillment-service/**'
+      - 'services/order-service/**'
+      - 'apps/web-user/**'
+      - 'packages/proto/**'
+      - 'scripts/traceability*'
+      - 'scripts/test-web-identity.py'
+      - 'scripts/test-traceability-browser.cjs'
+      - 'scripts/mvp_fulfillment_checks.py'
+      - 'scripts/mvp_native_checks.py'
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
+      - '.github/workflows/traceability-workflow-e2e.yml'
+      - '.github/workflows/web-identity.yml'
+permissions:
+  contents: read
+jobs:
+  traceability-workflow:
+    uses: ./.github/workflows/web-identity.yml
+    with:
+      traceability_focused: true

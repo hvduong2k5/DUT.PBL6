@@ -49,7 +49,7 @@ func (s *Store) loadOrder(ctx context.Context, q reader, id, scope string) (core
 	if err != nil {
 		return core.Aggregate{}, err
 	}
-	snapshot, err := core.DecodeSnapshot(data)
+	snapshot, err := core.DecodePersistedSnapshot(data)
 	if err != nil {
 		return core.Aggregate{}, ErrIntegrity
 	}

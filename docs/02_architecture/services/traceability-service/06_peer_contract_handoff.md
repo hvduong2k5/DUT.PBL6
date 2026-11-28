@@ -1,5 +1,9 @@
 # Contract cần xác nhận để triển khai P8
 
+> Chỉ đạo thực thi 25/11/2026: phần P8 bên dưới là lịch sử. [Handoff0.2.2](../../../03_api_specs/traceability-workflow-peer-handoff.md) cho nghiệp vụ mới được triển khai trực tiếp, không cần peer phản hồi ACCEPT trước khi code; runtime tests và review PR vẫn áp dụng.
+
+> Cập nhật 21/11/2026: baseline P8 bên dưới không bao phủ thiết kế mới về scope kho, in tem và truy xuất từ đơn. Xem [ma trận kết nối và handoff mới](../../../03_api_specs/traceability-workflow-design-2026-11-21.md). X-07 được đưa vào phạm vi thiết kế đích, triển khai sau; X-08 tự động Procurement vẫn hoãn. Không hiểu các gate cũ là xác nhận tích hợp runtime hiện tại.
+
 **Cập nhật ngày 13/11/2026 (UTC+7):** Thiết kế P8 đã chốt trong [kế hoạch triển khai](07_p8_integration_plan_2026-11-13.md) và các tài liệu 08–10. Các mục chờ xác nhận bên dưới ghi lại trạng thái trước khi chốt thiết kế.
 
 ## Đối chiếu với dev `239c8db`

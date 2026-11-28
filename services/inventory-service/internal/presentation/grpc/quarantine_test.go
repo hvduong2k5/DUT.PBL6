@@ -14,7 +14,8 @@ import (
 func TestQuarantinedUnknownDatesRemainRestricted(t *testing.T) {
 	db := testdb.Open(t)
 	id := uuid.NewString()
-	_, err := db.Exec("INSERT INTO inventory_items(sku) VALUES('RAW')")
+	warehouse := uuid.NewString()
+	_, err := db.Exec("INSERT INTO inventory_items(sku,warehouse_id) VALUES('RAW',$1)", warehouse)
 	require.NoError(t, err)
 	_, err = db.Exec("INSERT INTO batches(id,sku,batch_code,supplier_id,physical_qty,status) VALUES($1,'RAW','QUARANTINE',gen_random_uuid(),100,'QUARANTINE')", id)
 	require.NoError(t, err)
@@ -24,6 +25,7 @@ func TestQuarantinedUnknownDatesRemainRestricted(t *testing.T) {
 	snapshot, err := server.GetTraceabilityBatch(ctx, &traceabilityv1.BatchRequest{BatchId: id, SkuCode: "RAW"})
 	require.NoError(t, err)
 	require.True(t, snapshot.Restricted)
+	require.Equal(t, warehouse, snapshot.GetWarehouseId())
 	require.Empty(t, snapshot.ProductionDate)
 	require.Empty(t, snapshot.ExpiryDate)
 }

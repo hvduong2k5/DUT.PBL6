@@ -1,5 +1,24 @@
 # Customer API State Matrix
 
+Transport amendment2026-11-27: target0.3.0 uses gRPC for internal business reads/resolver/current grants; Web/BFF REST and UI states below remain unchanged. See [gRPC guide](traceability-workflow-grpc.md) and [report09](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md). Do not use the superseded internal REST proposals from0.2.2.
+
+## Order batch traceability target — 2026-11-21 (draft; resolver implemented, Order/UI integration pending)
+
+Backend checkpoint 2026-11-26: the Traceability-owned internal resolver is implemented and locally tested. The customer Order subresource, sealed packing proof and Web mapping remain peer deliverables. See [verification scope](../04_testing/traceability-service/08_scoped_backend_2026-11-26.md); no full customer E2E or production verification is claimed.
+
+Review target0.2.2: every line-batch row includes authoritative sku_code. Current Order manifests allow one line per SKU; the UI bridges exact typed SKU and verifies quantities when detail lacks canonical IDs. Duplicate/mismatched mapping becomes UNAVAILABLE, never a guessed link. More than1000rows/512KiB is root UNAVAILABLE with empty items/total0; unresolved chunks within the5second outer budget stay UNAVAILABLE. This does not erase or invalidate the order detail itself.
+
+Updated 2026-11-25: see [Order handoff](traceability-workflow-peer-handoff.md#4-order-ord-trc-01) for canonical line IDs and guest session capability. NOT_APPLICABLE applies to cancellation before packing; sealed proof remains historical evidence after return/cancellation. Missing legacy proof is UNAVAILABLE, never reconstructed from current Inventory allocations.
+
+See [design](traceability-workflow-design-2026-11-21.md) and [draft subresource](traceability-workflow-draft.openapi.yaml). Existing order detail and generated stable examples remain unchanged.
+
+| Flow | Success / empty | Loading | Error | Auth |
+| --- | --- | --- | --- | --- |
+| Order traceability | READY: one row per sealed line/batch with quantity; PACKING_PENDING/NOT_APPLICABLE: 200 empty items and total=0 | Separate skeleton; order detail stays usable | Whole proof unavailable: 200 UNAVAILABLE empty; resolver item failure: UNAVAILABLE row; order DB unavailable: 503; retry only traceability read | Same detail ownership and existing guest capability; 401 absent/invalid, 403 known insufficient capability/ownership, 404 nonexistent order |
+| Batch links | AVAILABLE opens public URL; NOT_AVAILABLE has no fabricated link; NO_LONGER_PUBLIC links only to safe public 410 | Disable link until data available | Never substitute sample/latest SKU record; no stale eligibility badge | Draft/internal evidence and customer/order PII never appear in public record |
+| Public QR / footer lookup | Anonymous 200 public profile; manual entry uses /trace and /trace/{code} | Public-record loading state | 404 unknown; 410 withdrawn/expired; 503 temporary failure; no old valid profile fallback | No login required; customer history still requires its own order authorization |
+
+
 Updated: 2026-11-14
 
 This matrix and the OpenAPI files are the backend handoff. It is intentionally independent from test-fixture implementation.
@@ -159,3 +178,13 @@ SePay verification remains HMAC-SHA256 over timestamp + raw payload (five-minute
 | Web `POST /api/cart/merge` | 200 merged result and clear guest cookie; 204 when no guest cookie or rollout off | Login stays successful on merge error; preserve source cookie and show retry in cart |
 
 The source credential stays in an httpOnly cookie and is sent to Order in a dedicated body field through the existing authenticated Customer proxy. A stable server-derived merge key makes retries/tabs idempotent. Outcomes show merged / adjusted / dropped with per-SKU reasons. Failure never breaks the login session. Converted carts use SQL authority and the same scope locks for mutation and checkout cleanup; flag-off cannot restore stale Redis carts. `PROOF-MERGE-01` still requires the audited live login flow and DB ledger evidence.
+
+Transport amendment 0.4.0 (2026-11-27): use canonical Catalog/Media from PR #175 per [current guide](traceability-workflow-grpc.md). OCOP upload-session/complete precedes document:<fileId> evidence; Media-enabled submit/publish invalid file400/dependency503 keeps draft/approval and receipt unchanged. Publication replay remains successful while a later Media outage is retried by the durable bind worker. QR/public DTO schema is unchanged. See [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md); UI/provider acceptance remains pending.
+
+### Nguồn gốc theo lô — 2026-11-28
+
+Snapshot Order đã lưu trước PR176 vẫn trả chi tiết và nguồn gốc theo dữ liệu niêm phong cũ. Adapter chỉ đọc giữ canonical bytes/logical hash, giá, line và lifecycle; không gọi Catalog live hoặc ghi lại snapshot để chuyển schema. Ownership/auth và kiểm tra integrity giữ nguyên; payload lịch sử sai shape, hết hiệu lực tại lúc chốt hoặc sai hash không được chấp nhận. Writer tạo đơn mới tiếp tục dùng schema pricing hiện hành.
+
+Order detail tải nguồn gốc độc lập: READY có đủ line/batch/quantity/SKU dù một số link UNAVAILABLE; PACKING_PENDING/NOT_APPLICABLE/UNAVAILABLE có items=[]/total0. Thiếu ownership403, không có Order404, sai payload/URL origin502; dữ liệu đơn không bị thay đổi khi trace lỗi. Ghép bằng skuCode từ frozen DTO, không tách chuỗi nhãn; kiểm tổng quantity và line/batch uniqueness. Từ lịch sử mở chi tiết đơn rồi xem panel nguồn gốc. Public scan không cần đăng nhập; nhập token hoặc đúng storefront link, không còn nút mã mẫu. 404 khác410; khi code đổi không hiển thị record của mã cũ. Optional artisan/ATTP vắng không được điền giả. [Web BFF](traceability-web-bff-draft.openapi.yaml), [report11](../04_testing/traceability-service/11_local_workflow_2026-11-28.md).
+
+Checkpoint sau PR176: [report13](../04_testing/traceability-service/13_after_pr176_2026-11-28.md) là nguồn kiểm chứng mới; các mục pending của amendment27/11 là lịch sử. Các trạng thái/response hiện hành không được suy từ checkpoint cũ.

@@ -19,9 +19,17 @@ services:
         paths: [/api/v1/admin/trace/records]
         strip_path: false
         methods: [GET, POST, PATCH]
+      - name: traceability-staff-scoped-v2
+        paths: [/api/v2/admin/trace/records, /api/v2/admin/trace/batches]
+        strip_path: false
+        methods: [GET, POST, PATCH]
   - name: inventory-admin-service
     url: http://inventory-svc:8003
     routes:
+      - name: inventory-workbench
+        paths: ["~/api/v1/admin/inventory/workbench$"]
+        strip_path: false
+        methods: [GET]
       - name: inventory-receipts
         paths: [/api/v1/admin/inventory/workbench/receipts]
         strip_path: false
@@ -68,6 +76,8 @@ services:
           - /api/v1/public/auth
           - /api/v1/customer-api
           - /api/v1/admin/packing-api
+          - /api/v1/admin/trace-api
+          - /api/v1/admin/inventory-api
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       - name: auth-public-routes

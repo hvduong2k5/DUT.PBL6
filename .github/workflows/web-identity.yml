@@ -2,6 +2,11 @@ name: Web Identity Gateway integration
 on:
   workflow_call:
     inputs:
+      traceability_focused:
+        description: "Run the real receipt, certificate, sealed Order and QR acceptance workflow"
+        type: boolean
+        required: false
+        default: false
       guest_checkout:
         description: "Run the fixture with --guest-checkout (set by the Dev Gate)"
         type: boolean
@@ -9,6 +14,8 @@ on:
         default: false
   pull_request:
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'apps/web-user/**'
       - 'apps/mobile-app/**'
       - 'services/catalog-service/**'
@@ -38,6 +45,8 @@ on:
   push:
     branches: [dev]
     paths:
+      - 'infra/docker/**'
+      - 'infra/scripts/build-go-artifacts.ps1'
       - 'apps/web-user/**'
       - 'apps/mobile-app/**'
       - 'services/order-service/**'
@@ -94,11 +103,19 @@ jobs:
         working-directory: services/profile-service
         run: go vet ./... && go test -race -count=1 ./...
       - name: Build the real Fulfillment video runtime
-        run: docker build -t omamx/fulfillment-service:integration services/fulfillment-service
+        run: |
+          cd services/fulfillment-service
+          mkdir -p build
+          CGO_ENABLED=0 go build -trimpath -o build/fulfillment-server ./cmd/server
+          CGO_ENABLED=0 go build -trimpath -o build/fulfillment-migrate ./cmd/migrate
+          docker build -t omamx/fulfillment-service:integration .
+      - name: Build the canonical Media provider for Traceability
+        if: inputs.traceability_focused
+        run: docker build -f services/media-service/Dockerfile.coolify -t omamx/media-service:traceability-test .
       - name: Real Web, Identity, Order, Inventory, Fulfillment video and Shipping
         run: |
           python -m pip install -r packages/contracts/mvp/requirements.txt
-          python scripts/test-web-identity.py --gradle gradle --flutter flutter --fulfillment ${{ inputs.guest_checkout && '--guest-checkout' || '' }}
+          python scripts/test-web-identity.py --gradle gradle --flutter flutter --fulfillment ${{ inputs.guest_checkout && '--guest-checkout' || '' }} ${{ inputs.traceability_focused && '--traceability-focused' || '' }}
       - name: Shipping regression and notification verification
         run: |
           cd services/shipping-service
@@ -111,6 +128,7 @@ jobs:
           name: web-identity-evidence
           path: |
             .system_generated/web-identity/result.json
+            .system_generated/web-identity/traceability-result.json
             .system_generated/web-identity/failure.json
             .system_generated/web-identity/fulfillment-container.log
             .system_generated/web-identity/identity-build.log

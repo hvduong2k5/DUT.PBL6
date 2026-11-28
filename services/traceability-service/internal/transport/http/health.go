@@ -5,10 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/domain"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/hvduong2k5/DUT.PBL6/services/traceability-service/internal/domain"
 )
 
 type Readiness func(context.Context) error
@@ -67,6 +70,9 @@ func withMiddleware(next http.Handler, logger *slog.Logger, metrics ...HTTPMetri
 		started := time.Now()
 		tracked := &statusWriter{ResponseWriter: w}
 		w = tracked
+		if strings.HasPrefix(r.URL.Path, "/api/v2/admin/trace/") {
+			w = v2Writer{w}
+		}
 		defer func() {
 			status := tracked.status
 			if status == 0 {
@@ -79,24 +85,28 @@ func withMiddleware(next http.Handler, logger *slog.Logger, metrics ...HTTPMetri
 		}()
 		var random [16]byte
 		if _, err := rand.Read(random[:]); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error_code": "INTERNAL_ERROR", "user_message": "Unable to process request", "request_id": "unavailable"})
+			w.Header().Set("X-Request-Id", "unavailable")
+			respondError(w, err)
 			return
 		}
 		requestID := hex.EncodeToString(random[:])
+		if values := r.Header.Values("X-Request-Id"); isV2(w) && len(values) == 1 && validRequestID(values[0]) {
+			requestID = values[0]
+		}
 		w.Header().Set("X-Request-Id", requestID)
 		trace, err := domain.NewTraceParent()
 		if parents := r.Header.Values("Traceparent"); len(parents) == 1 && domain.ValidTraceParent(parents[0]) {
 			trace, err = domain.ChildTraceParent(parents[0])
 		}
 		if err != nil {
-			writeJSON(w, 500, map[string]string{"error_code": "INTERNAL_ERROR", "user_message": "Unable to process request", "request_id": requestID})
+			respondError(w, err)
 			return
 		}
 		w.Header().Set("Traceparent", trace)
 		defer func() {
 			if recover() != nil {
 				logger.Error("request panic recovered", "request_id", requestID)
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error_code": "INTERNAL_ERROR", "user_message": "Unable to process request", "request_id": requestID})
+				respondError(w, errors.New("request panic"))
 			}
 		}()
 		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -104,6 +114,18 @@ func withMiddleware(next http.Handler, logger *slog.Logger, metrics ...HTTPMetri
 		r = r.WithContext(ctx)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func validRequestID(value string) bool {
+	if len(value) == 0 || len(value) > 128 {
+		return false
+	}
+	for _, c := range value {
+		if c < 33 || c > 126 {
+			return false
+		}
+	}
+	return true
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

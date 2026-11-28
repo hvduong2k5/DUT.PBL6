@@ -4,3 +4,12 @@
 reports/
 *.test
 coverage.out
+
+.git
+.idea
+.gradle
+.sandbox/
+.system_generated/
+*.pem
+*.key
+*.log

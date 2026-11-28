@@ -1,0 +1,46 @@
+{
+  "run_id": "traceability-order-live-20261128-v8",
+  "api_source_head": "c16548a3c8b29b3f28bb191fbc03b92ff5fe17b2",
+  "browser_source_head": "1ba126f821429aa9395a9216f1eb565dc915166a",
+  "api": {
+    "status": "PASS",
+    "real_receipt_replay": true,
+    "real_two_batch_fefo": true,
+    "mixed_public_gone": true,
+    "iam_api_expiry": true,
+    "real_certificate_upload": true,
+    "independent_review": true,
+    "warehouse_denial": true,
+    "iam_api_revoke": true,
+    "draft_public_isolation": true,
+    "immutable_sealed_display": true,
+    "resolver_outage_keeps_order_detail": true
+  },
+  "browser": {
+    "status": "PASS",
+    "real_order_two_batches": true,
+    "public_mobile_no_overflow": true,
+    "gone_mobile": true,
+    "draft_not_public": true,
+    "canvas_qr_decoded": true,
+    "downloaded_png_decoded": true,
+    "svg_download": true,
+    "print_portal_rendered": true,
+    "physical_printer": "NOT RUN",
+    "physical_camera": "NOT RUN"
+  },
+  "traceability_broker": {
+    "status": "PASS",
+    "broker_messages": 2,
+    "event_types": [
+      "vn.omama.traceability.profile.published.v1"
+    ]
+  },
+  "traceability_outbox": {
+    "events": 3,
+    "published": 3,
+    "pending": 0,
+    "failed": 0
+  },
+  "java_artifacts_reused": true
+}

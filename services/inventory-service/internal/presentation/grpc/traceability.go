@@ -31,10 +31,11 @@ func (s *TraceabilitySource) GetTraceabilityBatch(ctx context.Context, req *trac
 	var snapshot traceabilityv1.BatchSnapshot
 	err = s.DB.QueryRowContext(ctx, `
 		SELECT id::text, sku, batch_code, COALESCE(to_char(mfg_date,'YYYY-MM-DD'),''), COALESCE(to_char(exp_date,'YYYY-MM-DD'),''),
-		       status NOT IN ('ACTIVE','NEAR_EXPIRY'), physical_qty = 0, version
+		       status NOT IN ('ACTIVE','NEAR_EXPIRY'), physical_qty = 0, version,
+                   COALESCE((SELECT i.warehouse_id::text FROM inventory_items i WHERE i.sku=batches.sku),'')
 		FROM batches WHERE id = $1 AND sku = $2`, id, req.GetSkuCode()).Scan(
 		&snapshot.BatchId, &snapshot.SkuCode, &snapshot.BatchCode, &snapshot.ProductionDate,
-		&snapshot.ExpiryDate, &snapshot.Restricted, &snapshot.Depleted, &snapshot.BatchVersion)
+		&snapshot.ExpiryDate, &snapshot.Restricted, &snapshot.Depleted, &snapshot.BatchVersion, &snapshot.WarehouseId)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, status.Error(codes.NotFound, "batch and SKU binding not found")
 	}

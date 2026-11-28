@@ -98,6 +98,7 @@ export interface WarehouseWorkbenchContext {
 }
 
 export interface InventoryReceiptInput {
+  supplierId?: string;
   skuId: string;
   batchMode: "EXISTING" | "NEW";
   batchId?: string;
@@ -134,6 +135,7 @@ export interface InventoryAdjustmentInput {
 }
 
 export interface InventoryOperationResult {
+  batchId?: string; batchCode?: string; skuCode?: string; warehouseId?: string;
   operationId: string;
   status: "APPLIED" | "PENDING_APPROVAL";
   statusLabel: string;

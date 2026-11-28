@@ -82,6 +82,7 @@ func (v *SandboxVerifier) Verify(ctx context.Context, token string) (domain.Prin
 		Issued      int64           `json:"iat"`
 		NotBefore   int64           `json:"nbf"`
 		Permissions []string        `json:"permissions"`
+		Grants      []string        `json:"permission_grants"`
 	}
 	if jsonutil.Decode(payload, &claims) != nil || claims.Issuer != SandboxIssuer || !domain.ValidUUID(claims.Subject) {
 		return fail()
@@ -108,5 +109,10 @@ func (v *SandboxVerifier) Verify(ctx context.Context, token string) (domain.Prin
 		}
 		seen[permission] = true
 	}
-	return domain.Principal{ID: strings.ToLower(claims.Subject), Permissions: append([]string(nil), claims.Permissions...)}, nil
+	if len(claims.Grants) > 128 {
+		return fail()
+	}
+	p := parseGrants(claims.Subject, claims.Grants)
+	p.Permissions = append(p.Permissions, claims.Permissions...)
+	return p, nil
 }

@@ -1,0 +1,68 @@
+{
+  "run_id": "traceability-order-after-pr176-r2-20261128",
+  "dev_baseline": "0504700093198aa95fa00c633cf8632d3d3daf1c",
+  "api_source_head": "2cf955ecc3d3ec44d02803b9da2b6ac238f9c6b7",
+  "browser_source_head": "2cf955ecc3d3ec44d02803b9da2b6ac238f9c6b7",
+  "api": {
+    "status": "PASS",
+    "real_receipt_replay": true,
+    "real_two_batch_fefo": true,
+    "mixed_public_gone": true,
+    "iam_api_expiry": true,
+    "real_certificate_upload": true,
+    "independent_review": true,
+    "warehouse_denial": true,
+    "iam_api_revoke": true,
+    "draft_public_isolation": true,
+    "immutable_sealed_display": true,
+    "resolver_outage_keeps_order_detail": true
+  },
+  "browser": {
+    "status": "PASS",
+    "history_navigation": true,
+    "real_order_two_batches": true,
+    "public_mobile_no_overflow": true,
+    "gone_mobile": true,
+    "draft_not_public": true,
+    "canvas_qr_decoded": true,
+    "downloaded_png_decoded": true,
+    "svg_download": true,
+    "print_portal_rendered": true,
+    "physical_printer": "NOT RUN",
+    "physical_camera": "NOT RUN"
+  },
+  "traceability_broker": {
+    "status": "PASS",
+    "broker_messages": 3,
+    "event_types": [
+      "vn.omama.traceability.profile.published.v1",
+      "vn.omama.traceability.profile.suspended.v1"
+    ]
+  },
+  "traceability_outbox": {
+    "events": 3,
+    "published": 3,
+    "pending": 0,
+    "failed": 0
+  },
+  "media_bind_jobs": {
+    "jobs": 2,
+    "bound": 2,
+    "pending": 0
+  },
+  "java_artifacts_reused": true,
+  "java_verification_from_prior_setup": {
+    "identity": {
+      "tests": 128,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "catalog": {
+      "tests": 111,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

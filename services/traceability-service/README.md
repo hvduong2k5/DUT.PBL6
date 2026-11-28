@@ -1,5 +1,68 @@
 # Traceability Service MS-03
 
+## Current Catalog and Media integration — 0.4.0
+
+Follow Duong's plan and canonical providers from dev@ac5395c5 / PR #175.
+Catalog uses GetTraceabilityBinding with product_id/sku_code and preserves version_fingerprint;
+SKU-only bootstrap first calls GetProductVariant with an unspecified channel. CatalogAccess
+still requires x-internal-token, so keep TRACEABILITY_CATALOG_TOKEN matching CATALOG_INTERNAL_TOKEN.
+The earlier GetSkuBinding proposal has been removed. See the [current transport guide](../../docs/03_api_specs/traceability-workflow-grpc.md)
+and [implementation report](../../docs/04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md).
+
+With TRACEABILITY_MEDIA_ENABLED, OCOP evidence uses document:<Media file UUID>. Submit/publish
+validate READY/purpose/MIME/size/SHA-256 through the canonical Media service. A publication
+commits media_bind_jobs atomically; a leased worker binds files after commit with durable retries.
+Apply migration000003 and regrant the restricted runtime role before starting the new binary.
+Legacy frozen content/public hashes/QR are not rewritten. Existing OCOP Media files are PUBLIC_READ
+under the provider policy; only upload scans approved for public access.
+
+Catalog/Media support TLS by default and explicit private-network plaintext compatibility through
+TRACEABILITY_*_GRPC_PLAINTEXT. They never fall back after a TLS error. Inventory/Identity and the
+Order resolver keep their TLS requirements. Media defaults off until real provider acceptance;
+Identity current-grants and Order consumers remain separate owner integration tasks.
+
+Repository container rules now use direct Docker commands: scripts/dev.ps1 manages only containers
+with its own codex.task label and loopback ports. It does not touch the existing scoped-test DB.
+Dockerfile consumes build/traceability (Linux artifact); Dockerfile.coolify builds from source.
+The test stage is `docker build --target test -t traceability-service-test .`; service-local Compose
+files and Dockerfile.test are retired. Run `./scripts/dev.ps1 -Action Init` to migrate/grant the
+sandbox without resetting data, then Start/Smoke/Tokens/Stop/Test/Race as needed. Integration is
+configured by the infrastructure owner with .env.example and read-only CA/cert/key mounts; no
+public peer RPC ports and no private signing key in the API image.
+
+
+## Documentation entry points
+
+The project [Traceability workflow index](../../docs/03_api_specs/traceability-workflow-README.md)
+owns the new batch-profile, warehouse-scoped staff, label printing and order-source
+integration target (`0.4.0-draft`). Read the [architecture index](../../docs/02_architecture/services/traceability-service/README.md)
+and [testing index](../../docs/04_testing/traceability-service/README.md) to distinguish
+this target from the v1/P8 baseline described below. The target is authorized for
+direct implementation; it is not a claim of implemented or verified capability.
+Do not treat the historical sandbox/P8 results as acceptance of the new flow.
+
+## Scoped backend checkpoint — 2026-11-26
+
+The Traceability-owned v2 staff API, batch context/lookup, warehouse-bound
+authorization and internal Order link resolver are implemented. The local
+PostgreSQL/signed-HTTP verification scope, feature flags, migration sequence,
+legacy backfill CLI and remaining peer/UI work are documented in the
+[scoped backend report](../../docs/04_testing/traceability-service/08_scoped_backend_2026-11-26.md).
+Both features default off; this checkpoint does not enable shared traffic or
+promote the draft contracts to stable. The new client is generated from the
+approved field-9 candidate until Inventory updates its canonical provider proto.
+
+## gRPC transport checkpoint — 2026-11-27
+
+Historical target0.3.0 used proposed TLS RPCs for Catalog binding, Identity current staff grants and
+Order batch-link resolution. The unshipped internal REST resolver is removed.
+Web/BFF/public/admin/customer REST and OIDC HTTPS remain unchanged. Read the
+[gRPC guide](../../docs/03_api_specs/traceability-workflow-grpc.md) and
+[report09 with current env, TLS mounts and owner handoff](../../docs/04_testing/traceability-service/09_grpc_transport_2026-11-27.md).
+The transport/env instructions in report08 are historical.
+
+## Existing baseline
+
 Implementation in progress on `feat/traceability-service`. See the
 [development plan](../../docs/02_architecture/services/traceability-service/02_development_plan.md).
 
@@ -44,7 +107,7 @@ and bounded shutdown settings before opening a listener. Errors do not echo
 database credentials. No test signing keys or real credentials are committed.
 
 Compose starts only the isolated DB by default. Set `TRACEABILITY_DB_PASSWORD`
-to a local secret and run `docker compose up -d db`. The optional API profile
+to a local secret and run `./scripts/dev.ps1 -Action Init`. The optional API profile
 also requires `TRACEABILITY_RUNTIME_DATABASE_URL`; do not use the migrator role
 for the API. Sandbox containers require explicit isolated-container configuration
 and publish only on host loopback. No destructive reset is part of startup.
@@ -54,7 +117,7 @@ PKIX PUBLIC KEY PEM, `kid=sandbox-local`) and `SANDBOX_FIXTURE_FILE` (explicit
 synthetic source JSON; example in `fixtures/batches.example.json`). The API never
 receives a private signing key. `cmd/sandbox` provides init/tokens/smoke, preserves
 existing credentials on reuse, and writes private local files under ignored
-`.sandbox`. Compose mounts only the public key and fixture read-only.
+`.sandbox`. The Docker runner mounts only the public key and fixture read-only.
 
 Sandbox tokens use EdDSA, issuer `urn:omama:traceability:sandbox`, audience
 `traceability-service:sandbox`, UUID `sub`, integer `iat`/`exp`, lifetime <=15m,
@@ -97,10 +160,10 @@ compatibility and Audit ingestion are not verified.
 `OUTBOX_RELAY_ENABLED=false` is the sandbox default; events stay PENDING and
 `traceability_relay_enabled` reports 0. Enabling it requires explicit `KAFKA_BROKERS`;
 bad configuration fails startup, and broker failure never switches the relay off.
-Compose uses `kafka:9092` inside the network; host-native broker clients use
+The dedicated Docker network uses `kafka:9092`; host-native broker clients use
 `127.0.0.1:19093`. Start only this test broker with
-`docker compose --profile broker up -d --wait kafka`. Provision the topic with
-`docker compose exec kafka rpk topic create traceability.events.v1 --brokers 127.0.0.1:9092 -p 1 -r 1`
+`./scripts/dev.ps1 -Action Test`. Provision the topic with
+`docker exec pbl6-traceability-kafka rpk topic create traceability.events.v1 --brokers 127.0.0.1:9092 -p 1 -r 1`
 before enabling delivery (the writer does not auto-create topics).
 
 Relay uses synchronous broker acknowledgement, one event per claim, a fresh
@@ -158,3 +221,7 @@ database/HTTP scenarios.
 
 See the [verification report](../../docs/04_testing/traceability-service/01_verification.md)
 for actual checks and outstanding gates.
+
+## Local cross-service workflow verification
+
+See [the 2026-11-28 report](../../docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) for the real Inventory/Identity/Catalog/Media/Web flow, browser QR decoding and print checks, and the distinct scope of Order gRPC wire fixtures. `TRACEABILITY_OIDC_CA_FILE` optionally extends system trust with an explicit private CA; hostname/chain/issuer checks remain enabled.

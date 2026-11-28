@@ -61,7 +61,7 @@ func (s *Drafts) Create(ctx context.Context, p domain.Principal, meta domain.Com
 		return domain.CommandResult{}, err
 	}
 	if found {
-		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+		return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -72,6 +72,17 @@ func (s *Drafts) Create(ctx context.Context, p domain.Principal, meta domain.Com
 	if snapshot.Binding != request.Binding {
 		return domain.CommandResult{}, domain.ErrConflict
 	}
+	if meta.Scoped {
+		if !domain.ValidUUID(snapshot.WarehouseID) {
+			return domain.CommandResult{}, domain.ErrUnavailable
+		}
+		if meta.WarehouseID != snapshot.WarehouseID {
+			return domain.CommandResult{}, domain.ErrWarehouseConflict
+		}
+	}
+	if domain.ValidUUID(snapshot.WarehouseID) {
+		meta.WarehouseID = snapshot.WarehouseID
+	}
 	now := s.Clock()
 	if snapshot.CheckedAt.After(now) || now.Sub(snapshot.CheckedAt) > 30*time.Second {
 		return domain.CommandResult{}, domain.ErrUnavailable
@@ -80,7 +91,7 @@ func (s *Drafts) Create(ctx context.Context, p domain.Principal, meta domain.Com
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Drafts) Edit(ctx context.Context, p domain.Principal, meta domain.CommandMetadata, id string, revision int, request domain.EditDraftRequest) (domain.CommandResult, error) {
@@ -91,14 +102,16 @@ func (s *Drafts) Edit(ctx context.Context, p domain.Principal, meta domain.Comma
 		return domain.CommandResult{}, domain.ErrUnavailable
 	}
 	meta.PrincipalID = p.ID
-	if err := request.Content.ValidateDraft(s.VideoHosts); err != nil {
-		return domain.CommandResult{}, err
+	if !meta.Scoped {
+		if err := request.Content.ValidateDraft(s.VideoHosts); err != nil {
+			return domain.CommandResult{}, err
+		}
 	}
 	result, err := s.Store.EditDraft(ctx, meta, id, revision, request)
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL)
+	return redactResult(result, p.Can(domain.ReadEvidence), s.PublicWebURL, meta.Scoped)
 }
 
 func (s *Drafts) Get(ctx context.Context, p domain.Principal, id string) (domain.Profile, error) {
@@ -117,10 +130,11 @@ func (s *Drafts) Get(ctx context.Context, p domain.Principal, id string) (domain
 		return domain.Profile{}, err
 	}
 	linkProfile(&profile, s.PublicWebURL)
+	profile.WarehouseID = nil
 	return profile, nil
 }
 
-func redactResult(result domain.CommandResult, evidence bool, webBase ...string) (domain.CommandResult, error) {
+func redactResult(result domain.CommandResult, evidence bool, webBase string, scoped bool) (domain.CommandResult, error) {
 	var profile domain.Profile
 	if err := json.Unmarshal(result.Body, &profile); err != nil {
 		return domain.CommandResult{}, err
@@ -129,8 +143,9 @@ func redactResult(result domain.CommandResult, evidence bool, webBase ...string)
 	if err != nil {
 		return domain.CommandResult{}, err
 	}
-	if len(webBase) > 0 {
-		linkProfile(&redacted, webBase[0])
+	linkProfile(&redacted, webBase)
+	if !scoped {
+		redacted.WarehouseID = nil
 	}
 	result.Body, err = json.Marshal(redacted)
 	return result, err
@@ -153,6 +168,7 @@ func (s *Drafts) List(ctx context.Context, p domain.Principal, query domain.List
 			return domain.ProfilePage{}, err
 		}
 		linkProfile(&page.Items[i], s.PublicWebURL)
+		page.Items[i].WarehouseID = nil
 	}
 	return page, nil
 }

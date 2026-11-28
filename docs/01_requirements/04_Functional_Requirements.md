@@ -23,7 +23,7 @@ Bảng dưới đây ánh xạ các Yêu cầu Chức năng (FR) với các Epic
 | **FR-17** | Promotion | Hệ thống phải hỗ trợ Coupon, Discount và Combo. | EPIC 17 |
 | **FR-18** | Loyalty | Hệ thống phải hỗ trợ Loyalty Point và Reorder. | EPIC 17 |
 | **FR-19** | B2B | Hệ thống phải hỗ trợ Quotation, Bulk Order và thiết kế bao bì B2B riêng. | EPIC 18 |
-| **FR-20** | OCOP Traceability | Hệ thống phải hỗ trợ truy xuất nguồn gốc sản phẩm qua mã QR Story. | EPIC 19 |
+| **FR-20** | OCOP Traceability | Hỗ trợ QR công khai theo lô, hồ sơ được duyệt/công bố, nhân viên đúng kho tải/in tem và khách xem nguồn gốc lô thực giao từ đơn. Liên kết thao tác nhập kho–lập hồ sơ trên UI giữ hai transaction độc lập. Chi tiết và nghiệm thu theo [EPIC19](epics/EPIC_19_OCOP_Traceability.md) và [workflow target](../03_api_specs/traceability-workflow-README.md). | EPIC 19 |
 | **FR-21** | Content | Hệ thống phải quản lý bài viết, hình ảnh, video và nội dung Website. | EPIC 20 |
 | **FR-22** | SEO | Hệ thống phải hỗ trợ SEO (Schema.org, SSR) cho cả Product và Content. | EPIC 20 |
 | **FR-23** | Marketing | Hệ thống hỗ trợ lập kế hoạch, phê duyệt, thực thi và đánh giá chiến dịch. | EPIC 21 |

@@ -19,7 +19,7 @@ from openapi_schema_validator import OAS30Validator
 
 ROOT = Path(__file__).resolve().parents[3]
 EVIDENCE = ROOT / "docs/04_testing/order-service"
-COMPOSE = ["docker", "compose", "-f", str(ROOT / "services/order-service/docker-compose.test.yml")]
+COMPOSE = ["docker", "compose", "-f", str(ROOT / "infra/docker/stacks/order-test.compose.yml")]
 
 
 def command(args):
@@ -144,7 +144,7 @@ output = output_dir / "contracts-verification.json"
 schema_versions = sql("SELECT version::text FROM order_migrations ORDER BY version")
 images = json.loads(command(COMPOSE + ["images", "--format", "json"]))
 tracked = sorted((ROOT / "services/order-service").rglob("*.go")) + sorted((ROOT / "services/order-service/migrations").glob("*.sql"))
-manifest = {"time": result["time"], "git_head_base": command(["git", "rev-parse", "HEAD"]), "worktree": "uncommitted implementation; base commit is not a release commit", "schema_versions": schema_versions.splitlines(), "images": images, "app_mode": "sandbox", "seed": "synthetic catalog/profile fixtures in internal/simulator/schema.sql and test helpers", "config": "docker-compose.test.yml defaults; separate runtime/simulator DBs; loopback ports; real PostgreSQL/Redis/Kafka", "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
+manifest = {"time": result["time"], "git_head_base": command(["git", "rev-parse", "HEAD"]), "worktree": "uncommitted implementation; base commit is not a release commit", "schema_versions": schema_versions.splitlines(), "images": images, "app_mode": "sandbox", "seed": "synthetic catalog/profile fixtures in internal/simulator/schema.sql and test helpers", "config": "infra/docker/stacks/order-test.compose.yml defaults; separate runtime/simulator DBs; loopback ports; real PostgreSQL/Redis/Kafka", "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
 (output_dir / "environment-evidence.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(result, ensure_ascii=False, indent=2))

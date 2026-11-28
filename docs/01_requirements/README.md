@@ -40,6 +40,8 @@ docs/01_requirements/
 
 ## Nguyên tắc Traceability (Truy xuất nguồn gốc)
 
+Với nghiệp vụ OCOP/QR cụ thể, đọc [EPIC19](epics/EPIC_19_OCOP_Traceability.md) và [bộ đặc tả triển khai theo lô](../03_api_specs/traceability-workflow-README.md). Backlog/release-plan supplement giữ liên kết nghiệp vụ; contract/phiếu owner nằm trong `docs/03_api_specs/`, không tạo bản sao tại Requirements. Target0.2.2-draft có thể giao triển khai trực tiếp, nhưng chưa là bằng chứng backend/provider đã chạy hoặc release đã hoàn thành.
+
 Khi viết thêm requirement hoặc kiểm tra tính đầy đủ, hệ thống tài liệu phải đảm bảo tính liên kết chặt chẽ:
 
 `Business Goal` -> `Actor` -> `User Story` (Nằm ở file 01) -> `Epic` -> `Acceptance Criteria` (Nằm ở thư mục epics/) -> `Use Case` -> `Functional Requirement` -> `Technical Design` / `API`.

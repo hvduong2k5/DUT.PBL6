@@ -21,6 +21,8 @@ RUN printf '%s\n' '#!/bin/sh' \
   'if [ -n "$ORDER_FULFILLMENT_TOKEN_B64" ]; then printf %s "$ORDER_FULFILLMENT_TOKEN_B64" | base64 -d > /run/secrets/order-fulfillment-token.txt; fi' \
   'if [ -n "$ORDER_FULFILLMENT_CALLER_TOKEN_B64" ]; then printf %s "$ORDER_FULFILLMENT_CALLER_TOKEN_B64" | base64 -d > /run/secrets/order-fulfillment-caller-token.txt; fi' \
   'if [ -n "$ORDER_SHIPPING_TOKEN_B64" ]; then printf %s "$ORDER_SHIPPING_TOKEN_B64" | base64 -d > /run/secrets/order-shipping-token.txt; fi' \
+  'if [ -n "$ORDER_TRACEABILITY_TOKEN_B64" ]; then umask 077; printf %s "$ORDER_TRACEABILITY_TOKEN_B64" | base64 -d > /run/secrets/order-traceability-token.txt || exit 1; export ORDER_TRACEABILITY_TOKEN_FILE=/run/secrets/order-traceability-token.txt; fi' \
+  'if [ -n "$ORDER_TRACEABILITY_CA_B64" ]; then umask 077; printf %s "$ORDER_TRACEABILITY_CA_B64" | base64 -d > /run/secrets/traceability-ca.pem || exit 1; export ORDER_TRACEABILITY_CA_FILE=/run/secrets/traceability-ca.pem; fi' \
   'export ORDER_FULFILLMENT_TOKEN_FILE=/run/secrets/order-fulfillment-token.txt ORDER_FULFILLMENT_CALLER_TOKEN_FILE=/run/secrets/order-fulfillment-caller-token.txt ORDER_SHIPPING_TOKEN_FILE=/run/secrets/order-shipping-token.txt' \
   'if [ "$ORDER_SIMULATOR_ENABLED" = "true" ]; then order-simulator & fi' \
   'exec order-api' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh

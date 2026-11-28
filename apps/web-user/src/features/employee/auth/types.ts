@@ -1,6 +1,16 @@
-import type { IdentityProfile } from "@/lib/auth/identity";
+import { parseIdentityPermissionGrants, type IdentityProfile, type IdentityPermissionGrant } from "@/lib/auth/identity";
 
 export const ADMIN_PERMISSIONS = [
+  "traceability.read_internal",
+  "traceability.read_evidence",
+  "traceability.create",
+  "traceability.edit",
+  "traceability.submit",
+  "traceability.approve",
+  "traceability.publish",
+  "traceability.suspend",
+  "traceability.archive",
+
   "ADMIN_DASHBOARD_VIEW",
   "B2B_REQUEST_VIEW",
   "B2B_REQUEST_ASSIGN",
@@ -72,6 +82,7 @@ export type EmployeePermission = AdminPermission;
 export type AdminRole = string;
 
 export interface AdminSession {
+  permissionGrants?: IdentityPermissionGrant[];
   authenticated: true;
   employee: { employeeId: string; displayName: string; email: string; jobTitle: string; department: string };
   roles: AdminRole[];
@@ -98,7 +109,9 @@ const IAM_GRANT_ALIASES: Record<string, string[]> = {
 
 export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | undefined {
   if (profile.principalType !== "EMPLOYEE") return undefined;
-  const permissions = profile.permissions.flatMap((item) => IAM_GRANT_ALIASES[item] ?? [item]).filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
+  const traceGrants = (profile.permissionGrants ?? []).filter((grant) => grant.permissionCode.startsWith("traceability.") && (grant.scopeType === "GLOBAL" && !grant.scopeId || grant.scopeType === "WAREHOUSE" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u.test(grant.scopeId ?? "")));
+  const grantedTracePermissions = new Set(traceGrants.map((grant) => grant.permissionCode));
+  const permissions = profile.permissions.filter((permission) => !permission.startsWith("traceability.") || grantedTracePermissions.has(permission)).flatMap((item) => IAM_GRANT_ALIASES[item] ?? [item]).filter((item): item is EmployeePermission => ADMIN_PERMISSIONS.includes(item as EmployeePermission));
   const global = profile.roles.some((role) => role.scopeType === "GLOBAL" || !role.scopeType);
   const resources = new Set<string>();
   for (const permission of permissions) {
@@ -117,8 +130,12 @@ export function toEmployeeSession(profile: IdentityProfile): EmployeeSession | u
       department: primaryRole?.scopeId ?? primaryRole?.scopeType ?? "O Mạ"
     },
     roles: profile.roles.map((role) => role.roleCode),
+    ...(profile.permissionGrants ? { permissionGrants: profile.permissionGrants } : {}),
     permissions: [...new Set(permissions)],
-    scopes: [...resources].map((resource) => ({ resource, level: global ? "ALL" as const : "ASSIGNED_ONLY" as const })),
+    scopes: [
+      ...[...resources].map((resource) => ({ resource, level: global ? "ALL" as const : "ASSIGNED_ONLY" as const })),
+      ...(traceGrants.some((grant) => grant.permissionCode === "traceability.read_internal") ? [{ resource: "TRACEABILITY", level: traceGrants.some((grant) => grant.permissionCode === "traceability.read_internal" && grant.scopeType === "GLOBAL") ? "ALL" as const : "ASSIGNED_ONLY" as const }] : [])
+    ],
     version: 1
   };
 }
@@ -137,5 +154,7 @@ export function parseAdminSession(value: unknown): AdminSession | undefined {
     return typeof scope.resource === "string" && (scope.level === "ALL" || scope.level === "ASSIGNED_ONLY") ? [{ resource: scope.resource, level: scope.level }] : [];
   });
   if (scopes.length !== source.scopes.length || [employee.employeeId, employee.displayName, employee.email, employee.jobTitle, employee.department].some((item) => typeof item !== "string")) return undefined;
-  return { authenticated: true, employee: employee as AdminSession["employee"], roles, permissions: [...new Set(permissions)], scopes, version: source.version as number };
+  const permissionGrants = source.permissionGrants === undefined ? undefined : parseIdentityPermissionGrants(source.permissionGrants);
+  if (source.permissionGrants !== undefined && !permissionGrants) return undefined;
+  return { authenticated: true, employee: employee as AdminSession["employee"], roles, permissions: [...new Set(permissions)], scopes, ...(permissionGrants ? {permissionGrants} : {}), version: source.version as number };
 }

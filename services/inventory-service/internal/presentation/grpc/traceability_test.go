@@ -26,11 +26,11 @@ func TestTraceabilitySourceRequiresCredentialAndExactBinding(t *testing.T) {
 		t.Fatalf("expected unauthenticated, got %v", err)
 	}
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer "+token))
-	columns := []string{"id", "sku", "batch_code", "production_date", "expiry_date", "restricted", "depleted", "version"}
+	columns := []string{"id", "sku", "batch_code", "production_date", "expiry_date", "restricted", "depleted", "version", "warehouse_id"}
 	mock.ExpectQuery("FROM batches WHERE id =").WithArgs(id, "SKU-01").
-		WillReturnRows(sqlmock.NewRows(columns).AddRow(id.String(), "SKU-01", "LOT-01", "2026-11-13", "2027-01-01", true, true, 9))
+		WillReturnRows(sqlmock.NewRows(columns).AddRow(id.String(), "SKU-01", "LOT-01", "2026-11-13", "2027-01-01", true, true, 9, "77777777-7777-4777-8777-777777777777"))
 	snapshot, err := server.GetTraceabilityBatch(ctx, req)
-	if err != nil || !snapshot.GetRestricted() || !snapshot.GetDepleted() || snapshot.GetBatchVersion() != 9 {
+	if err != nil || !snapshot.GetRestricted() || !snapshot.GetDepleted() || snapshot.GetBatchVersion() != 9 || snapshot.GetWarehouseId() != "77777777-7777-4777-8777-777777777777" {
 		t.Fatalf("expected restricted, depleted batch at version 9, got %v (%v)", snapshot, err)
 	}
 	req.SkuCode = "wrong"

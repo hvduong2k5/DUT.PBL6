@@ -1,0 +1,1798 @@
+openapi: 3.1.0
+info:
+  title: Traceability warehouse-scoped admin target
+  version: 0.4.0-draft
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: 'Full v2 staff implementation target. Start work directly without a pre-implementation approval reply.
+    Backend implemented behind an opt-in flag and locally verified with PostgreSQL; shared provider and UI integration
+    remain pending. Not stable. Normative behavior: traceability-workflow-service-spec.md. Legacy v1 paths/error/header
+    remain unchanged. Every resource command checks current permission and authoritative warehouse scope, including
+    idempotent replay. Internal print is a scoped read followed by public eligibility verification, not a create
+    command.'
+  x-implementation-report: ../04_testing/traceability-service/09_grpc_transport_2026-11-27.md
+servers:
+- url: http://127.0.0.1:8003
+security:
+- staffBearer: []
+paths:
+  /api/v2/admin/trace/records:
+    get:
+      operationId: listTraceabilityProfilesScopedV2
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 256
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Instance-scoped list; internal evidence requires its own permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - items
+                - next_cursor
+                - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Profile'
+                  next_cursor:
+                    type:
+                    - string
+                    - 'null'
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Rows returned in this page, not a count of all matching database rows.
+              examples:
+                empty:
+                  value:
+                    items: []
+                    next_cursor: null
+                    total: 0
+                success:
+                  value:
+                    items:
+                    - id: 11111111-1111-4111-8111-111111111111
+                      mode: integration
+                      product_id: 22222222-2222-4222-8222-222222222222
+                      sku_code: MX-001
+                      source_namespace: inventory
+                      batch_id: 33333333-3333-4333-8333-333333333333
+                      warehouse_id: 44444444-4444-4444-8444-444444444444
+                      qr_code: abcdefghijklmnopqrstuv
+                      qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                      version: 1
+                      status: ACTIVE
+                      public_revision: null
+                      revisions:
+                      - number: 1
+                        status: DRAFT
+                        content:
+                          product_name: Me xung LOT-A
+                          producer: Co so O Ma
+                          workshop_location: Hue
+                          artisan_name: null
+                          process: Che bien va dong goi theo ho so lo
+                          ingredients:
+                          - name: Me
+                            origin: Quang Dien
+                          evidence:
+                          - id: 55555555-5555-4555-8555-555555555555
+                            reference: document:66666666-6666-4666-8666-666666666666
+                            kind: CERTIFICATE
+                            description: Ho so OCOP da kiem tra thu cong
+                          certificates:
+                          - id: 77777777-7777-4777-8777-777777777777
+                            type: OCOP
+                            number: OCOP-TEST-01
+                            issuer: Don vi cap chung nhan
+                            scope: BATCH
+                            scope_id: 33333333-3333-4333-8333-333333333333
+                            issued_on: '2026-01-01'
+                            valid_until: '2027-12-31'
+                            no_expiry_stated: false
+                            review_due_at: null
+                            stars: 4
+                            verification_method: MANUAL
+                            verified_at: '2026-11-20T00:00:00Z'
+                            revoked: false
+                            evidence_ids:
+                            - 55555555-5555-4555-8555-555555555555
+                          crafting_video_url: null
+                    next_cursor: null
+                    total: 1
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum:
+                - no-store
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      tags:
+      - Scoped profiles
+      summary: listTraceabilityProfilesScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+    post:
+      operationId: createTraceabilityProfileScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - product_id
+              - sku_code
+              - source_namespace
+              - batch_id
+              - content
+              properties:
+                product_id:
+                  type: string
+                  format: uuid
+                sku_code:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                source_namespace:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                batch_id:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                content:
+                  $ref: '#/components/schemas/Content'
+            example:
+              product_id: 22222222-2222-4222-8222-222222222222
+              sku_code: MX-001
+              source_namespace: inventory
+              batch_id: 33333333-3333-4333-8333-333333333333
+              content: &id001
+                product_name: Me xung LOT-A
+                producer: Co so O Ma
+                workshop_location: Hue
+                artisan_name: null
+                process: Che bien va dong goi theo ho so lo
+                ingredients:
+                - name: Me
+                  origin: Quang Dien
+                evidence:
+                - id: 55555555-5555-4555-8555-555555555555
+                  reference: document:66666666-6666-4666-8666-666666666666
+                  kind: CERTIFICATE
+                  description: Ho so OCOP da kiem tra thu cong
+                certificates:
+                - id: 77777777-7777-4777-8777-777777777777
+                  type: OCOP
+                  number: OCOP-TEST-01
+                  issuer: Don vi cap chung nhan
+                  scope: BATCH
+                  scope_id: 33333333-3333-4333-8333-333333333333
+                  issued_on: '2026-01-01'
+                  valid_until: '2027-12-31'
+                  no_expiry_stated: false
+                  review_due_at: null
+                  stars: 4
+                  verification_method: MANUAL
+                  verified_at: '2026-11-20T00:00:00Z'
+                  revoked: false
+                  evidence_ids:
+                  - 55555555-5555-4555-8555-555555555555
+                crafting_video_url: null
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: createTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.create
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    get:
+      operationId: getTraceabilityProfileScopedV2
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 1
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      tags:
+      - Scoped profiles
+      summary: getTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/revisions:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    post:
+      operationId: createTraceabilityRevisionScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - from_revision
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                from_revision:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Required when withdrawing an existing working revision
+            example:
+              expected_version: 5
+              from_revision: 1
+              reason: Prepare a corrected revision
+      responses:
+        '201':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+                    - number: 2
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: createTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.edit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/revisions/{revision}:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    - $ref: '#/components/parameters/RevisionNumber'
+    patch:
+      operationId: replaceDraftContentScopedV2
+      description: Replaces the whole Draft content snapshot; not a JSON merge patch. Does not change binding or
+        accept contributor identities from the caller. All operations require read_internal plus their command permission
+        for the same authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill
+        and contributor policy.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expected_version
+              - content
+              properties:
+                expected_version:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                content:
+                  $ref: '#/components/schemas/Content'
+            example:
+              expected_version: 1
+              content: *id001
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 2
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: DRAFT
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: replaceDraftContentScopedV2
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.edit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/revisions/{revision}/submit:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    - $ref: '#/components/parameters/RevisionNumber'
+    post:
+      operationId: submitTraceabilityRevisionScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Command'
+            example:
+              expected_version: 2
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 3
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: IN_REVIEW
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: submitTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.submit
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/revisions/{revision}/approve:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    - $ref: '#/components/parameters/RevisionNumber'
+    post:
+      operationId: approveTraceabilityRevisionScopedV2
+      description: Reviewer must not be a contributor to this revision, including inherited contributors. Never
+        publishes automatically. All operations require read_internal plus their command permission for the same
+        authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor
+        policy.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: APPROVED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: approveTraceabilityRevisionScopedV2
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.approve
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-contributor-policy: actor must not be a contributor of the revision
+  /api/v2/admin/trace/records/{id}/revisions/{revision}/reject:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    - $ref: '#/components/parameters/RevisionNumber'
+    post:
+      operationId: rejectTraceabilityRevisionScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 3
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 4
+                    status: ACTIVE
+                    public_revision: null
+                    revisions:
+                    - number: 1
+                      status: REJECTED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: rejectTraceabilityRevisionScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.approve
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+      x-contributor-policy: actor must not be a contributor of the revision
+  /api/v2/admin/trace/records/{id}/revisions/{revision}/publish:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    - $ref: '#/components/parameters/RevisionNumber'
+    post:
+      operationId: publishTraceabilityRevisionScopedV2
+      description: Rechecks dependency snapshot and certificate validity; no published result if source changed
+        or contract is unavailable. All operations require read_internal plus their command permission for the same
+        authoritative warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor
+        policy.
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Command'
+            example:
+              expected_version: 4
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 5
+                    status: ACTIVE
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: publishTraceabilityRevisionScopedV2
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.publish
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/suspend:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    post:
+      operationId: suspendTraceabilityProfileScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: SUSPENDED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: suspendTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.suspend
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/{id}/archive:
+    parameters:
+    - $ref: '#/components/parameters/ProfileID'
+    post:
+      operationId: archiveTraceabilityProfileScopedV2
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+              - $ref: '#/components/schemas/Command'
+              - type: object
+                required:
+                - reason
+            example:
+              expected_version: 5
+              reason: Independent review or authorized change
+      responses:
+        '200':
+          description: Profile after the command, including its current version; replay returns the original response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+              examples:
+                success:
+                  value:
+                    id: 11111111-1111-4111-8111-111111111111
+                    mode: integration
+                    product_id: 22222222-2222-4222-8222-222222222222
+                    sku_code: MX-001
+                    source_namespace: inventory
+                    batch_id: 33333333-3333-4333-8333-333333333333
+                    warehouse_id: 44444444-4444-4444-8444-444444444444
+                    qr_code: abcdefghijklmnopqrstuv
+                    qr_url: https://shop.example.test/trace/abcdefghijklmnopqrstuv
+                    version: 6
+                    status: ARCHIVED
+                    public_revision: 1
+                    revisions:
+                    - number: 1
+                      status: PUBLISHED
+                      content:
+                        product_name: Me xung LOT-A
+                        producer: Co so O Ma
+                        workshop_location: Hue
+                        artisan_name: null
+                        process: Che bien va dong goi theo ho so lo
+                        ingredients:
+                        - name: Me
+                          origin: Quang Dien
+                        evidence:
+                        - id: 55555555-5555-4555-8555-555555555555
+                          reference: document:66666666-6666-4666-8666-666666666666
+                          kind: CERTIFICATE
+                          description: Ho so OCOP da kiem tra thu cong
+                        certificates:
+                        - id: 77777777-7777-4777-8777-777777777777
+                          type: OCOP
+                          number: OCOP-TEST-01
+                          issuer: Don vi cap chung nhan
+                          scope: BATCH
+                          scope_id: 33333333-3333-4333-8333-333333333333
+                          issued_on: '2026-01-01'
+                          valid_until: '2027-12-31'
+                          no_expiry_stated: false
+                          review_due_at: null
+                          stars: 4
+                          verification_method: MANUAL
+                          verified_at: '2026-11-20T00:00:00Z'
+                          revoked: false
+                          evidence_ids:
+                          - 55555555-5555-4555-8555-555555555555
+                        crafting_video_url: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+      tags:
+      - Scoped profiles
+      summary: archiveTraceabilityProfileScopedV2
+      description: ' All operations require read_internal plus their command permission for the same authoritative
+        warehouse. See service spec for GLOBAL/WAREHOUSE intersection, legacy backfill and contributor policy.'
+      security:
+      - staffBearer: []
+      x-required-permissions:
+      - traceability.read_internal
+      - traceability.archive
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/records/by-batch:
+    get:
+      tags:
+      - Staff
+      operationId: findScopedTraceabilityByBatchDraft
+      summary: Find the existing profile before creating a draft
+      description: Requires traceability.read_internal for the authoritative warehouse from Inventory. Validate
+        scope even when no profile exists. Warehouse is never trusted from browser input. Existing profile responses
+        follow evidence redaction rules. Return at most one exact-binding match; no fuzzy SKU lookup. This literal
+        route must take precedence over /records/{id}.
+      security:
+      - staffBearer: []
+      parameters:
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/ProductId
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/SkuCode
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/BatchId
+      - name: source_namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - inventory
+      responses:
+        '200':
+          description: Exact match or empty collection; never 404 for an empty lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - items
+                - total
+                properties:
+                  items:
+                    type: array
+                    maxItems: 1
+                    items:
+                      type: object
+                      required:
+                      - profile_id
+                      - version
+                      properties:
+                        profile_id:
+                          type: string
+                          format: uuid
+                        version:
+                          type: integer
+                          format: int64
+                          minimum: 1
+                  total:
+                    type: integer
+                    minimum: 0
+                    maximum: 1
+              examples:
+                empty:
+                  value:
+                    items: []
+                    total: 0
+                found:
+                  value:
+                    items:
+                    - profile_id: 11111111-1111-4111-8111-111111111111
+                      version: 1
+                    total: 1
+        '401':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unauthorized
+        '403':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Forbidden
+        '503':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Unavailable
+        '409':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/Conflict
+        '400':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/components/responses/BadRequest
+      x-required-permissions:
+      - traceability.read_internal
+      x-scope-policy: GLOBAL or resource-matching WAREHOUSE; token and current Identity grants must both cover each
+        required permission.
+  /api/v2/admin/trace/batches/{batch_id}/context:
+    $ref: ./traceability-workflow-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace~1batches~1{batch_id}~1context
+components:
+  securitySchemes:
+    staffBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProfileID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RevisionNumber:
+      name: revision
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[A-Za-z0-9._~-]+$
+  responses:
+    BadRequest:
+      description: Invalid input, missing evidence or certificate validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            INVALID_INPUT:
+              value:
+                code: INVALID_INPUT
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Unauthorized:
+      description: Missing or invalid verified identity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            UNAUTHENTICATED:
+              value:
+                code: UNAUTHENTICATED
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Forbidden:
+      description: Permission denied or contributor trying to approve their own revision
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            FORBIDDEN:
+              value:
+                code: FORBIDDEN
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    NotFound:
+      description: Resource not found or never published; no internal details
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            NOT_FOUND:
+              value:
+                code: NOT_FOUND
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+    Conflict:
+      description: Stale version, invalid state, immutable binding, source changed or idempotency conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            CONFLICT:
+              value:
+                code: CONFLICT
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+            IDEMPOTENCY_CONFLICT:
+              value:
+                code: IDEMPOTENCY_CONFLICT
+                message: Request conflicts with current authoritative state.
+                requestId: req-traceability-example
+            WAREHOUSE_BINDING_CONFLICT:
+              value:
+                code: WAREHOUSE_BINDING_CONFLICT
+                message: Request conflicts with current authoritative state.
+                requestId: req-traceability-example
+    Unavailable:
+      description: Required dependency or contract unavailable; no fixture fallback in integration
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            DEPENDENCY_UNAVAILABLE:
+              value:
+                code: DEPENDENCY_UNAVAILABLE
+                message: Request cannot be completed.
+                requestId: req-traceability-example
+  schemas:
+    Command:
+      type: object
+      additionalProperties: false
+      required:
+      - expected_version
+      properties:
+        expected_version:
+          type: integer
+          format: int64
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+    Content:
+      type: object
+      additionalProperties: false
+      description: Draft may be incomplete; submit additionally requires producer, origin, process and a verified
+        in-scope OCOP certificate.
+      properties:
+        product_name:
+          type: string
+          maxLength: 250
+        producer:
+          type: string
+          maxLength: 250
+        workshop_location:
+          type: string
+          maxLength: 1000
+        artisan_name:
+          type:
+          - string
+          - 'null'
+          maxLength: 250
+        process:
+          type: string
+          maxLength: 8000
+        ingredients:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - name
+            - origin
+            properties:
+              name:
+                type: string
+                minLength: 1
+                maxLength: 250
+              origin:
+                type: string
+                minLength: 1
+                maxLength: 1000
+        certificates:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/Certificate'
+        evidence:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Evidence'
+        crafting_video_url:
+          type:
+          - string
+          - 'null'
+          format: uri
+          maxLength: 2048
+          description: Legacy optional HTTPS URL accepted only under configured host allowlist. No arbitrary URL
+            or upload workflow is introduced; the new UI does not offer free-form URL input.
+    Certificate:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - type
+      - number
+      - issuer
+      - scope
+      - scope_id
+      - issued_on
+      - verification_method
+      - verified_at
+      - evidence_ids
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - OCOP
+          - ATTP
+          - OTHER
+        number:
+          type: string
+          minLength: 1
+          maxLength: 250
+        issuer:
+          type: string
+          minLength: 1
+          maxLength: 250
+        scope:
+          type: string
+          enum:
+          - PRODUCT
+          - SKU
+          - BATCH
+        scope_id:
+          type: string
+          minLength: 1
+          maxLength: 160
+        issued_on:
+          type: string
+          format: date
+        valid_until:
+          type:
+          - string
+          - 'null'
+          format: date
+        no_expiry_stated:
+          type: boolean
+          default: false
+        review_due_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        stars:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          maximum: 5
+        verification_method:
+          type: string
+          enum:
+          - MANUAL
+        verified_at:
+          type: string
+          format: date-time
+        revoked:
+          type: boolean
+          default: false
+        evidence_ids:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+    Evidence:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - kind
+      - description
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          type: string
+          minLength: 0
+          maxLength: 1000
+          description: 'On edit only: omission preserves the stored reference for the same evidence ID. New evidence
+            requires a valid internal reference. No arbitrary upload URL. This rule is validated after restoring
+            authorized stored references.'
+        kind:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    AdminContent:
+      type: object
+      additionalProperties: false
+      description: Content response; internal evidence reference is omitted without traceability.read_evidence,
+        including on replay.
+      properties:
+        product_name:
+          $ref: '#/components/schemas/Content/properties/product_name'
+        producer:
+          $ref: '#/components/schemas/Content/properties/producer'
+        workshop_location:
+          $ref: '#/components/schemas/Content/properties/workshop_location'
+        artisan_name:
+          $ref: '#/components/schemas/Content/properties/artisan_name'
+        process:
+          $ref: '#/components/schemas/Content/properties/process'
+        ingredients:
+          $ref: '#/components/schemas/Content/properties/ingredients'
+        certificates:
+          $ref: '#/components/schemas/Content/properties/certificates'
+        crafting_video_url:
+          $ref: '#/components/schemas/Content/properties/crafting_video_url'
+        evidence:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - id
+            - kind
+            - description
+            properties:
+              id:
+                type: string
+                format: uuid
+              kind:
+                type: string
+              description:
+                type: string
+              reference:
+                type: string
+                description: Empty string when read_evidence is absent, matching service redaction; never replace
+                  a stored reference with this empty redaction.
+    Profile:
+      type: object
+      required:
+      - id
+      - mode
+      - version
+      - status
+      - product_id
+      - sku_code
+      - batch_id
+      - qr_code
+      - revisions
+      - warehouse_id
+      - source_namespace
+      - qr_url
+      - public_revision
+      properties:
+        id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum:
+          - sandbox
+          - integration
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - ARCHIVED
+        product_id:
+          type: string
+          format: uuid
+        sku_code:
+          type: string
+        source_namespace:
+          type: string
+        batch_id:
+          type: string
+        qr_code:
+          type: string
+        qr_url:
+          type: string
+          format: uri
+          description: Configured Web page URL derived from the stable code; API public-read URL is separate
+        public_revision:
+          type:
+          - integer
+          - 'null'
+        revisions:
+          type: array
+          items:
+            type: object
+            required:
+            - number
+            - status
+            - content
+            properties:
+              number:
+                type: integer
+                minimum: 1
+              status:
+                type: string
+                enum:
+                - DRAFT
+                - IN_REVIEW
+                - APPROVED
+                - REJECTED
+                - PUBLISHED
+                - ARCHIVED
+              content:
+                $ref: '#/components/schemas/AdminContent'
+              dependency_snapshot:
+                type:
+                - object
+                - 'null'
+                readOnly: true
+                description: Frozen source snapshot. Historical snapshots are not rewritten during warehouse metadata
+                  backfill.
+                properties:
+                  warehouse_id:
+                    type: string
+                    format: uuid
+                  checked_at:
+                    type: string
+                    format: date-time
+                  batch_code:
+                    type: string
+                  batch_version:
+                    type: string
+                  catalog_version:
+                    type: string
+        warehouse_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+          description: Server-derived warehouse ownership; null only for unmigrated legacy records visible to GLOBAL
+            readers.
+tags:
+- name: Scoped profiles
+  description: Warehouse-scoped Traceability profile workflow
+x-idempotency-policy: V2 action namespace is v2.<logical_action>; v1 retains legacy action namespace. Fingerprint
+  the normalized client payload before redacted-reference hydration. Reauthorize the actual resource before replay.
+  Do not switch API version during retry.
+
+x-media-integration:
+  enabled-by: TRACEABILITY_MEDIA_ENABLED
+  certificate-reference: 'OCOP evidence.reference uses document:<canonical Media file UUID>; upload through Media sessions, never binary/raw URL.'
+  submit-publish: 'ValidateMediaReference must report READY and valid purpose, MIME, size, SHA-256 before state change; invalid file 400, peer/malformed metadata 503.'
+  after-publish: 'Durable media_bind_jobs committed atomically; BindMediaToEntity retries after commit. Binding outage does not roll back a committed publication.'
+  compatibility: 'No frozen content/hash/QR rewrite; existing draft must be corrected and reviewed when legacy reference is incompatible.'

@@ -101,6 +101,9 @@ docker compose -f infra/docker/docker-compose.infra.yml up -d
 ---
 
 ## IV. TÀI LIỆU THAM KHẢO CHÍNH
+
+- 📄 [Danh mục API/contract](./docs/03_api_specs/README.md): Điểm vào hợp đồng REST/gRPC/Kafka và quy tắc stable/draft.
+- 📄 [Bộ tài liệu truy xuất theo lô](./docs/03_api_specs/traceability-workflow-README.md): EPIC 19, đặc tả Traceability, contract/handoff theo owner, kiểm thử và review rủi ro; target0.2.2-draft, chưa nghiệm thu runtime.
 - 📄 [01_Product_Backlog.md](./docs/01_requirements/01_Product_Backlog.md): Bản đồ User Story, Actor, Business Rules.
 - 📄 [02_Sprint_Planning.md](./docs/01_requirements/02_Sprint_Planning.md): Kế hoạch 12 tuần, MVP, DoD & Quản trị rủi ro.
 - 📄 [use_case_specification.md](./docs/01_requirements/use_case_specification.md): Đặc tả tương tác hệ thống.

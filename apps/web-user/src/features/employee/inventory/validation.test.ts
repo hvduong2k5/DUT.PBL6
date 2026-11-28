@@ -13,8 +13,8 @@ describe("admin inventory route validation", () => {
   });
 
   it("validates receipt batch data and chronological dates", () => {
-    expect(validateInventoryReceipt({ skuId: "sku-1", batchMode: "NEW", batchCode: "LOT-01", manufacturingDate: "2026-10-01", expiresAt: "2027-01-01", quantity: 10, sourceReference: "PO-100", expectedRevision: 2, idempotencyKey: "receipt-operation-0001" }).ok).toBe(true);
-    expect(validateInventoryReceipt({ skuId: "sku-1", batchMode: "NEW", batchCode: "LOT-01", manufacturingDate: "2027-01-01", expiresAt: "2026-10-01", quantity: 10, sourceReference: "PO-100", expectedRevision: 2, idempotencyKey: "receipt-operation-0002" }).ok).toBe(false);
+    expect(validateInventoryReceipt({ skuId: "sku-1", batchMode: "NEW", supplierId: "b2222222-2222-2222-2222-222222222222", batchCode: "LOT-01", manufacturingDate: "2026-10-01", expiresAt: "2027-01-01", quantity: 10, sourceReference: "PO-100", expectedRevision: 2, idempotencyKey: "receipt-operation-0001" }).ok).toBe(true);
+    expect(validateInventoryReceipt({ skuId: "sku-1", batchMode: "NEW", supplierId: "b2222222-2222-2222-2222-222222222222", batchCode: "LOT-01", manufacturingDate: "2027-01-01", expiresAt: "2026-10-01", quantity: 10, sourceReference: "PO-100", expectedRevision: 2, idempotencyKey: "receipt-operation-0002" }).ok).toBe(false);
   });
 
   it("requires an approved reason for non-order issue", () => {

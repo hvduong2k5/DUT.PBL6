@@ -157,6 +157,11 @@ func (s *Profiles) SubmitRevision(ctx context.Context, meta domain.CommandMetada
 		if err = snapshot.Validate(p.Binding, now); err != nil {
 			return Outcome{}, err
 		}
+		if meta.Scoped || p.WarehouseID != nil {
+			if err = domain.CheckWarehouse(p, snapshot); err != nil {
+				return Outcome{}, err
+			}
+		}
 		encoded, err := json.Marshal(snapshot)
 		if err != nil {
 			return Outcome{}, err

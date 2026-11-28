@@ -1,5 +1,8 @@
 # MS-04 Order Service (Go, connected TEST runtime)
 
+
+> Container packaging: local `Dockerfile` consumes prebuilt Linux artifacts; `Dockerfile.coolify` builds independently from source. Shared test infrastructure and pinned tools are maintained in [infra](../../infra/docker/stacks/README.md).
+
 Ghép khách đăng nhập Identity/Keycloak: xem [IDENTITY_TEST.md](IDENTITY_TEST.md) để bật RS256/JWKS, cấu hình principal/customer mapping và chạy kiểm thử. Đây là lát cắt auth có thể bật riêng; chưa nghiệm thu các dependency nghiệp vụ còn lại.
 
 Target `order-core-1` đã nối public Cart/Checkout, SQL snapshot/Intent, SePay allocation/finalization, lifecycle/recovery và Kafka. Bật riêng `ORDER_CORE_ENABLED=true` + `SEPAY_ENABLED=true` trong sandbox. Xem [cách chạy và nghiệm thu](CONNECTED_TEST.md), [ADR010](../../docs/02_architecture/adr/order-service/adr_010_connected_checkout_lifecycle_and_test_bridge.md) và [báo cáo09](../../docs/04_testing/order-service/09_connected_order_service.md). [SePay Sandbox acceptance10](../../docs/04_testing/order-service/10_sepay_sandbox_paid_acceptance.md) đã chứng minh Dashboard OMP → PAID/READY. Owning-service facades vẫn là TEST; chưa mở live. Compose mặc định bên dưới vẫn chạy legacy sandbox khi không bật cờ.
@@ -11,7 +14,8 @@ Async checkout operations, durable PostgreSQL sagas/idempotency/financial ledger
 From repository root, with Docker Desktop running:
 
 ```powershell
-docker compose -f services/order-service/docker-compose.test.yml up -d --build
+./infra/scripts/build-go-artifacts.ps1 -Service order-service
+docker compose -f infra/docker/stacks/order-test.compose.yml up -d --build
 ```
 
 API: `http://127.0.0.1:18004`; readiness `/readyz`; metrics `/metrics`. Simulator is `http://127.0.0.1:18104`; its controls require the synthetic internal token in `.env.example`. Order gRPC port 19004; Inventory gRPC port 19104. Compose uses dedicated databases/volumes and no fixed `container_name` that could replace Profile.
@@ -40,8 +44,8 @@ This builds a pinned Go/protoc toolchain image and runs formatting/vet/race test
 Go-only gates:
 
 ```powershell
-docker build -f services/order-service/Dockerfile.tools -t omamx/order-go-tools:local services/order-service
-docker compose -f services/order-service/docker-compose.test.yml run --rm tests
+docker build --build-arg SERVICE_PATH=services/order-service -f infra/docker/go-tools.Dockerfile -t omamx/order-go-tools:local .
+docker compose -f infra/docker/stacks/order-test.compose.yml run --rm tests
 ```
 
 Go harnesses create/drop their own synthetic PostgreSQL schemas and use Redis DB1, not the running sandbox API's Cart DB0. Domain-only builds outside this environment show integration NOT_RUN; the release command sets required infrastructure variables.

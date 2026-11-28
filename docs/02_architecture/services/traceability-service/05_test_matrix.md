@@ -1,5 +1,7 @@
 # Ma trận kiểm thử và bằng chứng Traceability
 
+> Các case của target0.2.2 nằm tại [acceptance hiện hành](../../../03_api_specs/traceability-workflow-acceptance.md) và [testing index](../../../04_testing/traceability-service/README.md). Bảng baseline bên dưới không thay thế các case mới hoặc xác nhận chúng đã PASS.
+
 Trạng thái hiện hành: guard R1 đã có bằng chứng theo
 [final audit và symbol mapping](../../../04_testing/traceability-service/04_final_r1_audit.md).
 Bảng dưới giữ định nghĩa scenario; các checkpoint phía sau là lịch sử triển khai,

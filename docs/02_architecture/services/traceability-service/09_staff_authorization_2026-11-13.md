@@ -1,5 +1,7 @@
 # Xác thực và phân quyền nhân viên Traceability
 
+> Thiết kế đích bổ sung 21/11/2026: hỗ trợ WAREHOUSE theo [thiết kế toàn luồng](../../../03_api_specs/traceability-workflow-design-2026-11-21.md#4-scope-kho-và-mô-hình-dữ-liệu). Nội dung GLOBAL-only bên dưới là baseline P8 đang có trong code, chưa phải phạm vi đáp ứng nhân viên theo kho. Cần Inventory trả kho authoritative và Traceability giữ/kiểm scoped grants trước rollout; không cấu hình GLOBAL để thay thế.
+
 **Ngày lập:** 13/11/2026 (UTC+7) · **Mốc:** `dev@239c8db` · **Trạng thái:** Chốt thiết kế ngày 13/11/2026
 
 Identity đã có staff token với `user_id` và `permission_grants`. Traceability hiện xác thực JWT sandbox. Adapter dùng Identity/Keycloak và giữ các permission đã có trong domain Traceability.

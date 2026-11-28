@@ -26,10 +26,12 @@ export async function identitySession(accessToken: string) {
   const principal = envelope?.data;
   if (envelope?.success !== true || principal?.principalId !== (owner?.principalId ?? claims?.user_id) || (!owner && principal?.idpSubject !== claims?.sub) || !["CUSTOMER", "EMPLOYEE"].includes(principal?.principalType)) throw new IdentitySessionError(503, "IDENTITY_INVALID");
   if (principal.provisioningStatus !== "ACTIVE") throw new IdentitySessionError(403, "PRINCIPAL_FORBIDDEN");
-  const user: CustomerCoreUser = { principal_id: principal.principalId, principal_type: principal.principalType, email: principal.email, roles: principal.roles, permissions: principal.permissions };
+  const user: CustomerCoreUser = { principal_id: principal.principalId, principal_type: principal.principalType, email: principal.email, roles: principal.roles, permissions: principal.permissions, ...(principal.permissionGrants !== undefined ? { permission_grants: principal.permissionGrants } : {}) };
   const expires = owner?.expiresAt ?? new Date(claims!.exp! * 1000).toISOString();
   if (principal.principalType === "EMPLOYEE") {
-    return { ...mapCustomerCoreSession(user)!, sessionExpiresAt: expires };
+    const session = mapCustomerCoreSession(user);
+    if (!session) throw new IdentitySessionError(503, "IDENTITY_INVALID");
+    return { ...session, sessionExpiresAt: expires };
   }
   const profileResponse = await read("/profile");
   if (profileResponse.status === 401) throw new IdentitySessionError(401, "AUTH_REQUIRED");

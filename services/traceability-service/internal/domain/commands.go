@@ -14,9 +14,15 @@ var (
 	ErrNotFound            = errors.New("profile or revision not found")
 	ErrConflict            = errors.New("profile version, binding or state conflict")
 	ErrForbidden           = errors.New("permission denied")
+	ErrWarehouseConflict   = errors.New("authoritative warehouse binding changed")
+	ErrInvalidCursor       = errors.New("invalid scoped cursor")
 )
 
-type CommandMetadata struct{ PrincipalID, Key, RequestID, TraceParent string }
+type CommandMetadata struct {
+	PrincipalID, Key, RequestID, TraceParent string
+	Scoped                                   bool
+	WarehouseID                              string
+}
 type CommandResult struct {
 	Status   int
 	Body     json.RawMessage

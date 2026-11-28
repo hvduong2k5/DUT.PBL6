@@ -10,10 +10,12 @@ export interface EmployeeNavigationItem {
 export const EMPLOYEE_NAVIGATION: Array<{ group: string; items: EmployeeNavigationItem[] }> = [
   { group: "Tổng quan", items: [{ href: "/admin", label: "Bảng điều khiển", icon: "⌂" }] },
   { group: "Công việc của tôi", items: [
+    { href: "/admin/work/warehouse", label: "Nhập kho", icon: "▣", permission: "WAREHOUSE_WORKBENCH_VIEW" },
     { href: "/admin/work/packing", label: "Workbench đóng gói", icon: "▣", permission: "PACKING_WORKBENCH_VIEW" }
   ] },
   { group: "Danh mục", items: [{ href: "/admin/catalog/products", label: "Sản phẩm & SKU", icon: "◇", permission: "PRODUCT_VIEW" }] },
   { group: "Vận hành", items: [
+    { href: "/admin/traceability", label: "Hồ sơ nguồn gốc", icon: "◇", permission: "traceability.read_internal" },
     { href: "/admin/packing", label: "Quản lý đóng gói", icon: "▧", permission: "PACKING_MANAGEMENT_VIEW" }
   ] },
   { group: "Kinh doanh", items: [

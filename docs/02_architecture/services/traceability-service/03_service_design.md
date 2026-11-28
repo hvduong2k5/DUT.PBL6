@@ -1,5 +1,7 @@
 # Thiết kế chi tiết Traceability phiên bản đầu
 
+> Bổ sung thiết kế đích 25/11/2026: [đặc tả scoped admin v2 và in tem](../../../03_api_specs/traceability-workflow-service-spec.md), [index toàn bộ contract/handoff/acceptance](../../../03_api_specs/traceability-workflow-README.md). Tài liệu bên dưới là baseline v1; không suy ra rằng scoped grants, warehouse metadata hoặc proof integration đã được implement. Khi triển khai target, giữ v1 wire và thêm version mới, không thay ngầm error/header baseline.
+
 Trạng thái: thiết kế triển khai theo [quyết định hiện hành](./01_decisions_and_peer_code_review.md)
 và [kế hoạch](./02_development_plan.md). Ngày 2026-10-17. Backend theo Batch;
 R1 dùng fixture dependency có nhãn, R2 cần provider/identity contract thật.

@@ -115,6 +115,10 @@ func TestReceiptAgainstPostgres(t *testing.T) {
 	if first.Code != 200 || second.Code != 200 || first.Body.String() != second.Body.String() {
 		t.Fatalf("concurrent receipt replay differs: %d %s / %d %s", first.Code, first.Body, second.Code, second.Body)
 	}
+	var received receiptResult
+	if err := json.Unmarshal(first.Body.Bytes(), &received); err != nil || received.BatchID == "" || received.BatchCode != body.BatchCode || received.SKUCode != body.SKU || received.WarehouseID != warehouse {
+		t.Fatal("authoritative receipt binding missing", err)
+	}
 	body.Quantity++
 	call(token, body, idem, 409)
 	call(token, body, "receipt-integration-0002", 409)
@@ -130,4 +134,14 @@ func TestReceiptAgainstPostgres(t *testing.T) {
 	if err != nil || projected != 25 {
 		t.Fatalf("projection: %d %v", projected, err)
 	}
+	existing := receiptRequest{SKU: body.SKU, BatchMode: "EXISTING", BatchID: received.BatchID, Quantity: 1, Revision: &received.Revision, Reference: "PRODUCTION-F18-002", Reason: "TRACEABILITY_TEST"}
+	rawExisting := call(token, existing, "receipt-integration-existing", 200)
+	var added receiptResult
+	if err := json.Unmarshal([]byte(rawExisting), &added); err != nil || added.BatchID != received.BatchID || added.BatchCode != received.BatchCode || added.SKUCode != body.SKU || added.WarehouseID != warehouse {
+		t.Fatal("existing receipt binding differs", err)
+	}
+	if replay := call(token, existing, "receipt-integration-existing", 200); replay != rawExisting {
+		t.Fatal("existing receipt replay changed binding")
+	}
+
 }
