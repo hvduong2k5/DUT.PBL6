@@ -22,7 +22,7 @@ export function OrderTraceabilityPanel({ orderId, lines }: { orderId: string; li
     {!result && !state.error ? <p role="status" aria-busy="true">Đang tải nguồn gốc…</p> : null}
     {state.error ? <p role="alert">{state.error}</p> : null}
     {result && result.state !== "READY" ? <p role="status">{MESSAGE[result.state]}</p> : null}
-    {result?.state === "READY" ? <div className="order-lines">{lines.map((line) => <article key={line.lineId}><div><strong>{line.productName}</strong>{result.items.filter((row) => row.sku_code === line.skuCode).map((row) => <div key={`${row.order_line_id}:${row.batch_id}`}><p>Lô {row.batch_code} · {row.packed_quantity} sản phẩm</p>
+    {result?.state === "READY" ? <div className="order-lines order-trace-lines">{lines.map((line) => <article key={line.lineId}><div><strong>{line.productName}</strong>{result.items.filter((row) => row.sku_code === line.skuCode).map((row) => <div key={`${row.order_line_id}:${row.batch_id}`}><p>Lô {row.batch_code} · {row.packed_quantity} sản phẩm</p>
       {row.qr_url ? <><a className="primary-link" href={row.qr_url}>Xem nguồn gốc lô</a>{row.status === "NO_LONGER_PUBLIC" ? <p>Hồ sơ hiện đã dừng công khai.</p> : null}</> : <p>{row.status === "NOT_AVAILABLE" ? "Lô này chưa có hồ sơ được công bố." : "Chưa thể tải hồ sơ cho lô này."}</p>}
     </div>)}</div></article>)}</div> : null}
     {state.error || result?.state === "UNAVAILABLE" || result?.items.some((row) => row.status === "UNAVAILABLE") ? <button type="button" className="secondary-button" onClick={() => { setState({}); setAttempt((value) => value + 1); }}>Tải lại nguồn gốc</button> : null}
