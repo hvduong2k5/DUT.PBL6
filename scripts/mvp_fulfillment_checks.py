@@ -45,8 +45,12 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
     storage = "codex-web-storage-" + suffix
     env["FULFILLMENT_STORAGE_UPLOAD_ORIGIN"] = "http://" + storage + ":9000"
     env["FULFILLMENT_STORAGE_UPLOAD_CONNECT_ORIGIN"] = f"http://127.0.0.1:{ports['storage']}"
-    container(storage, RUSTFS, ["-e", "RUSTFS_ACCESS_KEY="+access, "-e", "RUSTFS_SECRET_KEY="+secret,
-        "-e", "RUSTFS_VOLUMES=/data", "-p", f"127.0.0.1:{ports['storage']}:9000"])
+    if env.get('MVP_STORAGE_ENGINE') == 'minio':
+        container(storage,env['MVP_STORAGE_IMAGE'],['-e','MINIO_ROOT_USER='+access,'-e','MINIO_ROOT_PASSWORD='+secret,
+            '-p',f"127.0.0.1:{ports['storage']}:9000"],['server','/data','--address',':9000'])
+    else:
+        container(storage, RUSTFS, ["-e", "RUSTFS_ACCESS_KEY="+access, "-e", "RUSTFS_SECRET_KEY="+secret,
+            "-e", "RUSTFS_VOLUMES=/data", "-p", f"127.0.0.1:{ports['storage']}:9000"])
     for _ in range(120):
         try:
             with socket.create_connection(("127.0.0.1",ports['storage']),1): break
@@ -61,7 +65,7 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
     (folder / "clamd.conf").write_text("Foreground yes\nUser root\nDatabaseDirectory /fixture-db\nTCPSocket 3310\nTCPAddr 0.0.0.0\nStreamMaxLength 210M\nLogTime yes\n",newline="\n")
     scanner = "codex-web-scanner-"+suffix
     # Bypass image entrypoint/freshclam: deterministic custom signatures only.
-    container(scanner, CLAMAV, ["--entrypoint", "clamd", "-v", str(folder / "fixture.ndb")+":/fixture-db/fixture.ndb:ro",
+    container(scanner, env.get("MVP_SCANNER_IMAGE",CLAMAV), ["--entrypoint", "clamd", "-v", str(folder / "fixture.ndb")+":/fixture-db/fixture.ndb:ro",
         "-v",str(folder / "clamd.conf")+":/etc/clamav/clamd.conf:ro", "-p",f"127.0.0.1:{ports['scanner']}:3310"])
     for _ in range(90):
         try:
@@ -76,6 +80,8 @@ def prepare(root, folder, ports, env, accounts, sql, run, container, request,
     network = "codex-web-fulfillment-"+suffix
     run(["docker","network","create",network],stdout=subprocess.DEVNULL)
     for name in [storage,scanner]:run(["docker","network","connect",network,name],stdout=subprocess.DEVNULL)
+    (folder / "packing-storage-private.json").write_text(json.dumps({"name":storage,"access":access,"secret":secret,"network":network}),encoding="utf-8")
+    (folder / "packing-storage-private.json").chmod(0o600)
     sql("CREATE DATABASE fulfillment_test;")
     dsn=f"postgres://peer:{password}@host.docker.internal:{ports['db']}/fulfillment_test?sslmode=disable"
     run(["docker","run","--rm","--add-host","host.docker.internal:host-gateway","-e","FULFILLMENT_DATABASE_URL="+dsn,

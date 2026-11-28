@@ -11,10 +11,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def native_identity(request, gateway, issuer, profile_url, order_url, account, password, employee, retain=False):
+def native_identity(request, gateway, issuer, profile_url, order_url, account, password, employee, retain=False, tls_context=None):
     jar = http.cookiejar.CookieJar()
-    app = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect())
-    browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), NoRedirect())
+    app = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect(), urllib.request.HTTPSHandler(context=tls_context))
+    browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), NoRedirect(), urllib.request.HTTPSHandler(context=tls_context))
     query = urllib.parse.urlencode({"format": "json", "redirect_uri": "omama://auth/callback"})
     status, start, _ = request(gateway + "/api/v1/public/auth/login?" + query, opener=app)
     assert status == 200, "Native login initialization failed"

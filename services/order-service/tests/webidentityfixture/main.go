@@ -22,6 +22,7 @@ import (
 func main() {
 	ctx := context.Background()
 	cfg := app.Config{IdentityURL: os.Getenv("IDENTITY_URL"), Mode: "sandbox", AuthMode: "keycloak", OIDCIssuer: os.Getenv("WEB_TEST_ISSUER"), OIDCAudience: "order-api", OIDCAllowLocalHTTP: true, Profile: os.Getenv("WEB_TEST_PROFILE_URL"), ProfileToken: os.Getenv("WEB_TEST_INTERNAL_TOKEN")}
+	cfg.OIDCJWKSURL = os.Getenv("WEB_TEST_JWKS_URL")
 	if os.Getenv("WEB_TEST_GUEST_CHECKOUT") == "true" {
 		cfg.GuestSessionSecret = os.Getenv("GUEST_SESSION_SECRET")
 		cfg.GuestSessionIssuanceEnabled = true
@@ -51,6 +52,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	}
+	if err = service.EnableTraceabilityFromEnv(); err != nil {
+		log.Fatal("invalid traceability acceptance configuration")
 	}
 	if port := os.Getenv("WEB_TEST_ORDER_GRPC_PORT"); port != "" {
 		listener, err := net.Listen("tcp", ":"+port)

@@ -26,6 +26,8 @@ import urllib.parse
 import urllib.request
 import uuid
 import sys
+import ssl
+from traceability_workflow_checks import TraceabilityChecks
 
 sys.dont_write_bytecode = True
 from mvp_native_checks import native_identity
@@ -60,7 +62,12 @@ def main():
     parser.add_argument(
         "--output-dir", default=str(ROOT / ".system_generated/web-identity")
     )
+    parser.add_argument("--traceability", action="store_true", help="Exercise the real receipt-to-QR and sealed-order providers")
+    parser.add_argument("--reuse-built-jars", action="store_true", help="Local-only reuse when JARs are newer than all Java/build/proto sources; CI rebuilds by default")
+    parser.add_argument("--traceability-focused", action="store_true", help="Run only the real Traceability purchase/packing workflow after shared setup")
     args = parser.parse_args()
+    if args.traceability_focused: args.traceability = True
+    if args.traceability: args.fulfillment = True
     folder = Path(args.output_dir).resolve()
     folder.mkdir(parents=True, exist_ok=True)
     for transient in ["stop", "ready.json", "result.json", "failure.json"]:
@@ -75,7 +82,7 @@ def main():
     # The disposable fixture must never inherit a developer's external payment
     # or carrier configuration. Keep executable/toolchain environment intact.
     for key in list(env):
-        if key.startswith(("SEPAY_", "SHIPPING_", "ORDER_SHIPPING_")):
+        if key.startswith(("SEPAY_", "SHIPPING_", "ORDER_SHIPPING_", "TRACEABILITY_", "ORDER_TRACEABILITY_", "IDENTITY_TRACEABILITY_", "PEER_ADMIN_", "PEER_TRACEABILITY_")):
             env.pop(key)
     password = secrets.token_urlsafe(24)
     admin_password = secrets.token_urlsafe(32)
@@ -101,11 +108,14 @@ def main():
             "shipping_grpc",
             "control",
             "order_grpc", "fulfillment", "fulfillment_grpc", "storage", "scanner", "kafka_docker",
+            "trace_public", "trace_http", "trace_grpc", "trace_staff", "trace_media", "trace_media_grpc", "trace_inventory",
         ]
     }
     base = f"http://127.0.0.1:{ports['keycloak']}"
     realm = "order-auth-test-" + suffix
-    issuer = base + "/realms/" + realm
+    issuer = (f"https://127.0.0.1:{ports['trace_public']}" if args.traceability else base) + "/realms/" + realm
+    tls_context = None
+    trace = None
     web = f"http://127.0.0.1:{ports['web']}"
     gateway = f"http://127.0.0.1:{ports['gateway']}"
     account_password = "Synthetic-Web-Test-2026-" + suffix
@@ -132,6 +142,14 @@ def main():
     }
 
     def run(command, cwd=ROOT, **kwargs):
+        if args.reuse_built_jars and list(command[-2:]) == ['test','bootJar']:
+            service = Path(cwd)
+            jars = [p for p in (service/'build/libs').glob('*.jar') if 'plain' not in p.name]
+            sources = [p for folder in [service/'src', ROOT/'packages/proto'] for p in folder.rglob('*') if p.is_file()]
+            sources += [p for p in [service/'build.gradle',service/'settings.gradle',service/'gradle.properties'] if p.exists()]
+            if len(jars)==1 and jars[0].stat().st_mtime >= max(p.stat().st_mtime for p in sources):
+                print('REUSE: verified current source timestamps for '+service.name+' JAR; Java unit tests are not rerun in this local iteration',flush=True)
+                return subprocess.CompletedProcess(command,0)
         return subprocess.run(
             [str(x) for x in command], cwd=cwd, env=env, check=True, **kwargs
         )
@@ -157,10 +175,10 @@ def main():
         processes.append(process)
         return process
 
-    def container(name, image, extra):
+    def container(name, image, extra, command=()):
         names.append(name)
         run(
-            ["docker", "run", "-d", "--name", name, *extra, image],
+            ["docker", "run", "-d", "--name", name, *extra, image, *command],
             stdout=subprocess.DEVNULL,
         )
 
@@ -187,7 +205,7 @@ def main():
         req = urllib.request.Request(url, data=data, headers=actual, method=method)
         try:
             response = (opener.open if opener else urllib.request.urlopen)(
-                req, timeout=10
+                req, timeout=10, **({"context": tls_context} if not opener and tls_context else {})
             )
         except urllib.error.HTTPError as error:
             response = error
@@ -338,7 +356,13 @@ def main():
             capture_output=True,
         ).stdout
 
+    def native_login(*values, **options):
+        return native_identity(*values, tls_context=tls_context, **options)
+
     try:
+        if args.traceability:
+            trace = TraceabilityChecks(ROOT,folder,ports,env,run,start,container,sql,request,wait,suffix)
+            tls_context = trace.context
         container(
             db_container,
             "postgres:16-alpine",
@@ -443,7 +467,7 @@ def main():
             "inventory.events.v1",
             "inventory.stock-changed.v1",
             "inventory.stock-changed.v1.DLT",
-            "fulfillment.task.events.v1", "fulfillment.events.v2",
+            "fulfillment.task.events.v1", "fulfillment.events.v2", "traceability.events.v1",
         ]:
             run(
                 [
@@ -470,6 +494,7 @@ def main():
                 / "services/keycloak-service/realm-export.template.json"
             ).read_text(encoding="utf-8")
         )
+        if trace: template.setdefault("attributes", {})["frontendUrl"] = trace.origin
         template.update(
             id=realm, realm=realm, users=[], sslRequired="none", verifyEmail=False,
             accessTokenLifespan=1200,
@@ -622,7 +647,7 @@ def main():
             SPRING_DATASOURCE_URL=f"jdbc:postgresql://127.0.0.1:{ports['db']}/{db_name}?currentSchema=identity_test",
             GRPC_SERVER_PORT=str(ports["identity_grpc"]),
             SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=issuer,
-            SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=issuer
+            SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=base + "/realms/" + realm
             + "/protocol/openid-connect/certs",
         )
         gradle = (
@@ -659,6 +684,9 @@ def main():
             run((["sh", gradle] if os.name != "nt" and gradle.endswith("gradlew") else [gradle]) + ["--no-daemon", "test", "bootJar"], ROOT / "services/catalog-service", stdout=log, stderr=log)
         catalog_jar = next(p for p in (ROOT / "services/catalog-service/build/libs").glob("*.jar") if "plain" not in p.name)
         catalog_environment=env.copy()
+        immutable_catalog_jar=folder/"catalog-runtime.jar"
+        shutil.copy2(catalog_jar,immutable_catalog_jar)
+        catalog_jar=immutable_catalog_jar
         catalog_process=start([args.java, "-Djava.net.preferIPv4Stack=true", "-jar", str(catalog_jar)], "catalog")
         wait(catalog_url + "/api/v1/products", process=catalog_process)
         sql("""SET search_path TO catalog_live,public;
@@ -691,7 +719,10 @@ def main():
             for p in (ROOT / "services/identity-service/build/libs").glob("*.jar")
             if "plain" not in p.name
         )
-        start([args.java, "-jar", jar], "identity")
+        immutable_identity_jar=folder/"identity-runtime.jar"
+        shutil.copy2(jar,immutable_identity_jar)
+        if trace: env.update(trace.staff_env)
+        start([args.java, "-jar", immutable_identity_jar], "identity")
         identity_url = f"http://127.0.0.1:{ports['identity']}"
         env["IDENTITY_URL"]=identity_url
         wait(identity_url + "/v3/api-docs")
@@ -747,6 +778,7 @@ def main():
             PROFILE_INTERNAL_TOKEN=internal_token,
             PROFILE_AUTH_MODE="keycloak",
             PROFILE_OIDC_ISSUER=issuer,
+            PROFILE_OIDC_JWKS_URL=base+"/realms/"+realm+"/protocol/openid-connect/certs",
             PROFILE_OIDC_AUDIENCE="omama-api",
             PROFILE_OIDC_ALLOW_LOCAL_HTTP="true",
             USE_VAULT_MOCK_DEV="true",
@@ -968,6 +1000,7 @@ def main():
                 diagnostic=run(["docker","logs","codex-web-fulfillment-"+suffix],capture_output=True,text=True)
                 (folder/"fulfillment-container.log").write_text(diagnostic.stdout+diagnostic.stderr,encoding="utf-8")
                 raise
+        if trace: trace.launch(db_name,password,issuer,catalog_token,peer_address,env["KAFKA_BROKERS"])
         env.update(
             WEB_TEST_CHECKOUT="true",
             WEB_TEST_REAL_CATALOG_GRPC=f"127.0.0.1:{ports['catalog_grpc']}",
@@ -988,6 +1021,7 @@ def main():
         wait(profile_url + "/livez")
         env.update(
             WEB_TEST_ISSUER=issuer,
+            WEB_TEST_JWKS_URL=base+"/realms/"+realm+"/protocol/openid-connect/certs",
             WEB_TEST_PROFILE_URL=profile_url,
             WEB_TEST_INTERNAL_TOKEN=internal_token,
             WEB_TEST_REDIS=env["REDIS_ADDR"],
@@ -1021,6 +1055,9 @@ def main():
             for service in config['services']:
                 if service['name']=='fulfillment-service':service['url']=f"http://codex-web-fulfillment-{suffix}:8002"
             kong=yaml.safe_dump(config,sort_keys=False)
+        if trace:
+            kong = kong.replace("http://traceability-service:8003", f"http://host.docker.internal:{ports['trace_http']}")
+            kong = kong.replace("http://inventory-svc:8003", f"http://host.docker.internal:{ports['trace_inventory']}")
         kong_file = folder / "kong.yml"
         kong_file.write_text(kong, encoding="utf-8")
         container(
@@ -1068,6 +1105,9 @@ def main():
                 shutil.which("node"),
                 ROOT / "apps/web-user/node_modules/next/dist/bin/next",
                 "dev",
+                # Keep the disposable integration runner independent of the
+                # developer's persistent Turbopack cache across fixture runs.
+                "--webpack",
                 "--hostname",
                 "0.0.0.0",
                 "--port",
@@ -1083,7 +1123,7 @@ def main():
         assert status==200 and detail["variants"][0]["sku_code"]=="PEER" and detail["variants"][0]["stock_available"]==100, ("Catalog Web detail",status,detail)
         print("PASS: Web reads product, price, SKU and live Inventory availability from real Catalog",flush=True)
         for key in ["A","E"]:
-            native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts[key],account_password,key=="E")
+            native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts[key],account_password,key=="E")
         print("PASS: native PKCE/JSON callback, app-bound state, refresh/logout and direct bearer Customer/Employee gates",flush=True)
         real_packing = None
         if args.fulfillment:
@@ -1123,8 +1163,8 @@ def main():
                 "permission_grants": [row for row in grant_rows.splitlines() if row],
             })
             assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant projection failed"
-            staff_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
-            customer_session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+            staff_session=native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+            customer_session=native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
             fulfillment_checks.pack.storage_port=ports['storage']
             def shipping_control(online):
                 nonlocal shipping_process
@@ -1138,6 +1178,27 @@ def main():
                 return json.loads(sql(f"SELECT json_build_object('hash',h.request_hash,'attempts',h.attempts,'shipment_id',h.shipment_id,'shipments',(SELECT count(*) FROM shipping.shipments s WHERE s.order_id=h.order_id::text)) FROM orders.fulfillment_shipping_handoffs h WHERE h.order_id='{uuid.UUID(order_id)}';",tuples=True) or "null")
             def real_packing(order_id, order_until):
                 return fulfillment_checks.pack(request,gateway,staff_session['accessToken'],customer_session['accessToken'],folder,order_id,order_until,shipping_url,shipping_token,f"http://127.0.0.1:{ports['control']}",run,fulfillment_scanner,shipping_control,handoff,web,staff_session['sessionId'],customer_session['sessionId'])
+        def run_trace_scenario(placed):
+            def trace_purchase(session):
+                browser=urllib.request.build_opener(urllib.request.HTTPSHandler(context=tls_context))
+                browser.addheaders=[('Cookie','OMAMA_SESSION='+session['sessionId'])]
+                return checkout_shipping(request,web,browser,f"http://127.0.0.1:{ports['control']}",shipping_url,shipping_token,shipping_webhook,packing=real_packing)
+            trace.verify_order(placed,staff_session,customer_session,accounts,account_password,native_login,gateway,web,issuer,profile_url,identity_url,admin_api,base,admin_password,inventory_schema,trace_purchase)
+        if args.traceability_focused:
+            customer_browser=urllib.request.build_opener(urllib.request.HTTPSHandler(context=tls_context))
+            customer_browser.addheaders=[('Cookie','OMAMA_SESSION='+customer_session['sessionId'])]
+            customer_profile=request(web+'/api/customer/profile',opener=customer_browser)[1]
+            profile_addresses(request,web,customer_browser,customer_profile,None)
+            placed=checkout_shipping(request,web,customer_browser,f"http://127.0.0.1:{ports['control']}",shipping_url,shipping_token,shipping_webhook,packing=real_packing)
+            run_trace_scenario(placed)
+            result={'status':'PASS','head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+                'scope':'Real HTTPS Keycloak, Identity, Catalog, Inventory TLS, Media, Traceability, Order, Fulfillment, versioned S3, ClamAV, Kafka and Web; SePay statements TEST, carrier FAKE; no external money',
+                'traceability':trace.result,'java_artifacts_reused':args.reuse_built_jars}
+            (folder/'result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+            if args.keep_running:
+                print('READY: real Traceability workflow passed; browser fixtures retained in ignored private files',flush=True)
+                while not (folder/'stop').exists(): time.sleep(.5)
+            return
         foreign_address = None
         registration = {
             "email": f"registered-{suffix}@example.test",
@@ -1307,7 +1368,7 @@ def main():
         for key, account in accounts.items():
             jar = http.cookiejar.CookieJar()
             opener = urllib.request.build_opener(
-                urllib.request.HTTPCookieProcessor(jar), NoRedirect()
+                urllib.request.HTTPCookieProcessor(jar), NoRedirect(), urllib.request.HTTPSHandler(context=tls_context)
             )
             guest_source = None
             if args.guest_checkout and key == "A":
@@ -1636,7 +1697,7 @@ def main():
         assert ("(5 rows)" if args.guest_checkout else "(2 rows)") in sql("SELECT id FROM orders.orders;")
         mobile_client_runtime="NOT_RUN"
         if args.flutter:
-            session=native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
+            session=native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts["B"],account_password,False,retain=True)
             mobile_config=folder/"mobile-live.json"
             mobile_config.write_text(json.dumps({"gateway":gateway,"issuer":issuer,"session":session}),encoding="utf-8")
             env["MVP_LIVE_CONFIG"]=str(mobile_config)
@@ -1646,6 +1707,7 @@ def main():
             assert after == {"physical":expected_physical,"reserved":0}, ("Native cancellation did not release Inventory",after)
             mobile_client_runtime="PASS"
             print("PASS: native Dart runtime -> real Catalog/Profile/cart/quote/checkout/replay/order/payment instructions/cancel -> Inventory released",flush=True)
+        if trace: run_trace_scenario(placed_order)
         # Drop the grants projected onto the fixture Employee for the
         # Fulfillment section above: the authorization checks below
         # expect this account's real-login token to be a grant-less
@@ -1658,8 +1720,8 @@ def main():
         for attribute in ("permission_grants",):
             kc_user.get("attributes", {}).pop(attribute, None)
         assert request(admin_api + "/users/" + accounts["E"]["subject"], kc_user, fixture_admin["access_token"], "PUT")[0] == 204, "Fixture grant removal failed"
-        auth_staff = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
-        auth_customer = native_identity(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
+        auth_staff = native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['E'],account_password,True,retain=True)
+        auth_customer = native_login(request,gateway,issuer,profile_url,f"http://127.0.0.1:{ports['order']}",accounts['A'],account_password,False,retain=True)
         # Dedicated TEST clients stand in for the not-yet-implemented staff issuer.
         status, fixture_admin, _ = request(base + "/realms/master/protocol/openid-connect/token",
             {"grant_type": "password", "client_id": "admin-cli", "username": "admin", "password": admin_password}, form=True)
@@ -1674,8 +1736,9 @@ def main():
             ).strip(),
             "scope": "real Web/Keycloak/Kong/Identity/Profile/Catalog/Order/Inventory-TLS/Shipping-v2/PostgreSQL/Redis/Kafka; " + ("real Fulfillment/RustFS-versioned-video/ffprobe/ClamAV (fixture signature DB); " if args.fulfillment else "Fulfillment TEST; ") + "SePay statements TEST, carrier FAKE, no external money",
             "mobile_client_runtime": mobile_client_runtime,
-            "accounts": 4,
+            "accounts": 6 if trace else 4,
             "guest_checkout": args.guest_checkout,
+            "traceability": trace.result if trace else "NOT_RUN",
             "inventory": stock,
             "flows": [
                 "native-identity-pkce-state-refresh-logout-and-persona-gates",
