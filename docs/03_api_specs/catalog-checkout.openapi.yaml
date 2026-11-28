@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info:
+  title: Retired Catalog checkout HTTP contract
+  version: catalog-checkout-2.0-retired
+  description: >-
+    Compatibility marker retained at the historical contract path. PR 175
+    removed the internal REST adapters. This document declares no HTTP
+    operations and must not be used to implement or call the retired routes.
+    The current service-to-service contract is packages/proto/catalog/v1/catalog.proto:
+    CatalogService.ValidateCheckoutPricing for checkout and
+    CatalogService.GetTraceabilityBinding for Traceability.
+  license:
+    name: Proprietary
+x-lifecycle: retired
+x-retired-by-commit: ac5395c5ec916c61b627fffef7322af07960dd59
+x-canonical-contract: ../../packages/proto/catalog/v1/catalog.proto
+servers:
+  - url: https://retired.invalid
+    description: Reserved non-resolving origin; this document has no HTTP operations.
+paths: {}
