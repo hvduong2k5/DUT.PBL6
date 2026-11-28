@@ -240,7 +240,7 @@ DLQ là diagnostic delivery tùy chọn, **PostgreSQL quarantine mới giữ res
 | Topic / status | Key và facts | Consumer contract / effect |
 | --- | --- | --- |
 | order.events.v3 — target đã có schemas | Order UUID; placed/paid/ready/cancelled/completed/audit theo pinned types | Fulfillment chỉ nhận ready để xin permit/barrier; Notification/Accounting theo subscription riêng; paid không deduct stock |
-| payment.events.v1 — candidate, chưa enable | RECEIPT/REFUND UUID; receipt_recorded/refund_settled facts gồm unmatched money | [JSON Schema candidate](../../../03_api_specs/order-payment-events.candidate.schema.json) và [fixtures](../../../03_api_specs/order-payment-events.candidate.examples.json); cần Finance/Accounting sign-off semantics/privacy/dedup |
+| payment.events.v1 — candidate, chưa enable | RECEIPT/REFUND UUID; receipt_recorded/refund_settled facts gồm unmatched money | [JSON Schema candidate](../../../../services/order-service/docs/contracts/order-payment-events.candidate.schema.json) và [fixtures](../../../../services/order-service/docs/contracts/order-payment-events.candidate.examples.json); cần Finance/Accounting sign-off semantics/privacy/dedup |
 | Provider Inventory/Fulfillment/Shipping topics | Key/version theo source contract | Order lifecycle/source projections; chỉ subscribe khi ACL/schema/association được nghiệm thu |
 | order.messaging.quarantine.v1 — optional proposal | Quarantine UUID; redacted diagnostic reference | Ops tooling; raw financial/PII evidence chỉ qua scoped DB/object access |
 

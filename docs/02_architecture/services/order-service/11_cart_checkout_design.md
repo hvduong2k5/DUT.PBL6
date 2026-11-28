@@ -2,7 +2,7 @@
 
 **Phiên bản:** `cart-checkout-1.0-review` · **Ngày:** 16/10/2026 · **Trạng thái:** Đề xuất để review, chưa triển khai.
 
-[Chỉ mục](README.md) · [HLD Order](00_order_service_hld.md) · [Payment SePay 1.1](09_payment_sepay_vietqr_design.md) · [OpenAPI candidate](../../../03_api_specs/order-cart-checkout.candidate.openapi.yaml)
+[Chỉ mục](README.md) · [HLD Order](00_order_service_hld.md) · [Payment SePay 1.1](09_payment_sepay_vietqr_design.md) · [OpenAPI candidate](../../../../services/order-service/docs/contracts/order-cart-checkout.candidate.openapi.yaml)
 
 ## 1. Phạm vi và bốn quyết định ưu tiên
 
@@ -199,7 +199,7 @@ Checkout request chỉ quote_id/cart_revision/payment_method; selected items/add
 
 ## 7. Worker và resource protocol
 
-Snapshot chính thức và aggregate guards tại [Order Core12](12_order_core_design.md), [OrderSnapshot v1](../../../03_api_specs/order-snapshot.v1.schema.json). PLACE phải validate shape + semantic consistency từ cùng canonical input trước ghi Order/items/Intent, không reuse Quote DTO như contract snapshot chính thức.
+Snapshot chính thức và aggregate guards tại [Order Core12](12_order_core_design.md), [OrderSnapshot v1](../../../../services/order-service/testdata/order-snapshot.v1.schema.json). PLACE phải validate shape + semantic consistency từ cùng canonical input trước ghi Order/items/Intent, không reuse Quote DTO như contract snapshot chính thức.
 
 ### 7.1 VALIDATE
 
@@ -327,7 +327,7 @@ Không có cross-DB FK hoặc transaction PostgreSQL+Redis+Inventory. Source of 
 
 ## 10. API và UX contract
 
-[order-cart-checkout.candidate.openapi.yaml](../../../03_api_specs/order-cart-checkout.candidate.openapi.yaml) là contract để review; giữ error envelope Order3.2. Endpoints trùng path hiện hành nhưng schema mới là breaking change đối với Cart/Quote clients; phải pin route/version/cohort khi triển khai, không cùng URL tùy lúc trả hai shape.
+[order-cart-checkout.candidate.openapi.yaml](../../../../services/order-service/docs/contracts/order-cart-checkout.candidate.openapi.yaml) là contract để review; giữ error envelope Order3.2. Endpoints trùng path hiện hành nhưng schema mới là breaking change đối với Cart/Quote clients; phải pin route/version/cohort khi triển khai, không cùng URL tùy lúc trả hai shape.
 
 | Endpoint | Result |
 | --- | --- |

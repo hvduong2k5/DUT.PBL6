@@ -2,7 +2,7 @@
 
 **Phiên bản:** `order-core-1.0-review` · **Ngày:** 17/10/2026 · **Trạng thái:** Đề xuất thiết kế để review.
 
-[Chỉ mục](README.md) · [Payment 1.1](09_payment_sepay_vietqr_design.md) · [Cart/Checkout](11_cart_checkout_design.md) · [Snapshot schema](../../../../services/order-service/testdata/order-snapshot.v1.schema.json) · [Snapshot examples](../../../../services/order-service/testdata/order-snapshot.v1.examples.json) · [Order Core API candidate](../../../03_api_specs/order-core.candidate.openapi.yaml)
+[Chỉ mục](README.md) · [Payment 1.1](09_payment_sepay_vietqr_design.md) · [Cart/Checkout](11_cart_checkout_design.md) · [Snapshot schema](../../../../services/order-service/testdata/order-snapshot.v1.schema.json) · [Snapshot examples](../../../../services/order-service/testdata/order-snapshot.v1.examples.json) · [Order Core API candidate](../../../../services/order-service/docs/contracts/order-core.candidate.openapi.yaml)
 
 ## 1. Scope, ownership và trách nhiệm
 
@@ -343,7 +343,7 @@ Consumer dedup(source,event_id)+hash và business resource/version. Cùng ID đ�
 
 ## 13. Query API, ownership và data exposure
 
-[OpenAPI candidate](../../../03_api_specs/order-core.candidate.openapi.yaml) mô tả Order list/detail/tracking/history, commands/cancellation, staff hold/resume/queue và scoped snapshot views. Trùng route baseline là candidate version/cohort replacement, không được deploy thay shape âm thầm. Command async trả Location scoped command resource; outcome phải được đọc theo kind (review request created khác Order cancelled).
+[OpenAPI candidate](../../../../services/order-service/docs/contracts/order-core.candidate.openapi.yaml) mô tả Order list/detail/tracking/history, commands/cancellation, staff hold/resume/queue và scoped snapshot views. Trùng route baseline là candidate version/cohort replacement, không được deploy thay shape âm thầm. Command async trả Location scoped command resource; outcome phải được đọc theo kind (review request created khác Order cancelled).
 
 | View | Quyền / nội dung |
 | --- | --- |
