@@ -229,4 +229,52 @@ func TestCustomerTraceabilityFrozenProjectionPostgresGRPC(t *testing.T) {
 	if err != nil || order.Status != "PACKED" || order.Version != 3 {
 		t.Fatal("read changed lifecycle", order.Status, order.Version, err)
 	}
+	// Emulate an authenticated pre-PR176 frozen row without rewriting its
+	// commercial fields or lifecycle. The reader must retain its original hash.
+	root, err := store.LoadOrder(ctx, d.OrderID, actor.Scope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var historical map[string]any
+	if err = json.Unmarshal(root.Snapshot().Bytes(), &historical); err != nil {
+		t.Fatal(err)
+	}
+	historical["catalog"] = map[string]any{"snapshot_id": "historical-catalog-proof", "version": d.Catalog.CatalogVersion, "valid_until": d.Shipping.ValidUntil}
+	historicalJSON, _ := json.Marshal(historical)
+	frozen, err := core.DecodePersistedSnapshot(historicalJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozenCipher, _ := cipher.Seal("snapshot:"+d.OrderID, frozen.Bytes())
+	// Seed a historical encoding only in this disposable schema. Restore both
+	// update guards in the same transaction before exercising production reads.
+	seed, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer seed.Rollback(ctx)
+	if _, err = seed.Exec(ctx, `ALTER TABLE orders DISABLE TRIGGER immutable_snapshot; ALTER TABLE orders DISABLE TRIGGER core_snapshot_identity`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = seed.Exec(ctx, `UPDATE orders SET snapshot_cipher=$2,snapshot_hash=$3 WHERE id=$1`, d.OrderID, frozenCipher, string(frozen.Hash())); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = seed.Exec(ctx, `ALTER TABLE orders ENABLE TRIGGER immutable_snapshot; ALTER TABLE orders ENABLE TRIGGER core_snapshot_identity`); err != nil {
+		t.Fatal(err)
+	}
+	if err = seed.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	peers.offline, peers.broken = false, false
+	result, err = service.CustomerTraceability(ctx, d.OrderID, actor)
+	if err != nil || result.State != "READY" || result.Total != 2 {
+		t.Fatal("historical frozen source lookup failed", result, err)
+	}
+	root, err = store.LoadOrder(ctx, d.OrderID, actor.Scope())
+	if err != nil || root.Snapshot().Hash() != frozen.Hash() || root.Version() != 3 {
+		t.Fatal("historical lookup rewrote snapshot or lifecycle", err)
+	}
+	if _, err = db.Exec(ctx, `UPDATE orders SET snapshot_hash=$2 WHERE id=$1`, d.OrderID, strings.Repeat("0", 64)); err == nil {
+		t.Fatal("historical fixture left immutable guards disabled")
+	}
 }

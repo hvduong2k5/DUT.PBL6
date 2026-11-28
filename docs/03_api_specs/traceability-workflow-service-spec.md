@@ -119,6 +119,8 @@ Không có “activate tem”, serial, audit số bản in vật lý hoặc sync
 
 ## 8. Outbox và boundary lỗi
 
+Order history sau PR176: bộ đọc persisted snapshot hỗ trợ cả Catalog evidence lịch sử (`snapshot_id/version/valid_until`) và evidence pricing mới. Đây là adapter chỉ đọc, giữ nguyên canonical bytes/logical hash và dữ liệu thương mại đã chốt; metadata đọc lấy từ provenance bất biến, không lấy tồn/giá live. NewSnapshot/DecodeSnapshot của writer mới vẫn strict. Storage payload sai shape/hash hoặc không hợp lệ tại lúc chốt phải fail integrity; không backfill snapshot hoặc sửa lifecycle để đọc được nguồn gốc.
+
 Giữ schema `services/traceability-service/contracts/events/traceability.event.schema.json` và topic service-local hiện có. Publish/status và audit/outbox transaction nguyên tử. At-least-once: giữ event ID/payload/key profile khi retry, không tạo business command lần hai; worker expiry idempotent, không tự restore/suspend profile thay chính sách. Consumer shared chưa ký nhận không coi delivered-to-broker là đã xử lý downstream. Không thêm field warehouse_id hoặc PII vào required event schema cũ trong scope này.
 
 Receipt thành công → Traceability503 không rollback receipt. Resolver503 không ngăn Order đóng gói/giao hàng và không làm mất detail đơn. Broker down không ngăn đọc QR đã public; mutation publish commit local outbox hoặc rollback cả transaction khi ghi outbox thất bại, không chạy publish DB xong mới ghi outbox bên ngoài.

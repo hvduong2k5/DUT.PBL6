@@ -183,4 +183,6 @@ Transport amendment 0.4.0 (2026-11-27): use canonical Catalog/Media from PR #175
 
 ### Nguồn gốc theo lô — 2026-11-28
 
+Snapshot Order đã lưu trước PR176 vẫn trả chi tiết và nguồn gốc theo dữ liệu niêm phong cũ. Adapter chỉ đọc giữ canonical bytes/logical hash, giá, line và lifecycle; không gọi Catalog live hoặc ghi lại snapshot để chuyển schema. Ownership/auth và kiểm tra integrity giữ nguyên; payload lịch sử sai shape, hết hiệu lực tại lúc chốt hoặc sai hash không được chấp nhận. Writer tạo đơn mới tiếp tục dùng schema pricing hiện hành.
+
 Order detail tải nguồn gốc độc lập: READY có đủ line/batch/quantity/SKU dù một số link UNAVAILABLE; PACKING_PENDING/NOT_APPLICABLE/UNAVAILABLE có items=[]/total0. Thiếu ownership403, không có Order404, sai payload/URL origin502; dữ liệu đơn không bị thay đổi khi trace lỗi. Ghép bằng skuCode từ frozen DTO, không tách chuỗi nhãn; kiểm tổng quantity và line/batch uniqueness. Từ lịch sử mở chi tiết đơn rồi xem panel nguồn gốc. Public scan không cần đăng nhập; nhập token hoặc đúng storefront link, không còn nút mã mẫu. 404 khác410; khi code đổi không hiển thị record của mã cũ. Optional artisan/ATTP vắng không được điền giả. [Web BFF](traceability-web-bff-draft.openapi.yaml), [report11](../04_testing/traceability-service/11_local_workflow_2026-11-28.md).

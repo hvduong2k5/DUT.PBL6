@@ -530,6 +530,11 @@ paths:
   /api/v1/orders/{id}:
     get:
       operationId: getOwnedOrder
+      description: >-
+        Reads the owned order from its immutable commercial snapshot. Historical
+        pre-pricing Catalog evidence remains readable with its original logical
+        hash and prices; it is not rebuilt from live Catalog or Inventory data.
+        Storage compatibility does not change ownership or integrity checks.
       summary: getOwnedOrder
       responses:
         '200':
