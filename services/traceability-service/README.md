@@ -221,3 +221,7 @@ database/HTTP scenarios.
 
 See the [verification report](../../docs/04_testing/traceability-service/01_verification.md)
 for actual checks and outstanding gates.
+
+## Local cross-service workflow verification
+
+See [the 2026-11-28 report](../../docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md) for the real Inventory/Identity/Catalog/Media/Web flow, browser QR decoding and print checks, and the distinct scope of Order gRPC wire fixtures. `TRACEABILITY_OIDC_CA_FILE` optionally extends system trust with an explicit private CA; hostname/chain/issuer checks remain enabled.

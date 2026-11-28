@@ -1,0 +1,1218 @@
+openapi: 3.1.0
+info:
+  title: Traceability Web BFF adapters
+  version: 0.4.0-draft
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: Implemented local Web transport under validation. Same-origin browser routes use the existing employee/customer
+    session. Business East-West calls remain gRPC. No stable promotion or production acceptance is implied. OCOP_CERTIFICATE
+    scans must already be approved for public storage by the uploader; Media uses PUBLIC_READ at upload. Upload
+    permits are actor/file/session-bound, expire after 20 minutes and never grant Traceability warehouse access.
+    Keep the private Media provider off the public Internet.
+servers:
+- url: https://shop.example.test
+security:
+- identityCookie: []
+- oidcCookie: []
+tags:
+- name: Employee traceability
+  description: Scoped workflow through Identity or trusted direct OIDC
+- name: Certificate scans
+  description: Direct storage uploads with a server-authenticated uploader
+- name: Customer order
+  description: Owned Order traceability, independent from order detail
+paths:
+  /api/admin/trace/records:
+    get:
+      operationId: listTraceabilityProfilesScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: listTraceabilityProfilesScopedV2
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: string
+          maxLength: 256
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/get/responses/200
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/get/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/get/responses/403
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/get/responses/400
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    post:
+      operationId: createTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: createTraceabilityProfileScopedV2
+      parameters:
+      - &id001
+        name: Origin
+        in: header
+        required: true
+        schema:
+          type: string
+          format: uri
+      - &id002
+        name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 16
+          maxLength: 128
+          pattern: ^[!-~]+$
+      responses:
+        '201':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/201
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace/records/{id}:
+    get:
+      operationId: getTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: getTraceabilityProfileScopedV2
+      parameters: []
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}/get/responses/200
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}/get/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}/get/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}/get/responses/404
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}/get/responses/400
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+  /api/admin/trace/records/{id}/revisions:
+    post:
+      operationId: createTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: createTraceabilityRevisionScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '201':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/201
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+  /api/admin/trace/records/{id}/revisions/{revision}:
+    patch:
+      operationId: replaceDraftContentScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: replaceDraftContentScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}/patch/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+  /api/admin/trace/records/{id}/revisions/{revision}/submit:
+    post:
+      operationId: submitTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: submitTraceabilityRevisionScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+  /api/admin/trace/records/{id}/revisions/{revision}/approve:
+    post:
+      operationId: approveTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: approveTraceabilityRevisionScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+  /api/admin/trace/records/{id}/revisions/{revision}/reject:
+    post:
+      operationId: rejectTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: rejectTraceabilityRevisionScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+  /api/admin/trace/records/{id}/revisions/{revision}/publish:
+    post:
+      operationId: publishTraceabilityRevisionScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: publishTraceabilityRevisionScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
+  /api/admin/trace/records/{id}/suspend:
+    post:
+      operationId: suspendTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: suspendTraceabilityProfileScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+  /api/admin/trace/records/{id}/archive:
+    post:
+      operationId: archiveTraceabilityProfileScopedV2IdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: archiveTraceabilityProfileScopedV2
+      parameters:
+      - *id001
+      - *id002
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive/post/requestBody
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+    parameters:
+    - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
+  /api/admin/trace/records/by-batch:
+    get:
+      operationId: findScopedTraceabilityByBatchDraftIdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: Find the existing profile before creating a draft
+      parameters:
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/ProductId
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/SkuCode
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/BatchId
+      - name: source_namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - inventory
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch/get/responses/200
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch/get/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch/get/responses/403
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch/get/responses/409
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch/get/responses/400
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace/batches/{batch_id}/context:
+    get:
+      operationId: getScopedBatchTraceabilityContextIdentityBffWeb
+      tags:
+      - Employee traceability
+      summary: Bootstrap a traceability form from an authoritative receipt batch
+      parameters:
+      - name: batch_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: ./traceability-workflow-draft.openapi.yaml#/components/parameters/SkuCode
+      responses:
+        '200':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/200
+        '400':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/400
+        '401':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/401
+        '403':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/403
+        '404':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/404
+        '409':
+          $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context/get/responses/409
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace-media/upload-sessions:
+    post:
+      operationId: createTraceCertificateUploadWeb
+      tags:
+      - Certificate scans
+      summary: Create an employee-owned OCOP scan upload session
+      description: Requires current EMPLOYEE read_internal and create or edit grant. Private Media receives only
+        a derived X-User-Id. Web validates JSON at 16KiB and scan size at 20MiB. Reusing a key preserves client
+        intent; legacy Media does not guarantee deduplication of session creation after a lost response. Unreferenced
+        orphan sessions do not create duplicate Traceability evidence.
+      parameters:
+      - *id001
+      - *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadInput'
+      responses:
+        '201':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace-media/upload-sessions/{sessionId}/complete:
+    post:
+      operationId: completeTraceCertificateUploadWeb
+      tags:
+      - Certificate scans
+      summary: Complete only the upload session issued to this employee
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,128}$
+      - *id001
+      - *id002
+      - &id003
+        name: X-Upload-Permit
+        in: header
+        required: true
+        schema:
+          type: string
+          maxLength: 2048
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace-media/files/{fileId}:
+    get:
+      operationId: readTraceCertificateUploadWeb
+      tags:
+      - Certificate scans
+      summary: Poll metadata of the current employee upload capability
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema: &id004
+          type: string
+          format: uuid
+      - *id003
+      responses:
+        '200':
+          description: Successful response
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileMetadata'
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/admin/trace-files/{profileId}/{evidenceId}:
+    get:
+      operationId: openScopedTraceEvidenceWeb
+      tags:
+      - Certificate scans
+      summary: Open the scan after current Traceability evidence and warehouse authorization
+      description: Read profile through the scoped backend first. A redacted/missing reference cannot be converted
+        into a Media link. Only document:fileId with purpose OCOP_CERTIFICATE is accepted. The 307 storage destination
+        is pinned to the public Media origin.
+      parameters:
+      - name: profileId
+        in: path
+        required: true
+        schema: *id004
+      - name: evidenceId
+        in: path
+        required: true
+        schema: *id004
+      - name: revision
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '307':
+          description: No-store redirect to the permitted certificate scan
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/orders/{order_id}/traceability:
+    get:
+      operationId: readCustomerOrderTraceabilityWeb
+      tags:
+      - Customer order
+      summary: Read exact sealed batch links for an owned order
+      description: Uses existing Order history capability and guest session policy. The response is limited to 512KiB
+        and validates order echo, row uniqueness, status/URL presence and configured public origin before relaying.
+        The UI joins only an explicit unique SKU field and verifies full frozen quantities; never parse a display
+        label or array index.
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema: *id004
+      responses:
+        '200':
+          $ref: ./traceability-workflow-draft.openapi.yaml#/paths/~1api~1v1~1orders~1{order_id}~1traceability/get/responses/200
+        '400':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Safe error envelope. No saved receipt, draft or Order is rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+  /api/auth/me:
+    get:
+      operationId: readBrowserIdentityWithScopedTraceGrants
+      tags:
+      - Employee traceability
+      summary: Preserve scoped Identity grants in the existing browser session projection
+      description: Additive permissionGrants field on principal; authentication uses the existing Identity session
+        or OIDC cookies. ACTIVE employee/customer profile still comes from Identity. No tokens or service credentials
+        are exposed. Malformed permission tuples fail closed.
+      security:
+      - identityCookie: []
+      - oidcCookie: []
+      responses:
+        '200':
+          description: Authenticated principal projection, no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - authenticated
+                - principal
+                - customerAccess
+                - customer
+                properties:
+                  authenticated:
+                    type: boolean
+                    const: true
+                  principal:
+                    type: object
+                    required:
+                    - principalId
+                    - principalType
+                    - displayName
+                    - roles
+                    - permissions
+                    properties:
+                      principalId:
+                        type: string
+                        format: uuid
+                      principalType:
+                        type: string
+                        enum:
+                        - EMPLOYEE
+                        - CUSTOMER
+                      displayName:
+                        type: string
+                      email:
+                        type: string
+                      customerId:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - roleCode
+                          properties:
+                            roleCode:
+                              type: string
+                            roleName:
+                              type: string
+                            scopeType:
+                              type: string
+                            scopeId:
+                              type:
+                              - string
+                              - 'null'
+                      permissions:
+                        type: array
+                        items:
+                          type: string
+                      permissionGrants:
+                        type: array
+                        description: Optional legacy-compatible projection of current Identity permission/scope
+                          tuples. A missing list never grants Traceability access. An unrelated GLOBAL role cannot
+                          widen a WAREHOUSE Traceability grant.
+                        items:
+                          type: object
+                          required:
+                          - permissionCode
+                          - scopeType
+                          - scopeId
+                          properties:
+                            permissionCode:
+                              type: string
+                            scopeType:
+                              type: string
+                            scopeId:
+                              type:
+                              - string
+                              - 'null'
+                  customerAccess:
+                    type: boolean
+                  customer:
+                    type:
+                    - object
+                    - 'null'
+                  sessionExpiresAt:
+                    type: string
+                    format: date-time
+        '401':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Authentication absent, forbidden or Identity unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  securitySchemes:
+    identityCookie:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+    oidcCookie:
+      type: apiKey
+      in: cookie
+      name: oma_access_token
+  schemas:
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      - requestId
+      properties:
+        code: &id005
+          type: string
+        message: *id005
+        requestId: *id005
+    UploadInput:
+      type: object
+      required:
+      - purpose
+      - fileName
+      - mediaType
+      - sizeBytes
+      - sha256
+      properties:
+        purpose:
+          type: string
+          const: OCOP_CERTIFICATE
+        fileName:
+          type: string
+          minLength: 1
+          maxLength: 250
+        mediaType:
+          type: string
+          enum:
+          - application/pdf
+          - image/jpeg
+          - image/png
+          - image/webp
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 20971520
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+    UploadSession:
+      type: object
+      required:
+      - fileId
+      - uploadSessionId
+      - uploadUrl
+      - requiredHeaders
+      - uploadPermit
+      properties:
+        fileId: *id004
+        uploadSessionId: *id005
+        uploadUrl:
+          type: string
+          format: uri
+          description: Origin pinned to configured public storage; PUT directly with requiredHeaders and omit credentials.
+        requiredHeaders:
+          type: object
+          additionalProperties: *id005
+        uploadPermit:
+          type: string
+          description: Opaque server HMAC permit; send only to this BFF in X-Upload-Permit, never in URLs.
+        expiresAt:
+          type: string
+          format: date-time
+    FileMetadata:
+      type: object
+      required:
+      - fileId
+      - status
+      - sha256Checksum
+      properties:
+        fileId: *id004
+        status:
+          type: string
+          enum:
+          - AWAITING_UPLOAD
+          - PROCESSING
+          - READY
+          - PROCESSING_FAILED
+          - ARCHIVED
+        sha256Checksum:
+          type:
+          - string
+          - 'null'

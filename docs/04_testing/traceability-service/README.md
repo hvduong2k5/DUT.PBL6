@@ -28,3 +28,5 @@ Trạng thái backend: **IMPLEMENTED / LOCAL VERIFICATION**, xem report08; trạ
 Unit/integration tests triển khai vẫn nằm trong từng service; báo cáo ở đây dẫn tới kết quả thật. Chưa có run mới thì ghi chưa chạy, không copy chữ PASS từ lịch sử. Review PR/deploy theo quy trình nhóm, không thử trên deploy release cũ rồi nhận là bản sửa mới.
 
 Current 0.4.0: [Catalog/Media alignment with Duong plan and PR #175](10_catalog_media_alignment_2026-11-27.md). Report09 is the superseded Catalog proposal; current evidence distinguishes canonical peer fixtures from real-provider acceptance.
+
+Checkpoint28/11: [11 — local workflow, scoped IAM, browser QR/print](11_local_workflow_2026-11-28.md). Đây là kết quả hiện hành cho code bổ sung; report10 giữ bằng chứng alignment trước khi triển khai các provider còn thiếu.

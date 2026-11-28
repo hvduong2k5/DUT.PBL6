@@ -157,3 +157,5 @@ Chỉ cập nhật nội dung ở nguồn tương ứng trong bảng; README/ki�
 Traceability amendment27/11: [gRPC0.3.0 guide/shared proto](traceability-workflow-grpc.md), [current backend report](../04_testing/traceability-service/09_grpc_transport_2026-11-27.md) and reissued owner snapshots supersede internal REST0.2.2 proposals. North-south REST stays unchanged.
 
 Traceability 0.4.0 (27/11/2026) follows Duong's canonical Catalog/Media in PR #175/dev@ac5395c5. The [current guide](traceability-workflow-grpc.md) replaces the unshipped GetSkuBinding proposal, adds OCOP validation and durable post-publication binding, and preserves other workflow contracts. See [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md) and reissued owner briefs; fixture results are not real-provider acceptance.
+
+Traceability28/11: [Web adapter contract](traceability-web-bff-draft.openapi.yaml) và [report11 local workflow](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) ghi nhận provider thật, UI/QR/in tem và scope/current-grant tests. Phân biệt rõ Order wire fixtures với full checkout/shipping, chưa promote stable.

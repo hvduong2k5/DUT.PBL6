@@ -354,3 +354,15 @@ was consolidated here; runtime URLs and response bodies are unchanged.
 Transport amendment 0.4.0 (2026-11-27): use canonical Catalog/Media from PR #175 per [current guide](traceability-workflow-grpc.md). OCOP upload-session/complete precedes document:<fileId> evidence; Media-enabled submit/publish invalid file400/dependency503 keeps draft/approval and receipt unchanged. Publication replay remains successful while a later Media outage is retried by the durable bind worker. QR/public DTO schema is unchanged. See [report10](../04_testing/traceability-service/10_catalog_media_alignment_2026-11-27.md); UI/provider acceptance remains pending.
 
 Inventory receipt provider includes batchId/batchCode/skuCode/warehouseId on fresh APPLIED results in the same idempotent transaction. Legacy replay may omit them: preserve APPLIED and resolve context separately, never submit another receipt to recover traceability binding.
+
+Identity implementation checkpoint28/11: staff admin adapters require a known ACTIVE EMPLOYEE; scoped Traceability/Inventory BFF allowlists, no-store and bounded body/response are implemented. The dedicated TLS staff-grants RPC is enabled explicitly; legacy listener9016 remains unchanged. Provider tests pass on isolated PostgreSQL; live browser login/scope/Origin acceptance is still required.
+
+### Inventory workbench provider verification — 2026-11-28
+
+`GET /api/v1/admin/inventory/workbench` reads Inventory balances in a repeatable-read transaction. It intersects `INVENTORY_VIEW` and `WAREHOUSE_WORKBENCH_VIEW` per warehouse, including mixed GLOBAL/WAREHOUSE grants; unrelated grants cannot widen access. A real PostgreSQL receipt-to-workbench test covers positive balances, two warehouses, missing permission and crossed scopes. Responses are `no-store`. More than 100 SKUs or 1000 eligible batches returns 503, allowing the error/retry state without presenting incomplete stock. SKU labels remain codes; no Catalog product names or pending approvals are fabricated.
+
+Identity staff transport aliases use `/api/v1/admin/trace-api/**` in accordance with the Identity namespace rule. The proxy forwards to the versioned Traceability `/api/v2/admin/trace/**` contract; the downstream business version is unchanged.
+
+### Traceability Web workflow — 2026-11-28
+
+Loading/empty/error/auth states đi qua [Web BFF draft](traceability-web-bff-draft.openapi.yaml). Identity session phải giữ permissionGrants; unrelated GLOBAL role không mở rộng WAREHOUSE trace grants. Draft chưa lưu chặn submit/status actions; conflict tạo trùng giữ nội dung đang nhập và đưa link mở profile đã có, không giả đã lưu. Receipt APPLIED vẫn được giữ nếu refresh/context/upload lỗi; retry dùng cùng key cho cùng intent. Scan mới cần lưu draft trước khi mở từ hồ sơ; stored evidence cần quyền read_evidence và kho hiện hành. QR chỉ dùng public DTO còn eligible, PNG/SVG/print recheck; portal in tem tách khỏi shell, xóa sau afterprint. Không restore SUSPENDED/ARCHIVED. [Report11](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) ghi ca live/fixture cụ thể.

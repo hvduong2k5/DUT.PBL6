@@ -5,9 +5,9 @@ info:
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
-  description: Direct implementation target, not implemented or stable. Identity maps a trusted OMAMA_SESSION to
+  description: Implemented Identity transport target; shared UI/provider integration remains pending, not stable. Identity maps a trusted OMAMA_SESSION to
     the signed access token and forwards only allowlisted routes to Kong. Known ACTIVE EMPLOYEE checks apply to
-    v2 as well as v1. Next BFF validates and forwards Origin on cookie mutations; CSRF Origin checks must not be
+    all staff adapter routes. The named customer adapter instead requires ACTIVE CUSTOMER. Next BFF validates and forwards Origin on cookie mutations; CSRF Origin checks must not be
     disabled. Backends enforce business permission and scope. The proxy may also authenticate a verified staff bearer
     without a cookie; Direct OIDC mode uses the trusted bearer path and does not require these cookie adapters.
 servers:
@@ -19,7 +19,7 @@ tags:
 - name: Identity transport
   description: Cookie-to-bearer transport, no business state mutation in the proxy itself
 paths:
-  /api/v2/admin/trace-api/records:
+  /api/v1/admin/trace-api/records:
     get:
       operationId: listTraceabilityProfilesScopedV2IdentityBff
       parameters:
@@ -159,7 +159,7 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
     post:
       operationId: createTraceabilityProfileScopedV2IdentityBff
       parameters:
@@ -339,8 +339,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     get:
@@ -439,8 +439,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     post:
@@ -615,8 +615,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
@@ -783,8 +783,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/submit:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/submit:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
@@ -908,8 +908,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/submit
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/approve:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/approve:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
@@ -1039,8 +1039,8 @@ paths:
       x-contributor-policy: actor must not be a contributor of the revision
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/approve
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/reject:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/reject:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
@@ -1169,8 +1169,8 @@ paths:
       x-contributor-policy: actor must not be a contributor of the revision
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/reject
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/publish:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/publish:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/RevisionNumber
@@ -1295,8 +1295,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/revisions/{revision}/publish
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/suspend:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/suspend:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     post:
@@ -1423,8 +1423,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/suspend
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/{id}/archive:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/{id}/archive:
     parameters:
     - $ref: ./traceability-scoped-admin-draft.openapi.yaml#/components/parameters/ProfileID
     post:
@@ -1551,8 +1551,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/{id}/archive
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/records/by-batch:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/records/by-batch:
     get:
       tags:
       - Identity transport
@@ -1646,8 +1646,8 @@ paths:
         required permission.
       x-forward-to: /api/v2/admin/trace/records/by-batch
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
-  /api/v2/admin/trace-api/batches/{batch_id}/context:
+      x-response-limit-bytes: 1048576
+  /api/v1/admin/trace-api/batches/{batch_id}/context:
     get:
       tags:
       - Identity transport
@@ -1769,7 +1769,7 @@ paths:
                 requestId: req-proxy-example
       x-forward-to: /api/v2/admin/trace/batches/{batch_id}/context
       x-body-limit-bytes: 262144
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
   /api/v1/admin/inventory-api/workbench:
     get:
       tags:
@@ -2070,7 +2070,7 @@ paths:
                 requestId: req-proxy-example
       x-forward-to: /api/v1/admin/inventory/workbench
       x-body-limit-bytes: 0
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
   /api/v1/admin/inventory-api/workbench/receipts:
     post:
       tags:
@@ -2286,9 +2286,45 @@ paths:
           maxLength: 128
       x-forward-to: /api/v1/admin/inventory/workbench/receipts
       x-body-limit-bytes: 8192
-      x-response-limit-bytes: 2097152
+      x-response-limit-bytes: 1048576
+  /api/v1/customer-api/orders/{order_id}/traceability:
+    get:
+      operationId: getCustomerOrderTraceabilityIdentityBffDraft
+      summary: Forward an owned customer order traceability read
+      description: Requires a known ACTIVE CUSTOMER resolved from the existing session or verified bearer. Order checks ownership before any provider RPC. No new guest transport is introduced.
+      security:
+      - customerSessionCookie: []
+      - identityCustomerBearer: []
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          $ref: './traceability-workflow-draft.openapi.yaml#/paths/~1api~1v1~1orders~1{order_id}~1traceability/get/responses/200'
+        '401':
+          $ref: './traceability-workflow-draft.openapi.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './traceability-workflow-draft.openapi.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './traceability-workflow-draft.openapi.yaml#/components/responses/NotFound'
+        '503':
+          $ref: './traceability-workflow-draft.openapi.yaml#/components/responses/Unavailable'
 components:
   securitySchemes:
+    customerSessionCookie:
+      type: apiKey
+      in: cookie
+      name: OMAMA_SESSION
+      description: Existing ACTIVE CUSTOMER session for the named customer adapter only.
+    identityCustomerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Verified ACTIVE CUSTOMER token for the named customer adapter only.
     employeeSessionCookie:
       type: apiKey
       in: cookie

@@ -43,6 +43,12 @@ tags:
     name: "AI shopping"
     description: "Draft customer shopping copilot and recommendation operations."
 paths:
+  /api/auth/me:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1auth~1me
+  /api/orders/{order_id}/traceability:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1orders~1{order_id}~1traceability
+  /api/v1/customer-api/orders/{order_id}/traceability:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1customer-api~1orders~1{order_id}~1traceability
   /api/v1/orders/{order_id}/traceability:
     $ref: './traceability-workflow-draft.openapi.yaml#/paths/~1api~1v1~1orders~1{order_id}~1traceability'
   "/api/v1/orders/{orderId}/returns/eligibility":
@@ -1229,6 +1235,14 @@ paths:
         "503": {$ref: "#/components/responses/ServiceUnavailable"}
 components:
   securitySchemes:
+    identityCookie:
+      $ref: ./traceability-web-bff-draft.openapi.yaml#/components/securitySchemes/identityCookie
+    oidcCookie:
+      $ref: ./traceability-web-bff-draft.openapi.yaml#/components/securitySchemes/oidcCookie
+    customerSessionCookie:
+      $ref: ./traceability-workflow-bff-draft.openapi.yaml#/components/securitySchemes/customerSessionCookie
+    identityCustomerBearer:
+      $ref: ./traceability-workflow-bff-draft.openapi.yaml#/components/securitySchemes/identityCustomerBearer
     customerBearer:
       $ref: './traceability-workflow-draft.openapi.yaml#/components/securitySchemes/customerBearer'
     guestCapability:

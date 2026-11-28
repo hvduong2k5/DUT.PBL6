@@ -62,6 +62,16 @@ contracts:
     tasks:
       - Expose bounded internal TLS gRPC only; remove the unshipped REST resolver proposal.
       - Preserve input order, duplicates, public eligibility and optional URL presence without querying peers.
+  - id: traceability-web-scoped-workflow
+    owner: web-user
+    consumers: [web-user]
+    artifact: docs/03_api_specs/traceability-web-bff-draft.openapi.yaml
+    state: implementation-target-draft
+    contract_guide: docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md
+    tasks:
+      - Preserve Identity permission and warehouse tuples in browser session projections.
+      - Keep receipt, draft, upload, independent review and public QR printing separate transactions.
+      - Read sealed Order batch links without blocking order detail or changing lifecycle state.
   - id: traceability-identity-bff-transports
     owner: identity-service
     consumers: [web-user, gateway-bff]
@@ -69,8 +79,8 @@ contracts:
     state: implementation-target-draft
     contract_guide: docs/03_api_specs/traceability-workflow-peer-handoff.md
     tasks:
-      - Add allowlisted cookie-to-bearer Traceability v2 and Inventory workbench/receipt adapters in cookie mode.
-      - Enforce active employee status for v2 and preserve Origin/CSRF, body bounds, status and no-store semantics.
+      - Add allowlisted cookie-to-bearer v1 aliases for Traceability v2 and Inventory workbench/receipt adapters in cookie mode.
+      - Enforce active employee status on staff aliases and preserve Origin/CSRF, body bounds, status and no-store semantics.
       - Never require browser token exposure or replace backend warehouse authorization with role-derived scopes.
   - id: traceability-batch-source-warehouse-candidate
     owner: inventory-service

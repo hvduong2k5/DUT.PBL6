@@ -1,5 +1,12 @@
 # Phiếu bàn giao contract theo service
 
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.
+
+
 **Phạm vi bổ sung đã chốt 27/11:** [kế hoạch bổ sung và ranh giới tránh conflict](traceability-workflow-supplement.md) tách phần Inventory/IAM/Fulfillment/Order/Web còn thiếu khỏi plan Catalog/Media của Dương. IAM current-grants và resolver thuộc phần bổ sung, không gán là RPC đã có trong plan Dương. Giữ contract 0.4.0; owner triển khai theo phiếu và test, không cần ACCEPT trước code.
 
 Version 0.4.0-draft · 27/11/2026. Owner nghiệp vụ: Traceability. **Chế độ giao việc đã được chủ yêu cầu chốt: triển khai trực tiếp từ tài liệu, không cần gửi ACCEPT, đề xuất giải pháp hoặc chờ xác nhận trước khi sửa code.** Mỗi owner nhận section của mình, bảo đảm đầu ra và contract đích; đã có thì tái sử dụng, thiếu thì bổ sung. [Index](traceability-workflow-README.md), artifacts và [test IDs](traceability-workflow-acceptance.md) là một bộ đầu vào, không cần lịch sử chat. Không gửi secrets hoặc tài khoản cá nhân trong tài liệu.

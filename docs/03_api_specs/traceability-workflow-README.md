@@ -61,3 +61,10 @@ Bản0.2.2 bổ sung theo bằng chứng code: Catalog exact-SKU binding, Tracea
 Bộ này được tìm thấy từ [README dự án](../../README.md), [mục lục API](README.md), [Requirements](../01_requirements/README.md), [kiến trúc Traceability](../02_architecture/services/traceability-service/README.md), [kiểm thử Traceability](../04_testing/traceability-service/README.md) và [README service](../../services/traceability-service/README.md). EPIC19/backlog/release-plan supplement/FR-20/use-case giữ liên kết nghiệp vụ; registry và named admin/customer draft giữ liên kết contract. Các index chỉ dẫn về nguồn chính, không tạo bản sao spec.
 
 Tuân thủ AGENTS.md: các contract/handoff có nội dung Catalog vẫn trong `docs/03_api_specs/`; giữ catalog-checkout và admin-stable được registry tham chiếu; stable không import draft; generated rows/snapshot không sửa tay. Việc tổ chức vào bộ tài liệu không phải promote stable, nghiệm thu runtime hoặc merge lên dev. Mọi commit mới theo convention tiếng Anh của repository.
+
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.

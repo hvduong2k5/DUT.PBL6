@@ -146,3 +146,10 @@ Catalog canonical/Media provider ở dev@ac5395c5 đã thay proposal GetSkuBindi
 | MED-04 | Bind RPC lỗi/crash/restart/concurrent workers | Pending được giữ; lease độc quyền, retry sau lỗi/lease hết; success không bị reset, peer call idempotent |
 | MED-05 | Legacy frozen evidence reference và Media flag | Không sửa snapshot cũ; muốn publish với Media enabled phải draft/reference/review hợp lệ |
 | MED-06 | OCOP file PUBLIC_READ, worker/media port private | Chỉ upload scan được phép public; không coi evidence permission là bảo vệ object public; không PublishMedia sang bucket Catalog |
+
+
+## Checkpoint triển khai local — 28/11/2026
+
+Phần bổ sung Inventory/IAM/Fulfillment/Order/Web/Gateway đã được triển khai trên `codex/traceability-order-flow`; xem [kết quả local và phạm vi chưa nghiệm thu](../04_testing/traceability-service/11_local_workflow_2026-11-28.md) và [Web BFF contract](traceability-web-bff-draft.openapi.yaml). Luồng nhập kho → draft → Media scan → người khác duyệt/publish → QR đã chạy với provider thật. Order read được kiểm PostgreSQL + gRPC peers fixture; không suy ra toàn bộ checkout/shipping/Kafka đã nghiệm thu. Dương tiếp tục plan Order của bạn ấy; không làm lại các phần bổ sung đã có trên nhánh này, chỉ ghép và bảo đảm đầu ra/contract khi review. Target vẫn0.4.0-draft, chưa deploy production.
+
+Identity cookie alias là `/api/v1/admin/trace-api/**` để tuân namespace rule của Identity; backend Traceability scoped vẫn `/api/v2/admin/trace/**`. Không route internal RPC qua Kong. Migration IAM V27 chỉ seed INVENTORY_VIEW và WAREHOUSE_WORKBENCH_VIEW còn thiếu, không tự gán GLOBAL.

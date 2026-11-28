@@ -26,6 +26,8 @@ ACCEPTANCE = BASE + "traceability-workflow-acceptance.md"
 INTEGRATION = BASE + "traceability-workflow-draft.openapi.yaml"
 ADMIN = BASE + "traceability-scoped-admin-draft.openapi.yaml"
 BFF = BASE + "traceability-workflow-bff-draft.openapi.yaml"
+WEB = BASE + "traceability-web-bff-draft.openapi.yaml"
+LOCAL_REPORT = "docs/04_testing/traceability-service/11_local_workflow_2026-11-28.md"
 CUSTOMER_STABLE = BASE + "customer-stable.openapi.yaml"
 STABLE = BASE + "admin-stable.openapi.yaml"
 LEGACY = BASE + "traceability-service.openapi.yaml"
@@ -260,16 +262,20 @@ def render(sources: Sources, owner) -> str:
                     bundle.add(ADMIN, path, method)
         bundle.add(INTEGRATION, "/api/v1/orders/{order_id}/traceability", "get")
         bundle.add(LEGACY, "/api/v2/trace/{qr_code}", "get")
+        for path, item in sources.document(WEB)["paths"].items():
+            for method in item:
+                if method in {"get", "post", "patch"}:
+                    bundle.add(WEB, path, method)
 
     if number in {5, 6}:
         for path in ["/api/v1/media/upload-sessions", "/api/v1/media/upload-sessions/{uploadSessionId}/complete"]:
             bundle.add(CUSTOMER_STABLE, path, "post")
 
     source_list = [HANDOFF, ACCEPTANCE, SUPPLEMENT,
-                   BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md", GRPC_GUIDE]
+                   BASE + "traceability-workflow-service-spec.md", BASE + "traceability-workflow-review-2026-11-25.md", GRPC_GUIDE, LOCAL_REPORT]
     source_list += sorted(bundle.files) + protos
     if number == 5:
-        source_list += [BFF, "services/api-gateway/docker-compose.yml"]
+        source_list += [BFF, WEB, "services/api-gateway/config/kong.yml"]
     source_list = list(dict.fromkeys(source_list))
     rows = "\n".join(f"| `{path}` | [Mở đúng commit]({sources.url(path)}) |" for path in source_list)
     checksum = hashlib.sha256("".join(path + "\n" + sources.text(path) for path in source_list).encode("utf-8")).hexdigest()
@@ -278,6 +284,8 @@ def render(sources: Sources, owner) -> str:
 Version nghiệp vụ/contract: **0.4.0-draft** · Snapshot tài liệu: **`{sources.commit}`**.
 
 **Bản 0.4.0 thay phiếu 0.3.0/0.2.2:** theo Catalog/Media đã merge trong PR #175 và plan Dương; không triển khai proposal GetSkuBinding đã gỡ. Web/BFF vẫn REST. Identity current-grants và Order resolver vẫn là phần việc riêng, chưa có trong plan Dương.
+
+**Checkpoint28/11:** phần bổ sung đã có trên nhánh này; đọc report11 để tránh code trùng và phân biệt live-provider checks với fixture. Owner bảo đảm tương thích khi ghép, không thay phần pricing/checkout trong plan Order Dương.
 
 File này là bản `.md` độc lập để gửi qua Zalo. Đề bài, yêu cầu đầu ra, test và contract liên quan được nhúng bên dưới; không cần đọc lịch sử chat hoặc chờ phản hồi ACCEPT để bắt đầu code. Draft không đồng nghĩa chức năng đã chạy hoặc đã deploy.
 
@@ -330,7 +338,7 @@ Nộp kết quả cuối/PR: OUT đã đáp ứng, SHA, phần tái sử dụng/
         result += "Khối YAML dưới đây là bản đóng gói độc lập; `$ref` đã đổi thành nội bộ khối này. Có thể chép nguyên khối vào `owner-contract.openapi.yaml` để lint. Server URLs là ví dụ cấu hình; giữ path/method/header/field/status theo contract. Không tạo endpoint mới nếu lớp hiện có đã trả đúng đầu ra; khác wire thì làm adapter trong phần mình phụ trách.\n\n```yaml\n"
         result += bundle.dump() + "```\n"
     if number == 5:
-        result += "\n## Mapping cookie transport do Identity cung cấp\n\n| BFF route | Backend route qua Kong |\n| --- | --- |\n| `/api/v2/admin/trace-api/...` | `/api/v2/admin/trace/...` |\n| `/api/v1/admin/inventory-api/workbench` | `/api/v1/admin/inventory/workbench` |\n| `/api/v1/admin/inventory-api/workbench/receipts` | `/api/v1/admin/inventory/workbench/receipts` |\n\nCookie mode chuyển `OMAMA_SESSION` server-side qua Identity; forward Origin đã kiểm tra ở mutation, giữ Idempotency-Key. Bearer mode lấy credential tin cậy trong server, không cho client gán user/role headers. Internal resolver và Catalog binding không route public.\n"
+        result += "\n## Mapping cookie transport do Identity cung cấp\n\n| BFF route | Backend route qua Kong |\n| --- | --- |\n| `/api/v1/admin/trace-api/...` | `/api/v2/admin/trace/...` |\n| `/api/v1/admin/inventory-api/workbench` | `/api/v1/admin/inventory/workbench` |\n| `/api/v1/admin/inventory-api/workbench/receipts` | `/api/v1/admin/inventory/workbench/receipts` |\n\nCookie mode chuyển `OMAMA_SESSION` server-side qua Identity; forward Origin đã kiểm tra ở mutation, giữ Idempotency-Key. Bearer mode lấy credential tin cậy trong server, không cho client gán user/role headers. Internal resolver và Catalog binding không route public.\n"
     for proto in protos:
         instruction = ("Candidate full definition: compile riêng, cập nhật canonical/copies/codegen khi implement; không compile cạnh canonical cùng message." if proto.startswith(BASE) else "Shared canonical integration-target: thêm file này vào pipeline proto/copies/codegen của service, giữ mọi method/field cũ; không chép thêm một definition trùng.")
         result += f"\n## Proto target nhúng: `{proto}`\n\n{instruction} Không hand-edit generated code.\n\n```proto\n{sources.text(proto).rstrip()}\n```\n"

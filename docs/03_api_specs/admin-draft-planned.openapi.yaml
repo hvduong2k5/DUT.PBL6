@@ -37,32 +37,66 @@ tags:
     name: "Inventory"
     description: "Inventory proposed operations for the admin web application."
 paths:
+  /api/auth/me:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1auth~1me
+  /api/admin/trace/records:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records
+  /api/admin/trace/records/{id}:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}
+  /api/admin/trace/records/{id}/revisions:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions
+  /api/admin/trace/records/{id}/revisions/{revision}:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions~1{revision}
+  /api/admin/trace/records/{id}/revisions/{revision}/submit:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions~1{revision}~1submit
+  /api/admin/trace/records/{id}/revisions/{revision}/approve:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions~1{revision}~1approve
+  /api/admin/trace/records/{id}/revisions/{revision}/reject:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions~1{revision}~1reject
+  /api/admin/trace/records/{id}/revisions/{revision}/publish:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1revisions~1{revision}~1publish
+  /api/admin/trace/records/{id}/suspend:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1suspend
+  /api/admin/trace/records/{id}/archive:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1{id}~1archive
+  /api/admin/trace/records/by-batch:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1records~1by-batch
+  /api/admin/trace/batches/{batch_id}/context:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace~1batches~1{batch_id}~1context
+  /api/admin/trace-media/upload-sessions:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace-media~1upload-sessions
+  /api/admin/trace-media/upload-sessions/{sessionId}/complete:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace-media~1upload-sessions~1{sessionId}~1complete
+  /api/admin/trace-media/files/{fileId}:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace-media~1files~1{fileId}
+  /api/admin/trace-files/{profileId}/{evidenceId}:
+    $ref: ./traceability-web-bff-draft.openapi.yaml#/paths/~1api~1admin~1trace-files~1{profileId}~1{evidenceId}
   /api/v2/admin/trace/batches/{batch_id}/context:
     $ref: ./traceability-scoped-admin-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace~1batches~1{batch_id}~1context
-  /api/v2/admin/trace-api/records:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records
-  /api/v2/admin/trace-api/records/{id}:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}
-  /api/v2/admin/trace-api/records/{id}/revisions:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions~1{revision}
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/submit:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/approve:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/reject:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject
-  /api/v2/admin/trace-api/records/{id}/revisions/{revision}/publish:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish
-  /api/v2/admin/trace-api/records/{id}/suspend:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1suspend
-  /api/v2/admin/trace-api/records/{id}/archive:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1{id}~1archive
-  /api/v2/admin/trace-api/records/by-batch:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1records~1by-batch
-  /api/v2/admin/trace-api/batches/{batch_id}/context:
-    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v2~1admin~1trace-api~1batches~1{batch_id}~1context
+  /api/v1/admin/trace-api/records:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records
+  /api/v1/admin/trace-api/records/{id}:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}
+  /api/v1/admin/trace-api/records/{id}/revisions:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/submit:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1submit
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/approve:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1approve
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/reject:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1reject
+  /api/v1/admin/trace-api/records/{id}/revisions/{revision}/publish:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1revisions~1{revision}~1publish
+  /api/v1/admin/trace-api/records/{id}/suspend:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1suspend
+  /api/v1/admin/trace-api/records/{id}/archive:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1{id}~1archive
+  /api/v1/admin/trace-api/records/by-batch:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1records~1by-batch
+  /api/v1/admin/trace-api/batches/{batch_id}/context:
+    $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1trace-api~1batches~1{batch_id}~1context
   /api/v1/admin/inventory-api/workbench:
     $ref: ./traceability-workflow-bff-draft.openapi.yaml#/paths/~1api~1v1~1admin~1inventory-api~1workbench
   /api/v1/admin/inventory-api/workbench/receipts:
@@ -943,6 +977,10 @@ paths:
               expectedRevision: 1
 components:
   securitySchemes:
+    identityCookie:
+      $ref: ./traceability-web-bff-draft.openapi.yaml#/components/securitySchemes/identityCookie
+    oidcCookie:
+      $ref: ./traceability-web-bff-draft.openapi.yaml#/components/securitySchemes/oidcCookie
     identityStaffBearer:
       $ref: './traceability-workflow-bff-draft.openapi.yaml#/components/securitySchemes/identityStaffBearer'
     employeeSessionCookie:
